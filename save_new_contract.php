@@ -16,7 +16,7 @@ try {
 
     if ($existingId) {
         // Если черновик есть — обновляем его реальными данными формы
-        $sql = "UPDATE projects SET contract_number = ?, contract_date = ?, amount = ? WHERE id = ?";
+        $sql = "UPDATE projects SET contract_number = ?, contract_date = ? WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$num, $date, $sum, $existingId]);
     } else {

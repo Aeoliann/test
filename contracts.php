@@ -44,10 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contract_number'])) {
 $userId = (int)$_SESSION['user_id'];
 $userRole = $_SESSION['role'] ?? 'manager';
 
-// СТРОГО ИЗМЕНЕНО: выбираем p.product_type вместо c.product_type
 if ($userRole === 'admin') {
     $sql = "SELECT c.id as cid, c.client_name, p.product_type, 
-                   p.id as pid, p.contract_number, p.contract_date, p.contract_file 
+                   p.id as pid, p.contract_number, p.contract_date, p.scan_path 
             FROM clients c 
             INNER JOIN projects p ON c.id = p.client_id 
             WHERE c.is_contract_signed = 1 
@@ -56,7 +55,7 @@ if ($userRole === 'admin') {
     $stmt->execute();
 } else {
     $sql = "SELECT c.id as cid, c.client_name, p.product_type, 
-                   p.id as pid, p.contract_number, p.contract_date, p.contract_file 
+                   p.id as pid, p.contract_number, p.contract_date, p.scan_path 
             FROM clients c 
             INNER JOIN projects p ON c.id = p.client_id 
             WHERE c.is_contract_signed = 1 AND c.manager_id = ?
