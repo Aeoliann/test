@@ -12,7 +12,19 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 $filterUser = isset($_GET['user_filter']) ? trim($_GET['user_filter']) : '';
 $params = [];
 
-$sql = "SELECT * FROM action_logs WHERE 1=1";
+$sql = "SELECT al.*, u.login 
+        FROM action_logs al 
+        LEFT JOIN users u ON al.user_id = u.id 
+        WHERE 1=1";
+
+if (!empty($filterUser)) {
+    // ИСПРАВЛЕНО: Меняем линуксовый username на правильное поле u.login
+    $sql .= " AND u.login = ?";
+    $params[] = $filterUser;
+}
+
+// Завершаем сборку запроса
+       
 if (!empty($filterUser)) {
     $sql .= " AND username = ?";
     $params[] = $filterUser;
@@ -24,7 +36,9 @@ $stmt->execute($params);
 $logs = $stmt->fetchAll();
 
 // Список всех пользователей для фильтра
-$usersList = $pdo->query("SELECT DISTINCT username FROM action_logs ORDER BY username ASC")->fetchAll(PDO::FETCH_COLUMN);
+// ИСПРАВЛЕНО: Заменили линуксовый username на login под Windows
+$usersStmt = $pdo->query("SELECT DISTINCT u.id, u.login FROM users u INNER JOIN action_logs al ON u.id = al.user_id ORDER BY u.login ASC");
+
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -80,11 +94,11 @@ $usersList = $pdo->query("SELECT DISTINCT username FROM action_logs ORDER BY use
                     if($l['action_type'] === 'DELETE') $badgeClass = 'badge-delete';
                 ?>
                 <tr>
-                    <td style="color:#92929f;"><?= date('d.m.Y H:i:s', strtotime($l['created_at'])) ?></td>
-                    <td><strong><?= htmlspecialchars($l['username']) ?></strong></td>
+                    <td style="color:#92929f;"><?= date('d.m.Y H:i:s', strtotime($l['action_date'])) ?></td>
+                    <td><strong><?= htmlspecialchars($l['login']) ?></strong></td>
                     <td style="text-align:center;"><span class="badge <?= $badgeClass ?>"><?= $l['action_type'] ?></span></td>
-                    <td style="color:#94a3b8;"><?= htmlspecialchars($l['target_table']) ?></td>
-                    <td><?= htmlspecialchars($l['description']) ?></td>
+                    <td style="color:#94a3b8;"><?= htmlspecialchars($l['table_name']) ?></td>
+                    <td><?= htmlspecialchars($l['details']) ?></td>
                 </tr>
                 <?php endforeach; ?>
                 <?php if(empty($logs)): ?>
