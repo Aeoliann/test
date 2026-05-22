@@ -406,64 +406,84 @@ $totalClients = isset($clients) ? count($clients) : 0;
             <!-- Скрытое поле ID обязательно должно иметь name="id" -->
             <input type="hidden" id="client_id" name="id">
             
-            <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <div class="form-group flex-2" style="flex: 2; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Название организации <span style="color:red;">*</span></label>
-                    <input type="text" id="client_name" name="client_name" required placeholder="Напр: СЗАО «Сантэкс»" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-                </div>
-                <div class="form-group flex-1" style="flex: 1; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">УНП <span style="color:red;">*</span></label>
-                    <input type="text" id="unp" name="unp" required placeholder="9 цифр" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-                </div>
-            </div>
+             
+    <!-- РЯД 1: НАЗВАНИЕ И УНП -->
+    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
+        <div class="form-group" style="flex: 2; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Название организации <span style="color:red;">*</span></label>
+            <input type="text" id="client_name" name="client_name" required placeholder="Напр: СЗАО «Сантэкс»" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
+        </div>
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">УНП <span style="color:red;">*</span></label>
+            <input type="text" id="unp" name="unp" required placeholder="9 цифр" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
+        </div>
+    </div>
 
-            <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <div class="form-group" style="flex: 1; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Контактное лицо <span style="color:red;">*</span></label>
-                    <input type="text" id="contact_person" name="contact_person" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-                </div>
-                <div class="form-group">
-                    <label>Телефон</label>
-                         <input type="text" name="phone" id="client_phone" placeholder="Введите телефон..." class="form-control">
-                </div>
-            </div>
+          <!-- РЯД 2: КОНТАКТНОЕ ЛИЦО И ТЕЛЕФОН -->
+    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Контактное лицо <span style="color:red;">*</span></label>
+            <input type="text" id="contact_person" name="contact_person" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
+        </div>
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Телефон</label>
+            <input type="text" id="phone" name="phone" placeholder="Введите телефон..." style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
+        </div>
+    </div>
 
-            <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-               <div class="form-group">
-    <label>E-mail</label>
-    <input type="email" name="email" id="client_email" placeholder="Введите email..." class="form-control">
-</div>
-                <div class="form-group" style="flex: 1; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Вид продукции <span style="color:red;">*</span></label>
-                    <select id="product_type" name="product_type" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
-                        <option value="Посуда">Посуда</option>
-                        <option value="Сантехника">Сантехника</option>
-                        <option value="ЕКМ">ЕКМ</option>
-                        <option value="Резервуары">Резервуары</option>
-                        <option value="МПДУ">МПДУ</option>
-                        <option value="УОКТ">УОКТ</option>
-                        <option value="Прочее">Прочее</option>
-                    </select>
-                </div>
-            </div>
+           <!-- РЯД 3: E-MAIL И ВИД ПРОДУКЦИИ -->
+    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">E-mail</label>
+            <input type="email" id="email" name="email" placeholder="Введите email..." style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
+        </div>
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Вид продукции <span style="color:red;">*</span></label>
+            <select id="product_type" name="product_type" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
+                <option value="Посуда">Посуда</option>
+                <option value="Сантехника">Сантехника</option>
+                <option value="Трубы">Трубы</option>
+            </select>
+        </div>
+    </div>  <!-- РЯД 4: ДАТА ПЕРВОГО КОНТАКТА И СЛЕДУЮЩИЙ КОНТАКТ -->
+    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Дата первого контакта</label>
+            <input type="date" id="first_contact_date" name="first_contact_date" value="<?= date('Y-m-d') ?>" readonly style="width: 100%; padding: 10px; background: #242434; border: 1px solid #323248; color: #64748b; border-radius: 6px; outline: none; box-sizing: border-box; cursor: not-allowed;">
+        </div>
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Следующий контакт <span style="color:red;">*</span></label>
+            <input type="date" id="next_contact_date" name="next_contact_date" required min="<?= date('Y-m-d') ?>" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
+        </div>
+    </div>
+    <!-- РЯД 5: ИСТОЧНИК И СТАТУС -->
+    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Источник привлечения <span style="color:red;">*</span></label>
+            <select id="source" name="source" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
+                <option value="Запрос">Запрос</option>
+                <option value="Холодный звонок">Холодный звонок</option>
+                <option value="Рекомендация">Рекомендация</option>
+            </select>
+        </div>
+        <div class="form-group" style="flex: 1; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Статус <span style="color:red;">*</span></label>
+            <select id="status" name="status" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
+                <option value="Новый">Новый</option>
+                <option value="В работе">В работе</option>
+                <option value="Отказ">Отказ</option>
+            </select>
+        </div>
+    </div>
 
-            <div class="form-row three-cols" style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <div class="form-group">
-    <label>Дата первого контакта</label>
-    <input type="date" name="first_contact_date" 
-           id="first_contact_date"
-           value="<?= date('Y-m-d') ?>" 
-           readonly 
-           class="form-control" style="background: #242434; color: #64748b; cursor: not-allowed;">
-</div>
-                <div class="form-group">
-    <label>Следующий контакт</label>
-    <input type="date" name="next_contact_date" 
-           id="next_contact_date"
-           min="<?= date('Y-m-d') ?>" 
-           required 
-           class="form-control">
-</div>
+    <!-- РЯД 6: КОММЕНТАРИЙ МЕНЕДЖЕРА (НА ВСЮ ШИРИНУ) -->
+    <div class="form-row" style="margin-bottom: 20px;">
+        <div class="form-group" style="width: 100%; text-align: left;">
+            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Комментарий менеджера</label>
+            <textarea id="comment" name="comment" placeholder="Введите примечание..." style="width: 100%; height: 100px; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; resize: vertical; font-family: sans-serif;"></textarea>
+        </div>
+    </div>
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const firstDate = document.getElementById('first_contact_date');
@@ -475,15 +495,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 </script>
-                <div class="form-group" style="flex: 1; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Статус <span style="color:red;">*</span></label>
-                    <select id="status" name="status" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
-                        <option value="Новый">Новый</option>
-                        <option value="В работе">В работе</option>
-                        <option value="Отказ">Отказ</option>
-                    </select>
-                </div>
-            </div>
+               
 
             <div class="form-row">
     <div class="form-group" style="text-align: left; width: 100%;">
@@ -495,31 +507,18 @@ document.addEventListener("DOMContentLoaded", function() {
             <option value="Холодный поиск">Холодный поиск</option>
         </select>
     </div>
+    
 </div>
 
-            <!-- Добавим поле комментария, если у тебя его не было в форме, чтобы не летел undefined -->
-            <div class="form-row" style="margin-bottom: 25px; text-align: left;">
-                <div class="form-group" style="width: 100%;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Комментарий менеджера</label>
-                    <textarea id="comment" name="comment" rows="3" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-family: sans-serif; resize: vertical;"></textarea>
-                </div>
-            </div>
+       
 
             <!-- Кнопки управления формой -->
-     <div style="text-align: right; display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
-    
-    <button type="button" 
-            onclick="closeEditModal(); return false;" 
-            style="background: #555; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">
-        Отмена
-    </button>
-    
-    <button type="button" 
-            onclick="const formEl=document.getElementById('clientForm'); if(!formEl.checkValidity()){ formEl.reportValidity(); return false; } fetch('save.php', { method: 'POST', body: new FormData(formEl) }).then(r=>r.json()).then(res=>{ if(res.status==='success'){ const modal=document.getElementById('clientModal'); if(modal) modal.style.display='none'; window.location.reload(); }else{ alert('Отказ системы: ' + res.message); } }).catch(err=>{ alert('Ошибка отправки: Проверьте файл save.php или откройте консоль F12'); console.error(err); }); return false;"    style="background: #4f46e5; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">
-        Сохранить клиента
-    </button>
-
+   <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" onclick="closeClientModal()" style="background: #323248; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold;">Отмена</button>
+        <button type="submit" style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold;">Сохранить клиента</button>
+    </div>
 </div>
+
         </form>
     </div>
 </div>
