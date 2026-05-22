@@ -48,7 +48,7 @@ if ($userRole === 'admin') {
     $sql = "SELECT c.id as cid, c.client_name, p.product_type, 
                    p.id as pid, p.contract_number, p.contract_date, p.scan_path 
             FROM clients c 
-            INNER JOIN projects p ON c.id = p.client_id 
+            LEFT JOIN projects p ON c.id = p.client_id 
             WHERE c.is_contract_signed = 1 
             ORDER BY c.client_name ASC, p.id DESC";
     $stmt = $pdo->prepare($sql);
@@ -57,7 +57,7 @@ if ($userRole === 'admin') {
     $sql = "SELECT c.id as cid, c.client_name, p.product_type, 
                    p.id as pid, p.contract_number, p.contract_date, p.scan_path 
             FROM clients c 
-            INNER JOIN projects p ON c.id = p.client_id 
+            LEFT JOIN projects p ON c.id = p.client_id 
             WHERE c.is_contract_signed = 1 AND c.manager_id = ?
             ORDER BY c.client_name ASC, p.id DESC";
     $stmt = $pdo->prepare($sql);
