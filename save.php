@@ -124,7 +124,7 @@ try {
         catch (Exception $e) { $managerColumnName = 'user_id'; }
 
         $sql = "INSERT INTO clients 
-                    (client_name, unp, contact_person, phone, email, product_type, first_contact_date, next_contact_date, status, source, comment, $managerColumnName) 
+                    (client_name, unp, contact_person, phone, email, ct_type, first_contact_date, next_contact_date, status, source, comment, $managerColumnName) 
                 VALUES 
                     (:client_name, :unp, :contact_person, :phone, :email, :product_type, :first_date, :next_date, :status, :source, :comment, :manager_id)";
         

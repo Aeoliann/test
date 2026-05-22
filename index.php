@@ -911,7 +911,7 @@ document.getElementById('clientForm').onsubmit = async function(e) {
     fd.append('first_contact_date', document.getElementById('first_contact_date').value);
     fd.append('next_contact_date', document.getElementById('next_contact_date').value);
     fd.append('status', document.getElementById('status').value);
-    
+    fd.append('email', document.getElementById('email').value);
     // Комментарий (необязательный, проверяем наличие элемента)
     const comm = document.getElementById('comment');
     if (comm) fd.append('comment', comm.value);
