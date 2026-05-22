@@ -243,17 +243,18 @@ $totalClients = isset($clients) ? count($clients) : 0;
 </style>
     <main>
 
-        <header>
+        <header style =" background-color: #151521 !important;
+    background: #151521 !important;
+    border-bottom: 1px solid #323248 !important;">
           
        <button onclick="openAddModal()" class="btn-primary">+ Добавить клиента</button>
      
 
 <div style="padding: 0 20px 10px;">
-    <input type="text" id="searchInput" placeholder="Поиск по названию или телефону..." 
-           style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
+    <input type="text" id="searchInput" placeholder="Поиск по названию или телефону..." >
 </div>
 
-            <img class="logo" src="file:\\\C:\xampp\htdocs\test" width="600", height="50" alt="Logo" > <!-- сделать ссылку а не файл-->
+            
             <button class="btn btn-success btn-import">Импорт Excel</button>
         </header>
         
