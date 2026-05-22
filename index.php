@@ -515,6 +515,14 @@ document.addEventListener("DOMContentLoaded", function() {
             <!-- Кнопки управления формой -->
    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button type="button" onclick="closeClientModal()" style="background: #323248; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold;">Отмена</button>
+            <script>
+                function closeClientModal() {
+    const modal = document.getElementById('clientModal');
+    if (modal) {
+        modal.style.setProperty('display', 'none', 'important');
+    }
+}   
+            </script>
         <button type="submit" style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold;">Сохранить клиента</button>
     </div>
 </div>
