@@ -190,7 +190,7 @@ try {
     } else {
         // МЕНЕДЖЕР: Считает 'В работе' только по своим клиентам
         $sql_stats = "SELECT 
-            COUNT(*) as total,
+            COUNT(*) as total,  
             SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
