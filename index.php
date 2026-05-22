@@ -175,35 +175,38 @@ $u_role = $_SESSION['role'];
 // =========================================================================
 // WINDOWS-ФИКС №3: СБОР ОБЩЕЙ СТАТИСТИКИ ДЛЯ ПЛАШЕК ДАШБОРДА (БЕЗ ОШИБОК)
 // =========================================================================
-$stats = ['total' => 0, 'new_clients' => 0, 'refusals' => 0, 'signed' => 0];
+$stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
 
 try {
-    // Используем жесткую привязку к сессиям, чтобы убрать Warning: Undefined variable
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
-        // АДМИН: Считает новые лиды (status = 'Новый') и общее число по всей компании
+        // АДМИН: Считает 'В работе' по всей компании
         $sql_stats = "SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN status = 'Новый' THEN 1 ELSE 0 END) as new_clients,
+            SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
         FROM clients";
         $stats = $pdo->query($sql_stats)->fetch() ?: $stats;
     } else {
-        // МЕНЕДЖЕР: Считает новые лиды и общее число только по своим закрепленным клиентам
+        // МЕНЕДЖЕР: Считает 'В работе' только по своим клиентам
         $sql_stats = "SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN status = 'Новый' THEN 1 ELSE 0 END) as new_clients,
+            SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
         FROM clients WHERE manager_id = ?";
         $stmt_stats = $pdo->prepare($sql_stats);
-        $stmt_stats->execute([$userId]); // Используем рабочую переменную $userId
+        $stmt_stats->execute([$userId]);
         $stats = $stmt_stats->fetch() ?: $stats;
     }
 } catch (Exception $e) {
-    // Подстраховка на случай сбоев СУБД
+    // Гасим ошибки структуры СУБД
 }
 
+// Перепроверка массива, чтобы на строке 291 никогда не вылетал Undefined array key
+if (!isset($stats['in_work'])) {
+    $stats['in_work'] = 0;
+}
 // Переменные для вывода в HTML-карточки показателей
 $totalClients = isset($clients) ? count($clients) : 0;
 ?>
@@ -418,17 +421,17 @@ $totalClients = isset($clients) ? count($clients) : 0;
                     <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Контактное лицо <span style="color:red;">*</span></label>
                     <input type="text" id="contact_person" name="contact_person" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
                 </div>
-                <div class="form-group" style="flex: 1; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Телефон <span style="color:red;">*</span></label>
-                    <input type="text" id="phone" name="phone" required placeholder="+375..." style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
+                <div class="form-group">
+                    <label>Телефон</label>
+                         <input type="text" name="phone" id="client_phone" placeholder="Введите телефон..." class="form-control">
                 </div>
             </div>
 
             <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <div class="form-group" style="flex: 1; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Email <span style="color:red;">*</span></label>
-                    <input type="email" id="email" name="email" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-                </div>
+               <div class="form-group">
+    <label>E-mail</label>
+    <input type="email" name="email" id="client_email" placeholder="Введите email..." class="form-control">
+</div>
                 <div class="form-group" style="flex: 1; text-align: left;">
                     <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Вид продукции <span style="color:red;">*</span></label>
                     <select id="product_type" name="product_type" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
@@ -444,14 +447,33 @@ $totalClients = isset($clients) ? count($clients) : 0;
             </div>
 
             <div class="form-row three-cols" style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <div class="form-group" style="flex: 1; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Дата первого контакта</label>
-                    <input type="date" id="first_contact_date" name="first_contact_date" readonly style="width: 100%; padding: 10px; background: #1b1b28; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; opacity: 0.8;">
-                </div>
-                <div class="form-group" style="flex: 1; text-align: left;">
-                    <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">След. контакт <span style="color:red;">*</span></label>
-                    <input type="date" id="next_contact_date" name="next_contact_date" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-                </div>
+                <div class="form-group">
+    <label>Дата первого контакта</label>
+    <input type="date" name="first_contact_date" 
+           id="first_contact_date"
+           value="<?= date('Y-m-d') ?>" 
+           readonly 
+           class="form-control" style="background: #242434; color: #64748b; cursor: not-allowed;">
+</div>
+                <div class="form-group">
+    <label>Следующий контакт</label>
+    <input type="date" name="next_contact_date" 
+           id="next_contact_date"
+           min="<?= date('Y-m-d') ?>" 
+           required 
+           class="form-control">
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const firstDate = document.getElementById('first_contact_date');
+    const nextDate = document.getElementById('next_contact_date');
+    if(firstDate && nextDate) {
+        firstDate.addEventListener('change', function() {
+            nextDate.min = this.value;
+        });
+    }
+});
+</script>
                 <div class="form-group" style="flex: 1; text-align: left;">
                     <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Статус <span style="color:red;">*</span></label>
                     <select id="status" name="status" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
