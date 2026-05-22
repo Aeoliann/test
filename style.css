@@ -1,0 +1,532 @@
+/* Общие настройки */
+:root {
+    --primary: #4f46e5;
+    --bg-main: #f8fafc;
+    --sidebar: #0f172a;
+    --text-dark: #1e293b;
+    --border: #e2e8f0;
+}
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-dark);
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Боковая панель */
+aside {
+    width: 260px;
+    background: var(--sidebar);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.logo {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nav-item {
+    padding: 12px 15px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #94a3b8;
+    margin-bottom: 5px;
+    transition: 0.3s;
+}
+
+.nav-item.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* Контентная область */
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-width: 0;
+
+header {
+    background: white;
+    height: 70px;
+    padding: 0 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Кнопка импорта */
+.btn-import {
+    background: #10b981;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-import:hover { background: #059669; }
+
+/* Таблица */
+.table-container {
+    margin: 30px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    overflow-y: auto;
+    overflow-x: auto;
+
+}
+
+.table-container::-webkit-scrollbar { 
+    width: 12px;
+}
+
+.table-container::-webkit-scrollbar-thumb { 
+    background:     bd5e1;
+    border-radius: 10px;
+    border: 3px solid white;
+}
+
+
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { 
+    padding: 10px; 
+    border-bottom: 1px solid #1e293b; 
+    text-align: left; 
+    font-size: 13px; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap; 
+}
+.btn-edit { background: #4f46e5; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+
+
+
+td {
+    padding: 15px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+}
+
+tr:hover { background: #f8fafc; }
+
+/* Редактируемые ячейки */
+.editable:empty:before {
+    color: #64748b;
+    font-style: italic;
+    cursor: text;
+}
+
+/* Уточняем для каждой колонки */
+.editable[data-f="client_name"]:empty:before { content: "Наименование клиента..."; }
+.editable[data-f="source"]:empty:before { content: "Источник..."; }
+.editable[data-f="contact_person"]:empty:before { content: "ФИО контакта..."; }
+.editable[data-f="phone"]:empty:before { content: "+375..."; }
+.editable[data-f="email"]:empty:before { content: "Email..."; }
+.editable[data-f="comment"]:empty:before { content: "Ваш комментарий..."; }
+.editable {
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+}
+
+.editable:hover { border-color: #cbd5e1; background: #fff; }
+
+.editable:focus {
+    background: #ffffff;
+    box-shadow: inset 0 0 0 2px #4f46e5;
+    border-radius: 4px;
+    padding: 2px 5px;
+    outline: none;
+
+}
+
+/* Статусы */
+.status {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.status.work { background: #fef9c3; color: #854d0e; }
+.status.done { background: #dcfce7; color: #166534; }
+
+td[data-field="comment"] {
+    max-width: 600px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+td[data-field="comment"]:focus {
+    max-width: 500px;
+    white-space: normal;
+}
+
+/* Выделение просроченных дат */
+.date-expired {
+    color: #ef4444;
+    font-weight: bold;
+}
+.status:contains("Отказ"), .st-red { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.status:contains("В работе"), .st-yellow { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
+.status:contains("Завершен"), .st-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+
+/* Добавим немного "воздуха" таблице */
+td { transition: background 0.2s; }
+tr:hover td { background-color: #f1f5f9; }
+.table-container {
+    margin: 20px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    
+    /* Фиксируем высоту: 100vh минус высота хедера и отступы */
+    height: calc(100vh - 130px); 
+    overflow-y: auto; /* Полоса прокрутки появится только когда нужно */
+    position: relative;
+}
+
+table {
+    width: 100%;
+    border-collapse: separate; /* Важно для липкой шапки */
+    border-spacing: 0;
+}
+
+/* Фиксируем шапку, чтобы она не уезжала при скролле */
+th {
+    background: #f1f5f9;
+    padding: 12px;
+    text-align: left;
+    color: #64748b;
+    position: sticky;
+    top: 0; /* Прилипает к верху контейнера */
+    z-index: 10;
+    border-bottom: 2px solid var(--border);
+}
+
+/* Тонкая настройка скроллбара, чтобы выглядел аккуратно */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+}
+.table-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.date-expired {
+    background-color: #fee2e2 !important; /* Светло-красный */
+    color: #b91c1c !important;
+    font-weight: bold;
+    border: 1px solid #fecaca !important;
+}
+
+/* Ячейка с датой на сегодня */
+.date-today {
+    background-color: #fef9c3 !important; /* Светло-желтый */
+    color: #854d0e !important;
+    font-weight: bold;
+    border: 1px solid #fef08a !important;
+}
+
+/* Общий стиль для ячеек дат */
+[data-f="next_contact_date"] {
+    text-align: center;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.btn-delete {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 8px;
+    transition: all 0.2s;
+    font-size: 16px;
+}
+
+.btn-delete:hover {
+    color: #ef4444; /* Становится красной при наведении */
+    transform: scale(1.1);
+}
+
+}
+.logo {
+    opacity:0 ;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+/* Выравниваем текст во всех заголовках по центру и середине */
+th {
+    padding: 8px;
+    vertical-align: middle; /* Чтобы текст в высоких ячейках был по центру высоты */
+    text-align: center;
+    border: 1px solid #ccc;
+}
+
+/* Опционально: можно зафиксировать ширину для колонок, которые "раздулись" */
+th[rowspan="2"] {
+    background-color: #f9f9f9; /* Немного выделим основные колонки */
+    min-width: 100px; /* Укажите нужную вам ширину */
+}
+[contenteditable="true"]:empty:before {
+    color: #64748b;
+    font-style: italic;
+    cursor: text;
+}
+
+/* Персональные подсказки по атрибуту data-f */
+[data-f="client_name"]:empty:before { content: "Наименование..."; }
+[data-f="source"]:empty:before { content: "Откуда пришел..."; }
+[data-f="contact_person"]:empty:before { content: "ФИО лица..."; }
+[data-f="phone"]:empty:before { content: "+375..."; }
+[data-f="email"]:empty:before { content: "mail@example.com"; }
+[data-f="comment"]:empty:before { content: "Важное примечание..."; }
+
+/* Выделение пустой ячейки, чтобы её было видно */
+.editable:empty {
+    background-color: #fff7ed;
+    border: 1px dashed #fdba74;
+}
+.row-danger td {
+    background-color: #fee2e2 !important; /* Светло-красный */
+    border-bottom: 1px solid #fecaca;
+}
+
+/* Строка, по которой нужно позвонить в ближайшие 3 дня */
+.row-warning td {
+    background-color: #ffedd5 !important; /* Светло-оранжевый */
+    border-bottom: 1px solid #fed7aa;
+}
+
+/* Стили для всплывающего уведомления */
+#notification-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #1e293b;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: none;
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+
+
+/* Сетка полей формы (2 колонки) */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+
+.form-group.full-width {
+    grid-column: span 2;
+}
+
+/* Инпуты и Селекты */
+
+
+.btn-save { background: #4f46e5; color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn-cancel { background: #f1f5f9; color: #64748b; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; }
+.btn-save:hover { background: #4338ca; }
+
+
+.form-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;
+}
+
+.btn-cancel { background: #f1f5f9; color: #64748b; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+
+/* Основной контейнер модалки */
+.modal-overlay {
+    display: none; /* Оставляем обычное скрытие */
+    position: fixed;
+    z-index: 10000;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    align-items: center;
+    justify-content: center;
+}
+
+/* Исправляем синие точки вместо кнопок */
+.btn-edit {
+    background-color: #4f46e5 !important; /* Насыщенный синий */
+    color: white !important;               /* Белый текст/иконка */
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    min-width: 40px; 
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.btn-edit:hover {
+    background-color: #4338ca !important;
+}
+.btn-edit i {
+    color: white !important;
+    font-size: 14px;
+}
+/* Затемнение фона */
+#clientModal {
+    display: none ; /* Принудительное скрытие */
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+}
+.form-row { 
+    display: flex; 
+    gap: 15px; /* Расстояние между колонками */
+    margin-bottom: 15px; 
+    padding: 0 30px; 
+    flex-wrap: wrap; /* Если места мало, поля уйдут на новую строку, а не налезут друг на друга */
+}
+.flex-2 { flex: 2; }
+.flex-1 { flex: 1; }
+.form-group { flex: 1; display: flex; flex-direction: column; }
+.three-cols .form-group {
+    min-width: 140px; /* Минимальная ширина, чтобы текст не обрезался */
+}
+/* Сама карточка окна */
+.modal-content {
+    background: #ffffff;
+    color: #1e293b;
+    border-radius: 16px;
+    width: 550px;
+    padding: 0;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: none;
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 { margin: 0; font-size: 1.25rem; color: #0f172a; }
+
+/* Поля формы */
+.form-row { padding: 8px 24px; display: flex; gap: 16px; }
+.two-cols > .form-group { flex: 1; }
+.full { width: 100%; }
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #f8fafc;
+    transition: all 0.2s;
+}
+
+.form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: #4f46e5;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-group textarea { height: 80px; resize: none; }
+
+/* Футер и кнопки */
+.modal-footer {
+    padding: 20px 24px;
+    background: #f8fafc;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.btn-primary {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-secondary {
+    background: white;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+/* Стили для поля файла */
+.file-upload-group input[type="file"] {
+    background: transparent;
+    border: 1px dashed #cbd5e1;
+    padding: 15px;
+}
+
