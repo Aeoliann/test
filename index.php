@@ -397,6 +397,7 @@ $totalClients = isset($clients) ? count($clients) : 0;
             <th>ТЕЛЕФОН</th>
             <th>EMAIL</th>
             <th>СТАТУС</th>
+            <th>ИСТОЧНИК ПРИВЛЕЧЕНИЯ</th>
             <th>СЛЕД. КОНТАКТ</th>
             <th>КОММЕНТАРИЙ</th>
             <th>ВИД ПРОДУКЦИИ</th>
@@ -425,8 +426,7 @@ $totalClients = isset($clients) ? count($clients) : 0;
             <td class="cell-phone"><?= htmlspecialchars($c['phone']) ?></td>
             <td class="cell-email"><?= htmlspecialchars($c['email']) ?></td>
             <td class="cell-status"><?= htmlspecialchars($c['status']) ?></td>
-            <td class="cell-source" style="display: none;"><?= htmlspecialchars($c['source'] ?? '') ?></td>
-
+            <td class="source"><?= htmlspecialchars($c['source'])?></td>
             <td class="cell-next"><?= !empty($c['next_contact_date']) ? date('d.m.Y', strtotime($c['next_contact_date'])) : '' ?></td>
            <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
 <td class="cell-comment js-comment-preview" 
@@ -560,22 +560,6 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
                
-
-            <div class="form-row">
-    <div class="form-group" style="text-align: left; width: 100%;">
-        <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Источник привлечения <span style="color:red;">*</span></label>
-        <!-- name="source" строго маленькими буквами -->
-        <select id="source" name="source" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
-            <option value="Запрос">Запрос</option>
-            <option value="Закупки">Закупки</option>
-            <option value="Холодный поиск">Холодный поиск</option>
-        </select>
-    </div>
-    
-</div>
-
-       
-
             <!-- Кнопки управления формой -->
    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button type="button" onclick="closeClientModal()" style="background: #323248; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold;">Отмена</button>
