@@ -349,15 +349,8 @@ $savedCurrency = 'RUB';
                     <label>Дата договора</label>
                     <input type="date" name="contract_date" value="<?= date('Y-m-d') ?>">
                 </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Сумма (BYN)</label>
-                    <input type="number" step="0.01" name="amount" placeholder="0.00" required>
-                </div>
-                <div class="form-group">
-                    <label>Продукция</label>
+            </div>                <div class="form-group">
+                                    <label>Продукция</label>
                    <select id="modal_contract_product_type" name="product_type" required style="width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer;">
                 <option value="Посуда">Посуда</option>
         <option value="Сантехника">Сантехника</option>
