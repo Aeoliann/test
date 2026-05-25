@@ -1,79 +1,58 @@
 <?php
+// upload_scan.php — Безопасный обработчик загрузки PDF-сканов под Windows XAMPP
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require 'db.php';
 
 header('Content-Type: application/json');
-
-// Полностью очищаем буфер вывода (убираем скрытые пробелы)
 if (ob_get_length()) ob_clean();
 
 try {
     if (!isset($_SESSION['user_id'])) {
-        throw new Exception("Пользователь не авторизован в сессии CRM!");
+        throw new Exception("Ошибка авторизации. Доступ запрещен.");
     }
 
-    // Считываем pid, переданный из инлайн JavaScript
-    $pid = isset($_POST['pid']) ? (int)$_POST['pid'] : 0;
-    if ($pid <= 0) {
-        throw new Exception("Критическая ошибка: Передан некорректный или пустой ID договора (pid).");
+    $projectId = isset($_POST['project_id']) ? (int)$_POST['project_id'] : 0;
+    if ($projectId <= 0) {
+        throw new Exception("Некорректный системный ID контракта.");
     }
 
-    // ВСЕЯДНЫЙ СБОР ФАЙЛА: Автоматически находим массив файла, как бы менеджер его ни назвал
-    $fileKey = '';
-    if (isset($_FILES['contract_pdf'])) { $fileKey = 'contract_pdf'; }
-    elseif (isset($_FILES['file'])) { $fileKey = 'file'; }
-    elseif (!empty($_FILES)) { $fileKey = key($_FILES); } // Берем самый первый прилетевший ключ
-
-    if (empty($fileKey) || !isset($_FILES[$fileKey])) {
-        throw new Exception("Файл договора не был получен сервером. Проверьте размер файла.");
+    if (!isset($_FILES['contract_pdf']) || $_FILES['contract_pdf']['error'] !== UPLOAD_ERR_OK) {
+        throw new Exception("Файл не был передан на сервер или загружен с ошибкой.");
     }
 
-    $file = $_FILES[$fileKey];
-
-    // Проверяем системные ошибки загрузки файлов в Apache/XAMPP
-    if ($file['error'] !== 0) {
-        throw new Exception("Сбой загрузки на стороне сервера. Код ошибки PHP: " . $file['error']);
-    }
-
-    // Проверяем расширение файла
+    $file = $_FILES['contract_pdf'];
+    
+    // Проверяем формат файла — строго PDF
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if ($ext !== 'pdf') {
-        throw new Exception("Разрешено загружать файлы строго в формате PDF! У вас файл: ." . $ext);
+        throw new Exception("Недопустимый формат файла! Разрешена загрузка только документов PDF.");
     }
 
-    // ЖЕСТКАЯ ПОДСТРАХОВКА ПАПКИ: Принудительно создаем директорию, если её нет на диске
-    $uploadDir = 'uploads/contracts/';
+    // Жестко привязываем имя папки загрузок
+    $uploadDir = 'uploads/';
     if (!is_dir($uploadDir)) {
-        if (!mkdir($uploadDir, 0777, true)) {
-            throw new Exception("Сервер XAMPP не смог создать папку 'uploads/contracts/'. Проверьте свободное место на диске C:");
-        }
+        mkdir($uploadDir, 0777, true); // Автоматически создаем папку, если её нет
     }
 
-    // Формируем красивое уникальное имя файла
-    $newFileName = 'contract_' . $pid . '_' . time() . '.pdf';
+    // Генерируем уникальное имя файла, чтобы избежать перезаписи
+    $newFileName = 'contract_' . $projectId . '_' . time() . '.pdf';
     $targetPath = $uploadDir . $newFileName;
 
-    // Перемещаем файл из временной папки XAMPP в боевое хранилище
-    if (move_uploaded_file($file['tmp_name'], $targetPath)) {
-        
-        // Обновляем запись в базе данных в таблице projects строго по колонке contract_file
-        $stmt = $pdo->prepare("UPDATE projects SET contract_file = ? WHERE id = ?");
-        $stmt->execute([$newFileName, $pid]);
-        
-        // Отдаем JSON об успешном завершении
-        echo json_encode(['status' => 'success', 'filename' => $newFileName]);
-        exit;
-    } else {
-        throw new Exception("Не удалось переместить файл во внутреннее хранилище сайта. Проверьте права папки uploads.");
+    // Переносим файл из временного хранилища Windows в папку uploads
+    if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+        throw new Exception("Серверу XAMPP не удалось сохранить файл на жесткий диск. Проверьте права папки.");
     }
 
+    // Записываем путь к скану в колонку scan_path таблицы проектов
+    $stmt = $pdo->prepare("UPDATE projects SET scan_path = ? WHERE id = ?");
+    $stmt->execute([$targetPath, $projectId]);
+
+    echo json_encode(['status' => 'success', 'message' => 'Скан договора успешно загружен и привязан!']);
+    exit;
+
 } catch (Exception $e) {
-    // Выводим ошибку ЧИСТЫМ КРИСТАЛЬНЫМ РУССКИМ ТЕКСТОМ (Без кодировок Юникода)
-    echo json_encode([
-        'status' => 'error', 
-        'message' => $e->getMessage()
-    ], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    exit;
 }
-exit;

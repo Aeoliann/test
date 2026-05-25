@@ -272,12 +272,14 @@ $savedCurrency = 'RUB';
         <?php
         $currentRecord = isset($r) ? $r : (isset($row) ? $row : []);
         $projectId    = isset($currentRecord['pid']) ? (int)$currentRecord['pid'] : 0;
-        $contractFile = isset($currentRecord['contract_file']) ? trim($currentRecord['contract_file']) : '';
+        
+        // ИСПРАВЛЕНО: Читаем новое Windows-поле пути к скану scan_path взамен contract_file
+        $contractPath = isset($currentRecord['scan_path']) ? trim($currentRecord['scan_path']) : '';
 
-        if (!empty($contractFile) && $contractFile !== 'NULL' && $contractFile !== '0'): 
+        if (!empty($contractPath) && $contractPath !== 'NULL' && $contractPath !== '0'): 
         ?>
-            <!-- Кнопка просмотра PDF -->
-            <a href="uploads/contracts/<?= htmlspecialchars($contractFile) ?>" 
+            <!-- Кнопка просмотра PDF (ИСПРАВЛЕНО: Ссылка сразу ведет на полный путь из базы) -->
+            <a href="<?= htmlspecialchars($contractPath) ?>" 
                target="_blank" 
                style="color: #10b981; text-decoration: none; font-size: 11px; font-weight: bold; background: #1a2e26; padding: 4px 8px; border-radius: 4px; display: inline-block; white-space: nowrap;">👁 PDF</a>
             
@@ -286,7 +288,7 @@ $savedCurrency = 'RUB';
                     onclick="if(confirm('Вы уверены, что хотите безвозвратно удалить скан договора?')){ window.location.href='delete_contract_file.php?pid=<?= $projectId ?>'; } return false;" 
                     style="background: none; border: none; color: #f56565; cursor: pointer; font-size: 12px; padding: 4px; display: inline-block; line-height: 1;">❌</button>
         <?php else: ?>
-            <!-- Синяя иконка скрепки со встроенным инлайн-движком отправки fetch (ИСПРАВЛЕНО НА files[0]) -->
+            <!-- Синка иконка скрепки со встроенным инлайн-движком отправки fetch -->
             <label for="contract_file_<?= $projectId ?>" 
                    style="cursor: pointer; color: #4f46e5; font-size: 14px; padding: 4px 8px; background: #1e1e2d; border: 1px solid #323248; border-radius: 4px; display: inline-block; user-select: none;">📎</label>
             
@@ -297,7 +299,8 @@ $savedCurrency = 'RUB';
                    onchange="if(!this.files||!this.files.length)return; const fd=new FormData(); fd.append('pid',<?= $projectId ?>); fd.append('contract_pdf',this.files[0]); const path=window.location.pathname; const url=path.substring(0,path.lastIndexOf('/'))+'/upload_scan.php'; fetch(url,{method:'POST',body:fd}).then(r=>r.json()).then(res=>{ if(res.status==='success'){ window.location.reload(); }else{ alert('Ответ сервера:\n'+res.message); window.location.reload(); } }).catch(err=>alert('Ошибка сети или размера файла'));return false;">
         <?php endif; ?>
     </div>
-</td>   
+    <div style="color: #92929f; font-size: 11px; margin-top: 2px;">от <?= !empty($r['contract_date']) ? date('d.m.Y', strtotime($r['contract_date'])) : date('d.m.Y') ?></div>
+</td>
 
     </div>
         </div>
