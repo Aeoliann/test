@@ -51,7 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // 3. Выборка списка задач из базы данных
 if ($userRole === 'admin') {
-    $tasksStmt = $pdo->query("SELECT t.*, u.login as manager_name FROM tasks t LEFT JOIN users u ON t.manager_id = u.id ORDER BY t.id DESC");
+    $tasksStmt = $pdo->query("SELECT t.*, u1.login as executor_name, u2.login as creator_name 
+        FROM tasks t 
+        LEFT JOIN users u1 ON t.user_id = u1.id 
+        LEFT JOIN users u2 ON t.created_by = u2.id 
+        ORDER BY t.id DESC");
 } else {
     $tasksStmt = $pdo->prepare("SELECT t.*, u.login as manager_name FROM tasks t LEFT JOIN users u ON t.manager_id = u.id WHERE t.manager_id = ? ORDER BY t.id DESC");
     $tasksStmt->execute([$userId]);

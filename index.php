@@ -1,172 +1,121 @@
-
 <?php
-session_start();
+// =========================================================================
+// ЧИСТЫЙ МОНОЛИТНЫЙ WINDOWS-БЛОК CRM SANTEKS (БЕЗ ДУБЛИРОВАНИЯ И ВАРНИНГОВ)
+// =========================================================================
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require 'db.php';
 
+// 1. ПРОВЕРКА АВТОРИЗАЦИИ И СИНХРОНИЗАЦИЯ ИМЕН ПЕРЕМЕННЫХ
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
+    header("Location: login.html");
     exit;
 }
-$userRole = $_SESSION['role'] ?? 'manager';
-$userId = (int)$_SESSION['user_id'];
 
-// Получаем выбранного менеджера из фильтра (только для админа)
-$filterManagerId = isset($_GET['manager_filter']) ? (int)$_GET['manager_filter'] : 0;
+// Задаем единые сквозные переменные, которые используются и в логике, и в верстке
+$userId    = (int)$_SESSION['user_id'];
+$userRole  = $_SESSION['role'] ?? 'manager';
+$u_role    = $userRole; // Дублируем для совместимости с любыми плашками
+$u_id      = $userId;   // Дублируем для старой верстки
 
-// 1. Для шапки фильтра вытягиваем список всех менеджеров (только если зашел админ)
-$managersForFilter = [];
-if ($userRole === 'admin') {
-    // Автоподбор колонки имени (из логики report.php)
-    $nameCol = 'name';
-    try { $pdo->query("SELECT name FROM users LIMIT 1"); } 
-    catch (Exception $e) {
-        try { $pdo->query("SELECT login FROM users LIMIT 1"); $nameCol = 'login'; } 
-        catch (Exception $e2) { $nameCol = 'username'; }
-    }
-    $managersForFilter = $pdo->query("SELECT id, $nameCol AS name FROM users ORDER BY id ASC")->fetchAll();
-}
-// =========================================================================
-// ТОЧЕЧНЫЙ WINDOWS-ФИКС №2: ИСПРАВЛЕННАЯ ФИЛЬТРАЦИЯ ВКЛАДОК И СОРТИРОВКА
-// =========================================================================
-// Считываем текущую вкладку из адресной строки браузера (?tab=active или ?tab=refused)
-$tab = isset($_GET['tab']) ? trim($_GET['tab']) : 'active';
+// 2. ФИЛЬТРАЦИЯ ПО МЕНЕДЖЕРУ ДЛЯ АДМИНИСТРАТОРА
+$filterManagerId = isset($_GET['manager_id']) ? (int)$_GET['manager_id'] : 0;
 
-// Наша крутая логика сортировки: просроченные контакты всегда поднимаются наверх
+// 3. ЖЕСТКИЙ ПЕРЕХВАТ ТЕКУЩЕЙ ВКЛАДКИ
+$current_tab = isset($_GET['tab']) ? strtolower(trim($_GET['tab'])) : 'active';
+$tab = $current_tab; // Синхронизируем, чтобы HTML-ссылки понимали активный статус
+
+// Единая логика сортировки: просроченные контакты летят наверх, отказники всегда вниз
 $orderByLogic = "ORDER BY (status != 'Отказ' AND next_contact_date <= CURDATE()) DESC, id DESC";
 
-$clients = []; // Чистый массив для вывода в HTML-таблицу
-
+// 4. СБОР СТАТИСТИКИ ДЛЯ ПЛАШЕК ДАШБОРДА (БЕЗ ВАРНИНГОВ)
+$stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
 try {
     if ($userRole === 'admin') {
-        if ($filterManagerId > 0) {
-            if ($tab === 'refused') {
-                // Вкладка отказов конкретного менеджера для Админа
-                $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ' $orderByLogic");
-            } else {
-                // Рабочая база конкретного менеджера для Админа
-                $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ' $orderByLogic");
-            }
-            $stmt->execute([$filterManagerId]);
-        } else {
-            if ($tab === 'refused') {
-                // Все отказы компании для Админа
-                $stmt = $pdo->prepare("SELECT * FROM clients WHERE status = 'Отказ' $orderByLogic");
-            } else {
-                // Вся рабочая база компании для Админа
-                $stmt = $pdo->prepare("SELECT * FROM clients WHERE status != 'Отказ' $orderByLogic");
-            }
-            $stmt->execute();
-        }
+        $sql_stats = "SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
+            SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
+            SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
+        FROM clients";
+        $stats = $pdo->query($sql_stats)->fetch() ?: $stats;
     } else {
-        if ($tab === 'refused') {
-            // Личные архивные отказы Менеджера
-            $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ' $orderByLogic");
-        } else {
-            // Личная рабочая база Менеджера (без отказов)
-            $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ' $orderByLogic");
-        }
-        $stmt->execute([$userId]);
+        $sql_stats = "SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
+            SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
+            SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
+        FROM clients WHERE manager_id = ?";
+        $stmt_stats = $pdo->prepare($sql_stats);
+        $stmt_stats->execute([$userId]);
+        $stats = $stmt_stats->fetch() ?: $stats;
     }
-    
-    // Записываем результат строго в массив $clients для HTML-таблицы
-    $clients = $stmt->fetchAll();
+} catch (Exception $e) { }
 
-} catch (Exception $e) {
-    $clients = []; // Подстраховка от падения страницы при ошибках СУБД
-}
-// =========================================================================
-
-$clients = $stmt->fetchAll();
-$userId = $_SESSION['user_id'];
-$role = $_SESSION['role'];
-$orderByLogic = "ORDER BY (status != 'Отказ' AND next_contact_date <= CURDATE()) DESC, id DESC";
-
-if ($userRole === 'admin') {
-    if ($filterManagerId > 0) {
-        $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? $orderByLogic");
-        $stmt->execute([$filterManagerId]);
-    } else {
-        $stmt = $pdo->prepare("SELECT * FROM clients $orderByLogic");
-        $stmt->execute();
-    }
-} else {
-    $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? $orderByLogic");
-    $stmt->execute([$userId]);
+// Подстраховка массива, чтобы верстка на строке 291 никогда не падала
+if (!$stats) {
+    $stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
 }
 
-$clients = $stmt->fetchAll();
-// 1. Инициализируем массив параметров для PDO, чтобы избежать Undefined variable
-$params = [];
-
-// 2. Сбор фильтра по источнику привлечения
-$sourceFilter = isset($_GET['source_filter']) ? trim($_GET['source_filter']) : '';
-
-// 3. Базовый SQL-запрос в зависимости от роли
-if ($role === 'admin') {
-    $sql = "SELECT * FROM clients WHERE 1=1";
-} else {
-    $sql = "SELECT * FROM clients WHERE manager_id = :manager_id";
-    $params[':manager_id'] = $userId;
-}
-
-// Если выбран фильтр по источнику, добавляем условие
-if (!empty($sourceFilter)) {
-    $sql .= " AND source = :source";
-    $params[':source'] = $sourceFilter;
-}
-
-// ВАЖНО: Добавляем пробел перед ORDER BY, чтобы не ломать синтаксис MariaDB
-$sql .= " ORDER BY id DESC";
-
-// Выполняем безопасный запрос через Prepare
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$clients = $stmt->fetchAll();
-
-// 4. Сбор статистики для Дашборда (с учетом фильтра источников)
-if ($role === 'admin') {
-    $statsSql = "SELECT 
-        COUNT(*) as total, 
-        SUM(CASE WHEN status='В работе' THEN 1 ELSE 0 END) as in_work, 
-        SUM(CASE WHEN status='Отказ' THEN 1 ELSE 0 END) as refusals, 
-        SUM(CASE WHEN is_contract_signed=1 THEN 1 ELSE 0 END) as signed 
-    FROM clients WHERE 1=1" . (!empty($sourceFilter) ? " AND source = :source" : "");
-    
-    $statsStmt = $pdo->prepare($statsSql);
-    if (!empty($sourceFilter)) { $statsStmt->bindValue(':source', $sourceFilter); }
-} else {
-    $statsSql = "SELECT 
-        COUNT(*) as total, 
-        SUM(CASE WHEN status='В работе' THEN 1 ELSE 0 END) as in_work, 
-        SUM(CASE WHEN status='Отказ' THEN 1 ELSE 0 END) as refusals, 
-        SUM(CASE WHEN is_contract_signed=1 THEN 1 ELSE 0 END) as signed 
-    FROM clients WHERE manager_id = :manager_id" . (!empty($sourceFilter) ? " AND source = :source" : "");
-    
-    $statsStmt = $pdo->prepare($statsSql);
-    $statsStmt->bindValue(':manager_id', $userId);
-    if (!empty($sourceFilter)) { $statsStmt->bindValue(':source', $sourceFilter); }
-}
-
-$statsStmt->execute();
-$stats = $statsStmt->fetch();
-// 5. Подсчет общей суммы сделок (из таблицы project_ttns через ТТН-накладные)
+// 5. ПОДСЧЕТ ВЫРУЧКИ ИЗ НАКЛАДНЫХ ТТН
 $managerTotalSales = 0.00;
 try {
-    if(isset($_SESSION['role']) && $_SESSION['role'] === 'admin') { 
-       $managerTotalSales = (float)($pdo->query("SELECT SUM(amount) FROM project_ttns")->fetchColumn() ?: 0.00);
+    if ($userRole === 'admin') {
+        $managerTotalSales = (float)($pdo->query("SELECT SUM(amount) FROM project_ttns")->fetchColumn() ?: 0.00);
     } else {
-        // МЕНЕДЖЕР: Считает сумму ТТН только по договорам своих закрепленных клиентов
         $sumStmt = $pdo->prepare("SELECT SUM(t.amount) 
                                   FROM project_ttns t
                                   INNER JOIN projects p ON t.project_id = p.id
                                   INNER JOIN clients c ON p.client_id = c.id
                                   WHERE c.manager_id = ?");
         $sumStmt->execute([$userId]);
-        $managerTotalSales = (float)$sumStmt->fetchColumn() ?: 0.00;
+        $managerTotalSales = (float)($sumStmt->fetchColumn() ?: 0.00);
     }
+} catch (Exception $e) { }
+
+// 6. СТРОГИЙ И ИЗОЛИРОВАННЫЙ ВЫБОР КЛИЕНТОВ ДЛЯ ТАБЛИЦЫ
+$clients = [];
+try {
+    if ($userRole === 'admin') {
+        if ($filterManagerId > 0) {
+            if ($current_tab === 'refused') {
+                // Админ -> Выбран менеджер -> Только его отказы
+                $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ' $orderByLogic");
+            } else {
+                // Админ -> Выбран менеджер -> Его рабочая база
+                $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ' $orderByLogic");
+            }
+            $stmt->execute([$filterManagerId]);
+        } else {
+            if ($current_tab === 'refused') {
+                // Админ -> Все менеджеры -> Все отказы компании
+                $stmt = $pdo->prepare("SELECT * FROM clients WHERE status = 'Отказ' $orderByLogic");
+            } else {
+                // Админ -> Все менеджеры -> Вся рабочая база компании
+                $stmt = $pdo->prepare("SELECT * FROM clients WHERE status != 'Отказ' $orderByLogic");
+            }
+            $stmt->execute();
+        }
+    } else {
+        if ($current_tab === 'refused') {
+            // Менеджер -> Только личные архивные отказы
+            $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ' $orderByLogic");
+        } else {
+            // Менеджер -> Только личная активная рабочая база
+            $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ' $orderByLogic");
+        }
+        $stmt->execute([$userId]);
+    }
+
+    // Жестко записываем результат в массив $clients, который ждет HTML-таблица
+    $clients = $stmt->fetchAll() ?: [];
+
 } catch (Exception $e) {
-    $managerTotalSales = 0.00;
-    }
+    $clients = [];
+}
+
+$totalClients = count($clients);
 ?>
 
 <?php 
