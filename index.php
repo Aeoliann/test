@@ -22,6 +22,10 @@ $u_id      = $userId;   // Дублируем для старой верстки
 // 2. ФИЛЬТРАЦИЯ ПО МЕНЕДЖЕРУ ДЛЯ АДМИНИСТРАТОРА
 $filterManagerId = isset($_GET['manager_id']) ? (int)$_GET['manager_id'] : 0;
 
+
+
+$filterSource = isset($_GET['source']) ? trim($_GET['source']) : '';
+
 // 3. ЖЕСТКИЙ ПЕРЕХВАТ ТЕКУЩЕЙ ВКЛАДКИ
 $current_tab = isset($_GET['tab']) ? strtolower(trim($_GET['tab'])) : 'active';
 $tab = $current_tab; // Синхронизируем, чтобы HTML-ссылки понимали активный статус
@@ -74,41 +78,106 @@ try {
     }
 } catch (Exception $e) { }
 
-// 6. СТРОГИЙ И ИЗОЛИРОВАННЫЙ ВЫБОР КЛИЕНТОВ ДЛЯ ТАБЛИЦЫ
+
 $clients = [];
 try {
+    // Базовые условия для Админа и Менеджера
     if ($userRole === 'admin') {
         if ($filterManagerId > 0) {
             if ($current_tab === 'refused') {
-                // Админ -> Выбран менеджер -> Только его отказы
-                $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ' $orderByLogic");
+                $sql = "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'";
             } else {
-                // Админ -> Выбран менеджер -> Его рабочая база
-                $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ' $orderByLogic");
+                $sql = "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
             }
-            $stmt->execute([$filterManagerId]);
+            $params = [$filterManagerId];
         } else {
             if ($current_tab === 'refused') {
-                // Админ -> Все менеджеры -> Все отказы компании
-                $stmt = $pdo->prepare("SELECT * FROM clients WHERE status = 'Отказ' $orderByLogic");
+                $sql = "SELECT * FROM clients WHERE status = 'Отказ'";
             } else {
-                // Админ -> Все менеджеры -> Вся рабочая база компании
-                $stmt = $pdo->prepare("SELECT * FROM clients WHERE status != 'Отказ' $orderByLogic");
+                $sql = "SELECT * FROM clients WHERE status != 'Отказ'";
             }
-            $stmt->execute();
+            $params = [];
         }
     } else {
         if ($current_tab === 'refused') {
-            // Менеджер -> Только личные архивные отказы
-            $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ' $orderByLogic");
+            $sql = "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'";
         } else {
-            // Менеджер -> Только личная активная рабочая база
-            $stmt = $pdo->prepare("SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ' $orderByLogic");
+            $sql = "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
         }
-        $stmt->execute([$userId]);
+        $params = [$userId];
     }
 
-    // Жестко записываем результат в массив $clients, который ждет HTML-таблица
+    // ТОЧЕЧНАЯ НАДСТРОЙКА: Если источник выбран, динамически дописываем фильтр в SQL
+    if (!empty($filterSource)) {
+        $sql .= " AND source = ?";
+        $params[] = $filterSource;
+    }
+
+    // Приклеиваем нашу эталонную сортировку просрочек
+    $sql .= " " . $orderByLogic;
+
+    // Готовим и выполняем безопасный запрос
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $clients = $stmt->fetchAll() ?: [];
+
+} catch (Exception $e) {
+    $clients = [];
+}
+
+// =========================================================================
+// ЕДИНЫЙ МОДУЛЬ МНОГОФАКТОРНОЙ ФИЛЬТРАЦИИ С НУЛЯ
+// =========================================================================
+
+// 1. Принимаем параметры фильтров из адресной строки браузера
+$sourceFilter  = isset($_GET['source']) ? trim($_GET['source']) : '';
+$statusFilter  = isset($_GET['status']) ? trim($_GET['status']) : '';
+$productFilter = isset($_GET['product_type']) ? trim($_GET['product_type']) : '';
+
+// 2. Очищаем дефолтные текстовые заглушки, чтобы они не летели в базу данных
+if ($sourceFilter === 'Все источники') $sourceFilter = '';
+if ($statusFilter === 'Все статусы')   $statusFilter = '';
+if ($productFilter === 'Все виды')     $productFilter = '';
+
+try {
+    // Формируем каркас базового запроса с учетом ролей и вкладок (Рабочая/Архив)
+    if ($userRole === 'admin') {
+        if ($filterManagerId > 0) {
+            $sql = ($current_tab === 'refused') 
+                ? "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'" 
+                : "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
+            $params = [$filterManagerId];
+        } else {
+            $sql = ($current_tab === 'refused') 
+                ? "SELECT * FROM clients WHERE status = 'Отказ'" 
+                : "SELECT * FROM clients WHERE status != 'Отказ'";
+            $params = [];
+        }
+    } else {
+        $sql = ($current_tab === 'refused') 
+            ? "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'" 
+            : "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
+        $params = [$userId];
+    }
+
+    // 3. Динамически приклеиваем условия фильтрации, если они выбраны менеджером
+    if (!empty($sourceFilter)) {
+        $sql .= " AND source = ?";
+        $params[] = $sourceFilter;
+    }
+    if (!empty($statusFilter) && $current_tab !== 'refused') {
+        $sql .= " AND status = ?";
+        $params[] = $statusFilter;
+    }
+    if (!empty($productFilter)) {
+        $sql .= " AND product_type = ?";
+        $params[] = $productFilter;
+    }
+
+    // Пришиваем логику сортировки и запрашиваем данные из СУБД Windows
+    $sql .= " " . $orderByLogic;
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $clients = $stmt->fetchAll() ?: [];
 
 } catch (Exception $e) {
@@ -116,6 +185,7 @@ try {
 }
 
 $totalClients = count($clients);
+
 ?>
 
 <?php 
@@ -159,6 +229,10 @@ if (!isset($stats['in_work'])) {
 // Переменные для вывода в HTML-карточки показателей
 $totalClients = isset($clients) ? count($clients) : 0;
 ?>
+
+
+
+
 
 
 <!DOCTYPE html>
@@ -211,15 +285,55 @@ $totalClients = isset($clients) ? count($clients) : 0;
 
 
 <!-- БЛОК ФИЛЬТРАЦИИ ПО ИСТОЧНИКУ -->
-<form method="GET" style="margin-bottom: 20px; display:flex; gap:10px; align-items:center;">
-    <label style="color:#fff;">Фильтр по источнику:</label>
-    <select name="source_filter" onchange="this.form.submit()" style="padding:8px; background:#1e1e2d; color:#fff; border:1px solid #323248; border-radius:6px;">
-        <option value="">Все источники</option>
-        <option value="Запрос" <?= $sourceFilter === 'Запрос' ? 'selected' : '' ?>>Запрос</option>
-        <option value="Холодный поиск" <?= $sourceFilter === 'Холодный поиск' ? 'selected' : '' ?>>Холодный поиск</option>
-        <option value="Закупки" <?= $sourceFilter === 'Закупки' ? 'selected' : '' ?>>Закупки</option>
-    </select>
-</form>
+<div class="toolbar" style="background: #1e1e2d; padding: 15px; border-radius: 8px; border: 1px solid #323248; margin-bottom: 20px;">
+    <form method="GET" action="index.php" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin: 0; padding: 0;">
+        
+        <!-- Сохраняем текущую вкладку (Рабочая база / Архив), чтобы при фильтрации она не сбрасывалась -->
+        <input type="hidden" name="tab" value="<?= htmlspecialchars($current_tab) ?>">
+        <?php if ($userRole === 'admin' && $filterManagerId > 0): ?>
+            <input type="hidden" name="manager_id" value="<?= $filterManagerId ?>">
+        <?php endif; ?>
+
+        <!-- Фильтр 1: По типу продукции -->
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Вид продукции:</label>
+            <select name="product_type" style="padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px;">
+                <option value="Все виды" <?= $productFilter === '' ? 'selected' : '' ?>>Все виды</option>
+                <option value="Посуда" <?= $productFilter === 'Посуда' ? 'selected' : '' ?>>Посуда</option>
+                <option value="Сантехника" <?= $productFilter === 'Сантехника' ? 'selected' : '' ?>>Сантехника</option>
+                <option value="Резервуары" <?= $productFilter === 'Резервуары' ? 'selected' : '' ?>>Резервуары</option>
+                <option value="ЕКМ" <?= $productFilter === 'ЕКМ' ? 'selected' : '' ?>>ЕКМ</option>
+            </select>
+        </div>
+
+        <!-- Фильтр 2: По статусу лида -->
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Статус клиента:</label>
+            <select name="status" style="padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px;" <?= $current_tab === 'refused' ? 'disabled title="В архиве отказов статус зафиксирован"' : '' ?>>
+                <option value="Все статусы" <?= $statusFilter === '' ? 'selected' : '' ?>>Все статусы</option>
+                <option value="Новый" <?= $statusFilter === 'Новый' ? 'selected' : '' ?>>Новый</option>
+                <option value="В работе" <?= $statusFilter === 'В работе' ? 'selected' : '' ?>>В работе</option>
+            </select>
+        </div>
+
+        <!-- Фильтр 3: По источнику привлечения -->
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Источник привлечения:</label>
+            <select name="source" style="padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px;">
+                <option value="Все источники" <?= $sourceFilter === '' ? 'selected' : '' ?>>Все источники</option>
+                <option value="Запрос" <?= $sourceFilter === 'Запрос' ? 'selected' : '' ?>>Запрос</option>
+                <option value="Холодный поиск" <?= $sourceFilter === 'Холодный поиск' ? 'selected' : '' ?>>Холодный поиск</option>
+                <option value="Закупки" <?= $sourceFilter === 'Закупки' ? 'selected' : '' ?>>Закупки</option>
+            </select>
+        </div>
+
+        <!-- Кнопки управления фильтрацией -->
+        <div style="display: flex; gap: 10px; margin-top: 18px;">
+            <button type="submit" style="background: #4f46e5; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; transition: 0.2s;">🔍 Применить</button>
+            <a href="index.php?tab=<?= htmlspecialchars($current_tab) ?><?= $filterManagerId > 0 ? '&manager_id='.$filterManagerId : '' ?>" style="background: #323248; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s;">❌ Сбросить</a>
+        </div>
+
+    </form>
 </div>
        <div id="contract-reminder-box" style="display:none; background: #fff1f2; border: 2px solid #fb7185; border-radius: 12px; padding: 15px; margin: 20px; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.15);">
     <h3 style="margin: 0 0 10px 0; color: #e11d48; font-size: 16px; display: flex; align-items: center; gap: 8px;">
@@ -391,7 +505,8 @@ $totalClients = isset($clients) ? count($clients) : 0;
             <select id="product_type" name="product_type" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
                 <option value="Посуда">Посуда</option>
                 <option value="Сантехника">Сантехника</option>
-                <option value="Трубы">Трубы</option>
+                <option value="Резервуары">Резервуары</option>
+                <option value="ЕКМ">ЕКМ</option>
             </select>
         </div>
     </div>  <!-- РЯД 4: ДАТА ПЕРВОГО КОНТАКТА И СЛЕДУЮЩИЙ КОНТАКТ -->
