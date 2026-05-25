@@ -1,5 +1,5 @@
 <?php
-// bug_reports.php — Модуль фиксации технических ошибок Santeks CRM (Windows XAMPP)
+// bug_reports.php — Технический журнал багов Santeks CRM с возможностью ответов и отчетов
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -12,19 +12,46 @@ if (!isset($_SESSION['user_id'])) {
 $userId  = (int)$_SESSION['user_id'];
 $u_role  = $_SESSION['role'] ?? 'manager';
 
-// Обработка отправки нового тикета
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bug_title'])) {
-    $title = trim($_POST['bug_title']);
-    $desc  = trim($_POST['bug_desc']);
+// =========================================================================
+// 1. ОБРАБОТКА ДЕЙСТВИЙ И AJAX ЗАПРОСОВ
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // AJAX: Сохранение ответа/отчета по багу на лету
+    if (isset($_POST['action']) && $_POST['action'] === 'update_admin_comment') {
+        header('Content-Type: application/json');
+        if (ob_get_length()) ob_clean();
+        try {
+            $b_id = (int)($_POST['id'] ?? 0);
+            $comment = trim($_POST['comment'] ?? '');
+            
+            // Если ответ написан — автоматически переводим баг в статус 'В работе'
+            $status = !empty($comment) ? 'В работе' : 'Новый';
+            
+            $stmt = $pdo->prepare("UPDATE bug_reports SET admin_comment = ?, status = ? WHERE id = ?");
+            $stmt->execute([$comment, $status, $b_id]);
+            
+            echo json_encode(["status" => "success", "new_status" => $status]); exit;
+        } catch (Exception $e) {
+            echo json_encode(["status" => "error", "message" => $e->getMessage()]); exit;
+        }
+    }
+    
+    // Форма: Добавление нового баг-репорта менеджером
+    if (isset($_POST['bug_title'])) {
+        $title = trim($_POST['bug_title']);
+        $desc  = trim($_POST['bug_desc']);
 
-    if (!empty($title) && !empty($desc)) {
-        $stmt = $pdo->prepare("INSERT INTO bug_reports (title, description, user_id) VALUES (?, ?, ?)");
-        $stmt->execute([$title, $desc, $userId]);
-        header("Location: bug_reports.php"); exit;
+        if (!empty($title) && !empty($desc)) {
+            $stmt = $pdo->prepare("INSERT INTO bug_reports (title, description, user_id) VALUES (?, ?, ?)");
+            $stmt->execute([$title, $desc, $userId]);
+            header("Location: bug_reports.php"); exit;
+        }
     }
 }
 
-// Забор багов из базы данных Windows
+// =========================================================================
+// 2. ВЫГРУЗКА ДАННЫХ ИЗ БАЗЫ WINDOWS
+// =========================================================================
 $bugs = [];
 try {
     $sql = "SELECT b.*, u.login FROM bug_reports b LEFT JOIN users u ON b.user_id = u.id ORDER BY b.id DESC";
@@ -47,6 +74,10 @@ try {
         .bug-table { width: 100%; border-collapse: collapse; text-align: left; }
         .bug-table th { background: #242434; padding: 14px 12px; color: #92929f; font-size: 11px; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #323248; }
         .bug-table td { padding: 14px 12px !important; border-bottom: 1px solid #2b2b40 !important; font-size: 14px; color: #fff !important; background-color: #1e1e2d !important; vertical-align: top; }
+        .comment-input { width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 4px; outline: none; font-size: 13px; box-sizing: border-box; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; display: inline-block; }
+        .badge-new { background: #3d1d1d; color: #ef4444; }
+        .badge-work { background: #3d2d1d; color: #f59e0b; }
     </style>
 </head>
 <body>
@@ -57,14 +88,13 @@ try {
         <div class="main-content">
             <h1 style="margin-top: 0; font-size: 24px; margin-bottom: 25px;">🪲 Технический журнал багов и ошибок системы</h1>
 
-            <!-- Форма отправки зафиксирована сверху -->
             <div class="bug-card">
                 <form action="bug_reports.php" method="POST" style="margin: 0; padding: 0;">
                     <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px; font-weight:bold;">Краткая суть сбоя:</label>
-                    <input type="text" name="bug_title" required placeholder="Напр: Кнопка скачивания Excel выдает 404..." class="bug-input">
+                    <input type="text" name="bug_title" required placeholder="Напр: Ошибка дублирования вкладок при переключении..." class="bug-input">
                     
                     <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px; font-weight:bold;">Подробное описание и шаги воспроизведения:</label>
-                    <textarea name="bug_desc" required placeholder="Опишите, после каких действий выскочила ошибка..." class="bug-textarea" style="height: 80px; resize: vertical; font-family: sans-serif;"></textarea>
+                    <textarea name="bug_desc" required placeholder="Опишите детальнее суть технической проблемы..." class="bug-textarea" style="height: 70px; resize: vertical; font-family: sans-serif;"></textarea>
                     
                     <button type="submit" class="btn-add">🚨 Зарегистрировать баг</button>
                 </form>
@@ -72,44 +102,72 @@ try {
 
             <h2 style="font-size: 18px; margin-bottom: 15px;">📋 Список зарегистрированных тикетов</h2>
             
-            <!-- ОГРАНИЧЕННЫЙ СКРОЛЛ-КОНТЕЙНЕР ДЛЯ ТАБЛИЦЫ БАГОВ -->
-            <div style="max-height: 400px; overflow-y: auto; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d;">
+            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d;">
                 <table class="bug-table">
                     <thead>
                         <tr>
-                            <th style="width: 60px;">ID</th>
-                            <th style="width: 120px;">Статус</th>
-                            <th style="width: 250px;">Краткая суть</th>
-                            <th>Детали / Шаги сбоя</th>
-                            <th style="width: 130px;">Репортер</th>
-                            <th style="width: 140px;">Дата фиксации</th>
+                            <th style="width: 50px;">ID</th>
+                            <th style="width: 110px;">Статус</th>
+                            <th style="width: 220px;">Краткая суть</th>
+                            <th>Детали сбоя</th>
+                            <th style="width: 250px; color: #10b981 !important;">Ответ / Отчет по исправлению</th>
+                            <th style="width: 110px;">Репортер</th>
+                            <th style="width: 120px;">Дата</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (count($bugs) > 0): ?>
-                            <?php foreach ($bugs as $b): ?>
+                            <?php foreach ($bugs as $b): 
+                                $isWork = ($b['status'] === 'В работе');
+                            ?>
                                 <tr>
                                     <td style="color: #64748b !important;"><?= (int)$b['id'] ?></td>
                                     <td>
-                                        <span style="background: #3d1d1d; color: #ef4444; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
-                                            ⚠️ <?= htmlspecialchars($b['status']) ?>
+                                        <span id="badge_<?= $b['id'] ?>" class="badge <?= $isWork ? 'badge-work' : 'badge-new' ?>">
+                                            <?= htmlspecialchars($b['status']) ?>
                                         </span>
                                     </td>
                                     <td style="font-weight: bold; color: #ef4444 !important;"><?= htmlspecialchars($b['title']) ?></td>
                                     <td style="color: #92929f !important; font-size: 13px; line-height: 1.4;"><?= nl2br(htmlspecialchars($b['description'])) ?></td>
+                                    
+                                    <!-- ЯЧЕЙКА ОТВЕТА / ОТЧЕТА -->
+                                    <td>
+                                        <?php if ($u_role === 'admin'): ?>
+                                            <input type="text" value="<?= htmlspecialchars($b['admin_comment'] ?? '') ?>" 
+                                                   placeholder="Напишите ответ или статус фикса..." class="comment-input" 
+                                                   onchange="saveBugReply(<?= $b['id'] ?>, this.value);">
+                                        <?php else: ?>
+                                            <span style="color: #10b981; font-size: 13px; font-weight: 500; display: block; line-height: 1.4;">
+                                                <?= !empty($b['admin_comment']) ? '💬 ' . htmlspecialchars($b['admin_comment']) : '<span style="color:#64748b;">Ожидает проверки...</span>' ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+
                                     <td style="color: #a855f7 !important; font-weight: bold;">👤 <?= htmlspecialchars($b['login'] ?? 'Система') ?></td>
                                     <td style="color: #64748b !important; font-size: 13px;"><?= date('d.m.Y H:i', strtotime($b['created_at'])) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="6" style="text-align: center; color: #64748b !important; padding: 40px !important;">Технических багов в системе не обнаружено.</td></tr>
+                            <tr><td colspan="7" style="text-align: center; color: #64748b !important; padding: 40px !important;">Журнал пуст.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
-
         </div>
     </div>
 
-</body>
-</html>
+    <script>
+    // AJAX-функция отправки отчета/ответа по багу в базу Windows
+    async function saveBugReply(bugId, commentValue) {
+        const fd = new FormData(); 
+        fd.append('action', 'update_admin_comment'); 
+        fd.append('id', bugId); 
+        fd.append('comment', commentValue);
+        try { 
+            const res = await fetch('bug_reports.php', { method: 'POST', body: fd }); 
+            const result = await res.json();
+            if (result.status === 'success') {
+                // Динамически обновляем плашку статуса на экране без перезагрузки
+                const badge = document.getElementById('badge_' + bugId);
+                if (badge) {
+badge.innerText = result.new_status;if (result.new_status === 'В работе') {badge.className = 'badge badge-work';} else {badge.className = 'badge badge-new';}}}} catch (err) {console.error("Ошибка сети при сохранении ответа по багу");}}
