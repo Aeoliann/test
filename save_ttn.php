@@ -19,7 +19,16 @@ try {
     }
 
     $ttnId = isset($data['ttn_id']) ? (int)$data['ttn_id'] : 0;
-    $pid   = isset($data['project_id']) ? (int)$data['project_id'] : 0;
+  $pid = 0;
+    if (isset($data['project_id'])) {
+        $pid = (int)$data['project_id'];
+    } elseif (isset($data['pid'])) {
+        $pid = (int)$data['pid'];
+    } elseif (isset($_POST['project_id'])) {
+        $pid = (int)$_POST['project_id'];
+    } elseif (isset($_POST['pid'])) {
+        $pid = (int)$_POST['pid'];
+    }
     $num   = isset($data['ttn_number']) ? trim($data['ttn_number']) : '';
     $date  = isset($data['ttn_date']) ? trim($data['ttn_date']) : '';
     $amt   = isset($data['amount']) ? (float)$data['amount'] : 0.00;

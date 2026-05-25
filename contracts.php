@@ -356,7 +356,7 @@ $savedCurrency = 'RUB';
                 <div class="form-group">
                     <label>Продукция</label>
                    <select id="modal_contract_product_type" name="product_type" required style="width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer;">
-        <option value="Посуда">Посуда</option>
+                <option value="Посуда">Посуда</option>
         <option value="Сантехника">Сантехника</option>
         <option value="ЕКМ">ЕКМ</option>
         <option value="Резервуары">Резервуары</option>
@@ -388,7 +388,7 @@ $savedCurrency = 'RUB';
         </div>
         
         <!-- Скрытые технические хранилища ID -->
-        <input type="hidden" id="ttn_pid_storage" value="">
+        <input type="hidden" id="ttn_pid_storage" value="<?= isset($_GET['project_id']) ? (int)$_GET['project_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0) ?>">
         <input type="hidden" id="edit_ttn_id_storage" value="">
         
         <!-- КОНТЕЙНЕР ДЛЯ ВЫВОДА СПИСКА НАКЛАДНЫХ -->
