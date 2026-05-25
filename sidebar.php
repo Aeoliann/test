@@ -44,9 +44,13 @@ if (isset($_SESSION['user_id'])):
     <a href="tasks.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #e11d48; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
         📆 <span style="white-space: nowrap;">Поручения и Задачи</span>
     </a>
-
+  
     <!-- Разделительная черта перед выходом -->
     <div style="height: 1px; background: #323248; margin: 5px 0; width: 100%;"></div>
+<!-- ТОЧЕЧНАЯ ПРАВКА: Интеграция журнала багов в боковое меню системы -->
+<a href="bug_reports.php" style="display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: #92929f; text-decoration: none; font-size: 14px; font-weight: bold; border-radius: 6px; margin-bottom: 5px; transition: 0.15s;" onmouseover="this.style.color='#fff'; this.style.background='#1a1a24';" onmouseout="this.style.color='#92929f'; this.style.background='none';">
+    <span>🪲 Журнал багов</span>
+</a>
 
     <!-- Кнопка: Выйти -->
     <a href="logout.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #3f3f46; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;"
