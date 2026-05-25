@@ -81,7 +81,7 @@ try {
         .badge-done { background: #1a2e26; color: #10b981; }
     </style>
 </head>
-<body>
+<body>  
     <div class="wrapper">
         <div style="flex-shrink: 0; width: 260px;"><?php include 'sidebar.php'; ?></div>
         <div class="main-content">
