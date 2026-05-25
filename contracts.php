@@ -360,9 +360,6 @@ $savedCurrency = 'RUB';
         <option value="УОКТ">УОКТ</option>
         <option value="Прочее">Прочее</option>
     </select>
-           
-    </div>
-            </div>
 
             <div class="modal-footer">
                 <button type="button" class="btn-cancel" onclick="closeContractModal()">Отмена</button>
