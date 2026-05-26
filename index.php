@@ -303,6 +303,7 @@ $totalClients = isset($clients) ? count($clients) : 0;
                 <option value="Сантехника" <?= $productFilter === 'Сантехника' ? 'selected' : '' ?>>Сантехника</option>
                 <option value="Резервуары" <?= $productFilter === 'Резервуары' ? 'selected' : '' ?>>Резервуары</option>
                 <option value="ЕКМ" <?= $productFilter === 'ЕКМ' ? 'selected' : '' ?>>ЕКМ</option>
+
             </select>
         </div>
 
@@ -427,7 +428,12 @@ $totalClients = isset($clients) ? count($clients) : 0;
             <td class="cell-email"><?= htmlspecialchars($c['email']) ?></td>
             <td class="cell-status"><?= htmlspecialchars($c['status']) ?></td>
             <td class="source"><?= htmlspecialchars($c['source'])?></td>
-            <td class="cell-next"><?= !empty($c['next_contact_date']) ? date('d.m.Y', strtotime($c['next_contact_date'])) : '' ?></td>
+           <td class="cell-next" 
+    style="cursor: pointer; transition: color 0.15s ease;" 
+    onmouseover="this.style.color='#4f46e5';" 
+    onmouseout="this.style.color='#fff';">
+    <?= !empty($c['next_contact_date']) ? date('d.m.Y', strtotime($c['next_contact_date'])) : '—' ?>
+</td>
            <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
 <td class="cell-comment js-comment-preview" 
     data-client-name="<?= htmlspecialchars($c['client_name'], ENT_QUOTES, 'UTF-8') ?>"
@@ -507,6 +513,10 @@ $totalClients = isset($clients) ? count($clients) : 0;
                 <option value="Сантехника">Сантехника</option>
                 <option value="Резервуары">Резервуары</option>
                 <option value="ЕКМ">ЕКМ</option>
+                <option value="МПДУ">МПДУ</option>
+                <option value="Эмалированные таблички">Эмалированные таблички</option>
+                <option value="УОКТ">УОКТ</option>
+                <option value="другое">другое   </option>
             </select>
         </div>
     </div>  <!-- РЯД 4: ДАТА ПЕРВОГО КОНТАКТА И СЛЕДУЮЩИЙ КОНТАКТ -->
@@ -527,7 +537,7 @@ $totalClients = isset($clients) ? count($clients) : 0;
             <select id="source" name="source" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
                 <option value="Запрос">Запрос</option>
                 <option value="Холодный звонок">Холодный звонок</option>
-                <option value="Рекомендация">Рекомендация</option>
+                <option value="Закупки  ">Закупки</option>
             </select>
         </div>
         <div class="form-group" style="flex: 1; text-align: left;">

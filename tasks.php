@@ -124,7 +124,7 @@ try {
 
         <div class="main-content">
             <h1 style="margin-top: 0; font-size: 24px; margin-bottom: 25px;">📝 Список внутренних задач и поручений</h1>
-
+            <?php if ($u_role === 'admin'): ?>
             <div class="task-card">
                 <form action="tasks.php" method="POST" style="margin: 0; padding: 0;">
                     <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
@@ -153,7 +153,7 @@ try {
                     </div>
                 </form>
             </div>
-
+            <?php endif;?>
             <table class="tasks-table">
                 <thead>
                     <tr>

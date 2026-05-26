@@ -25,22 +25,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-     if (isset($_POST['action']) && $_POST['action'] === 'update_bug_status') {
+   if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // ВСЕЯДНЫЙ ПЕРЕХВАТ ДАННЫХ: Читаем обычный POST, а если пусто — парсим JSON поток fetch
+    $action = $_POST['action'] ?? '';
+    $b_id = (int)($_POST['id'] ?? 0);
+    $comment = trim($_POST['comment'] ?? '');
+    $new_status = trim($_POST['status'] ?? '');
+
+    if (empty($action)) {
+        $rawJson = json_decode(file_get_contents('php://input'), true);
+        $action = $rawJson['action'] ?? '';
+        $b_id = (int)($rawJson['id'] ?? 0);
+        $comment = trim($rawJson['comment'] ?? '');
+        $new_status = trim($rawJson['status'] ?? '');
+    }
+
+    // 1. ПОДПРОГРАММА: Обновление отчета/комментария админа
+    if ($action === 'update_admin_comment') {
         header('Content-Type: application/json');
         if (ob_get_length()) ob_clean();
         try {
-            $b_id = (int)($_POST['id'] ?? 0);
-            $new_status = trim($_POST['status'] ?? 'new');
-            
-            // Жестко пишем системный английский статус в базу Windows XAMPP
-            $stmt = $pdo->prepare("UPDATE bug_reports SET status = ? WHERE id = ?");
-            $stmt->execute([$new_status, $b_id]);
-            
+            $pdo->prepare("UPDATE bug_reports SET admin_comment = ? WHERE id = ?")->execute([$comment, $b_id]);
             echo json_encode(["status" => "success"]); exit;
         } catch (Exception $e) {
             echo json_encode(["status" => "error", "message" => $e->getMessage()]); exit;
         }
     }
+
+    // 2. ПОДПРОГРАММА: Обновление статуса бага
+    if ($action === 'update_bug_status') {
+        header('Content-Type: application/json');
+        if (ob_get_length()) ob_clean();
+        try {
+            $pdo->prepare("UPDATE bug_reports SET status = ? WHERE id = ?")->execute([$new_status, $b_id]);
+            echo json_encode(["status" => "success"]); exit;
+        } catch (Exception $e) {
+            echo json_encode(["status" => "error", "message" => $e->getMessage()]); exit;
+        }
+    }
+    
+    // 3. ПОДПРОГРАММА: Добавление нового баг-репорта из формы
+    if (isset($_POST['bug_title'])) {
+        $title = trim($_POST['bug_title']);
+        $desc  = trim($_POST['bug_desc']);
+        if (!empty($title) && !empty($desc)) {
+            $pdo->prepare("INSERT INTO bug_reports (title, description, user_id) VALUES (?, ?, ?)")->execute([$title, $desc, $userId]);
+            header("Location: bug_reports.php"); exit;
+        }
+    }
+}
     
     if (isset($_POST['bug_title'])) {
         $title = trim($_POST['bug_title']);

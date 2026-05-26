@@ -332,43 +332,56 @@ $savedCurrency = 'RUB';
 
     
 
-<div id="contractModal" class="modal-overlay" style="display:none;">
-    <div class="modal-content stylish-modal" style="width: 500px;">
-        <div class="modal-header">
-            <h2>Новый договор: <span id="modalClientName" style="color:#4f46e5;"></span></h2>
+<!-- ИСПРАВЛЕНО: Полный редизайн модалки договора и новые виды продукции -->
+<div id="contractModal" class="modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); justify-content: center; align-items: center; z-index: 1000; box-sizing: border-box; padding: 15px;">
+    <div class="modal-content stylish-modal" style="background: #1e1e2d; border-radius: 8px; border: 1px solid #323248; padding: 25px; width: 500px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        
+        <div class="modal-header" style="margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #fff; font-size: 18px;">
+                Новый договор: <span id="modalClientName" style="color:#818cf8;"></span>
+            </h2>
         </div>
-        <form id="contractForm" class="p-24">
+
+        <form id="contractForm" class="p-24" style="margin: 0; padding: 0;">
             <input type="hidden" id="modal_client_id" name="client_id">
             
-            <div class="form-row">
-                <div class="form-group">
-                    <label>№ Договора</label>
-                    <input type="text" name="contract_number" placeholder="Напр: 125/А" required>
+            <!-- Сетка: Номер и Дата (Выровнены в один ряд) -->
+            <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group" style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">№ Договора</label>
+                    <input type="text" name="contract_number" placeholder="Напр: 125/А" required style="width: 100%; height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 14px;">
                 </div>
-                <div class="form-group">
-                    <label>Дата договора</label>
-                    <input type="date" name="contract_date" value="<?= date('Y-m-d') ?>">
+                <div class="form-group" style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Дата договора</label>
+                    <input type="date" name="contract_date" value="<?= date('Y-m-d') ?>" style="width: 100%; height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 14px; color-scheme: dark;">
                 </div>
-            </div>                <div class="form-group">
-                                    <label>Продукция</label>
-                   <select id="modal_contract_product_type" name="product_type" required style="width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer;">
-                <option value="Посуда">Посуда</option>
-        <option value="Сантехника">Сантехника</option>
-        <option value="ЕКМ">ЕКМ</option>
-        <option value="Резервуары">Резервуары</option>
-        <option value="МПДУ">МПДУ</option>
-        <option value="УОКТ">УОКТ</option>
-        <option value="Прочее">Прочее</option>
-    </select>
+            </div>
 
-            <div class="modal-footer">
-                <button type="button" class="btn-cancel" onclick="closeContractModal()">Отмена</button>
-                <button type="submit" class="btn-submit">Создать договор</button>
+            <!-- Вид продукции (Новый актуальный список) -->
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 25px;">
+                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Продукция</label>
+                <select id="modal_contract_product_type" name="product_type" required style="width: 100%; height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 14px; box-sizing: border-box;">
+                    <option value="Посуда">Посуда</option>
+                    <option value="Сантехника">Сантехника</option>
+                    <option value="Резервуары">Резервуары</option>
+                    <option value="ЕКМ">ЕКМ</option>
+                    <option value="МПДУ">МПДУ</option>
+                    <option value="Эмалированные таблички">Эмалированные таблички</option>
+                    <option value="УОКТ">УОКТ</option>
+                    <option value="другое">другое</option>
+                </select>
+            </div>
+
+            <!-- Подвал: Кнопки (Разнесены по правому краю, правильные отступы) -->
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+                <button type="button" class="btn-cancel" onclick="closeContractModal()" style="height: 40px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.15s; box-sizing: border-box;" onmouseover="this.style.color='#fff'; this.style.background='#2b2b3d';" onmouseout="this.style.color='#92929f'; this.style.background='#242434';">Отмена</button>
+                <button type="submit" class="btn-submit" style="height: 40px; padding: 0 20px; background: #4f46e5; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.15s; box-sizing: border-box;" onmouseover="this.style.background='#4338ca';" onmouseout="this.style.background='#4f46e5';">Создать договор</button>
             </div>
             
         </form>
     </div>
 </div>
+
 </main>
 </body>
 <div id="ttnManagerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 99999;">
