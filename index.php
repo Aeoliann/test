@@ -303,7 +303,10 @@ $totalClients = isset($clients) ? count($clients) : 0;
                 <option value="Сантехника" <?= $productFilter === 'Сантехника' ? 'selected' : '' ?>>Сантехника</option>
                 <option value="Резервуары" <?= $productFilter === 'Резервуары' ? 'selected' : '' ?>>Резервуары</option>
                 <option value="ЕКМ" <?= $productFilter === 'ЕКМ' ? 'selected' : '' ?>>ЕКМ</option>
-
+                <option value="МПДУ" <?= $productFilter === 'МПДУ'? 'selected' : '' ?>>МПДУ</option> 
+                <option value = "Эмалированные таблички" <?= $productFilter === 'Эмалированные таблички' ? 'selected' : '' ?>>Эмалированные таблички</option>
+                <option value = "УОКТ" <?= $productFilter === "УОКТ" ? 'selected' : ''?>>УОКТ</option>
+                <option value = "Другое" <?= $productFilter === "Другое" ? 'selected' : '' ?>>Другое</option>                
             </select>
         </div>
 
@@ -408,16 +411,23 @@ $totalClients = isset($clients) ? count($clients) : 0;
     </thead>
 
     <tbody>
-        <?php $i = 1; foreach ($clients as $c): 
-            // Проверка напоминания: если дата следующего контакта просрочена или остался 1 день (база за ~2 дня)
+             <?php $i = 1; foreach ($clients as $c): 
+            // ИСПРАВЛЕНО: Уведомление срабатывает, если до контакта осталось от 0 до 3 дней (или уже просрочено)
             $isOverdue = false;
             if ($c['status'] !== 'Отказ' && !empty($c['next_contact_date'])) {
-                $daysDiff = (strtotime($c['next_contact_date']) - time()) / 86400;
-                if ($daysDiff <= 1) $isOverdue = true; // Напоминание срабатывает за 2 дня и ранее
+                $currentDate = strtotime(date('Y-m-d'));
+                $contactDate = strtotime($c['next_contact_date']);
+                
+                // Считаем чистую разницу в днях
+                $daysDiff = ($contactDate - $currentDate) / 86400;
+                
+                // Если дата уже прошла (меньше 0) или наступит в ближайшие 3 дня
+                if ($daysDiff <= 3) {
+                    $isOverdue = true;
+                }
             }
-
-            
         ?>
+
         <tr data-id="<?= $c['id'] ?>" class="<?= $isOverdue ? 'reminder-row' : '' ?>">
             <td><?= $i++ ?></td>
             <td class="cell-date"><?= date('d.m.Y', strtotime($c['first_contact_date'])) ?></td>

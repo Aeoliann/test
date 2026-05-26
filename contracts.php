@@ -373,10 +373,12 @@ $savedCurrency = 'RUB';
             </div>
 
             <!-- Подвал: Кнопки (Разнесены по правому краю, правильные отступы) -->
-            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
-                <button type="button" class="btn-cancel" onclick="closeContractModal()" style="height: 40px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.15s; box-sizing: border-box;" onmouseover="this.style.color='#fff'; this.style.background='#2b2b3d';" onmouseout="this.style.color='#92929f'; this.style.background='#242434';">Отмена</button>
-                <button type="submit" class="btn-submit" style="height: 40px; padding: 0 20px; background: #4f46e5; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.15s; box-sizing: border-box;" onmouseover="this.style.background='#4338ca';" onmouseout="this.style.background='#4f46e5';">Создать договор</button>
-            </div>
+           <!-- ХИРУРГИЧЕСКИЙ ФИКС: Вырезали белый фон через принудительный transparent !important -->
+<div class="modal-footer" style="display: flex !important; justify-content: flex-end !important; gap: 12px !important; margin-top: 25px !important; padding: 0 !important; background: transparent !important; background-color: transparent !important; border: none !important; border-top: none !important; box-shadow: none !important;">
+    <button type="button" class="btn-cancel" onclick="closeContractModal()" style="height: 42px; padding: 0 24px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.15s; box-sizing: border-box;" onmouseover="this.style.color='#fff'; this.style.background='#2b2b3d';" onmouseout="this.style.color='#92929f'; this.style.background='#242434';">Отмена</button>
+    <button type="submit" class="btn-submit" style="height: 42px; padding: 0 24px; background: #4f46e5; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.15s; box-sizing: border-box;" onmouseover="this.style.background='#4338ca';" onmouseout="this.style.background='#4f46e5';">Создать договор</button>
+</div>
+
             
         </form>
     </div>

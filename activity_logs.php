@@ -61,9 +61,14 @@ $usersStmt = $pdo->query("SELECT DISTINCT u.id, u.login FROM users u INNER JOIN 
 </head>
 <body>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: #1e1e2d; padding: 15px 25px; border-radius: 12px; border: 1px solid #323248;">
-        <h2 style="margin: 0; font-size: 18px;">📋 Журнал аудита действий пользователей</h2>
-        
+   
+      
+      
+              <aside>
+        <?php include 'sidebar.php'; ?>
+        </aside>
+        </form>
+    </div>
         <!-- ФИЛЬТР ПОЛЬЗОВАТЕЛЕЙ -->
         <form method="GET" style="display:flex; gap:10px; align-items:center;">
             <select name="user_filter" onchange="this.form.submit()" style="padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; cursor:pointer;">
@@ -72,12 +77,9 @@ $usersStmt = $pdo->query("SELECT DISTINCT u.id, u.login FROM users u INNER JOIN 
                     <option value="<?= htmlspecialchars($u) ?>" <?= $filterUser === $u ? 'selected' : '' ?>><?= htmlspecialchars($u) ?></option>
                 <?php endforeach; ?>
             </select>
-            <a href="index.php" style="background: #4f46e5; color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold;">← В CRM</a>
-        </form>
-    </div>
-
-    <div class="log-container">
-        <table class="log-table">
+    <div class="log-container" >
+          <h2 style="margin: 0; font-size: 18px;">📋 Журнал аудита действий пользователей</h2>
+        <table class="tasks-table" style="width: 100%; border-collapse: collapse; margin: 0;">
             <thead>
                 <tr>
                     <th style="width: 150px;">Дата / Время</th>
@@ -110,3 +112,14 @@ $usersStmt = $pdo->query("SELECT DISTINCT u.id, u.login FROM users u INNER JOIN 
 
 </body>
 </html>
+
+<style>
+    .log-container { 
+        max-height: 550px;
+         overflow-y: auto; 
+         border: 1px solid #323248;
+          border-radius: 8px; 
+          background: #1e1e2d;
+           box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+</style>

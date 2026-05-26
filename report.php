@@ -209,15 +209,10 @@ $productTypes = ['Посуда', 'Сантехника', 'ЕКМ', 'Резерв
 <body>
 
     <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
-    <div class="nav-panel">
-        <h2 class="nav-title">
-            <i class="fa-solid fa-chart-line" style="color: #a855f7;"></i> 
-            Сводная аналитическая матрица отгрузок
-        </h2>
-        <a href="index.php" class="btn-back">
-            <i class="fa-solid fa-arrow-left"></i> Вернуться в CRM
-        </a>
-    </div>
+   
+        <aside>
+        <?php include 'sidebar.php'; ?>
+        </aside>
 
     <!-- ТАБЛИЦА С ДАННЫМИ -->
     <div class="matrix-container">

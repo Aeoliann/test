@@ -1,4 +1,5 @@
 <?php
+// bug_reports.php — Технический журнал багов Santeks CRM (Числовые статусы 0, 1, 2)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -11,36 +12,17 @@ if (!isset($_SESSION['user_id'])) {
 $userId  = (int)$_SESSION['user_id'];
 $u_role  = $_SESSION['role'] ?? 'manager';
 
+// =========================================================================
+// 1. ОБРАБОТКА ДЕЙСТВИЙ И AJAX ЗАПРОСОВ (ЧИСЛОВЫЕ СТАТУСЫ)
+// =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action']) && $_POST['action'] === 'update_admin_comment') {
-        header('Content-Type: application/json');
-        if (ob_get_length()) ob_clean();
-        try {
-            $b_id = (int)($_POST['id'] ?? 0);
-            $comment = trim($_POST['comment'] ?? '');
-            $pdo->prepare("UPDATE bug_reports SET admin_comment = ? WHERE id = ?")->execute([$comment, $b_id]);
-            echo json_encode(["status" => "success"]); exit;
-        } catch (Exception $e) {
-            echo json_encode(["status" => "error", "message" => $e->getMessage()]); exit;
-        }
-    }
+    $rawInput = json_decode(file_get_contents('php://input'), true) ?: [];
+    
+    $action     = $_POST['action'] ?? ($rawInput['action'] ?? '');
+    $b_id       = (int)($_POST['id'] ?? ($rawInput['id'] ?? 0));
+    $comment    = trim($_POST['comment'] ?? ($rawInput['comment'] ?? ''));
+    $new_status = isset($_POST['status']) ? (int)$_POST['status'] : (isset($rawInput['status']) ? (int)$rawInput['status'] : -1);
 
-   if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // ВСЕЯДНЫЙ ПЕРЕХВАТ ДАННЫХ: Читаем обычный POST, а если пусто — парсим JSON поток fetch
-    $action = $_POST['action'] ?? '';
-    $b_id = (int)($_POST['id'] ?? 0);
-    $comment = trim($_POST['comment'] ?? '');
-    $new_status = trim($_POST['status'] ?? '');
-
-    if (empty($action)) {
-        $rawJson = json_decode(file_get_contents('php://input'), true);
-        $action = $rawJson['action'] ?? '';
-        $b_id = (int)($rawJson['id'] ?? 0);
-        $comment = trim($rawJson['comment'] ?? '');
-        $new_status = trim($rawJson['status'] ?? '');
-    }
-
-    // 1. ПОДПРОГРАММА: Обновление отчета/комментария админа
     if ($action === 'update_admin_comment') {
         header('Content-Type: application/json');
         if (ob_get_length()) ob_clean();
@@ -52,11 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 2. ПОДПРОГРАММА: Обновление статуса бага
     if ($action === 'update_bug_status') {
         header('Content-Type: application/json');
         if (ob_get_length()) ob_clean();
         try {
+            if ($b_id <= 0 || $new_status < 0) {
+                throw new Exception("Некорректные числовые параметры");
+            }
             $pdo->prepare("UPDATE bug_reports SET status = ? WHERE id = ?")->execute([$new_status, $b_id]);
             echo json_encode(["status" => "success"]); exit;
         } catch (Exception $e) {
@@ -64,26 +48,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    // 3. ПОДПРОГРАММА: Добавление нового баг-репорта из формы
     if (isset($_POST['bug_title'])) {
         $title = trim($_POST['bug_title']);
         $desc  = trim($_POST['bug_desc']);
         if (!empty($title) && !empty($desc)) {
-            $pdo->prepare("INSERT INTO bug_reports (title, description, user_id) VALUES (?, ?, ?)")->execute([$title, $desc, $userId]);
+            $pdo->prepare("INSERT INTO bug_reports (title, description, user_id, status) VALUES (?, ?, ?, 0)")->execute([$title, $desc, $userId]);
             header("Location: bug_reports.php"); exit;
         }
     }
 }
-    
-    if (isset($_POST['bug_title'])) {
-        $title = trim($_POST['bug_title']);
-        $desc  = trim($_POST['bug_desc']);
-        if (!empty($title) && !empty($desc)) {
-            $pdo->prepare("INSERT INTO bug_reports (title, description, user_id) VALUES (?, ?, ?)")->execute([$title, $desc, $userId]);
-            header("Location: bug_reports.php"); exit;
-        }
+
+// =========================================================================
+// 2. СБОР СВЕЖЕЙ СТАТИСТИКИ ДЛЯ ДАШБОРДА (БЕЗ КОНФЛИКТОВ С КИРИЛЛИЦЕЙ)
+// =========================================================================
+$bugStats = ['total' => 0, 'new' => 0, 'work' => 0, 'done' => 0];
+try {
+    $statsData = $pdo->query("SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) as `new`,
+        SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as `work`,
+        SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END) as `done`
+    FROM bug_reports")->fetch();
+    if ($statsData) {
+        $bugStats = [
+            'total' => (int)$statsData['total'],
+            'new'   => (int)$statsData['new'],
+            'work'  => (int)$statsData['work'],
+            'done'  => (int)$statsData['done']
+        ];
     }
-}
+} catch (Exception $e) { }
 
 $bugs = [];
 try {
@@ -107,18 +101,27 @@ try {
         .bug-table th { background: #242434; padding: 14px 12px; color: #92929f; font-size: 11px; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #323248; }
         .bug-table td { padding: 14px 12px !important; border-bottom: 1px solid #2b2b40 !important; font-size: 14px; color: #fff !important; background-color: #1e1e2d !important; vertical-align: middle; }
         .comment-input { width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 4px; outline: none; font-size: 13px; box-sizing: border-box; }
-        .status-select { padding: 6px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; outline: none; }
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; display: inline-block; }
         .badge-new { background: #3d1d1d; color: #ef4444; }
         .badge-work { background: #3d2d1d; color: #f59e0b; }
         .badge-done { background: #1a2e26; color: #10b981; }
+        .stat-card { flex: 1; min-width: 140px; background: #1e1e2d; border: 1px solid #323248; border-radius: 8px; padding: 15px; text-align: center; }
+        .bug-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: #10b981; }
     </style>
 </head>
-<body>  
+<body>
     <div class="wrapper">
         <div style="flex-shrink: 0; width: 260px;"><?php include 'sidebar.php'; ?></div>
         <div class="main-content">
-            <h1 style="margin-top: 0; font-size: 24px; margin-bottom: 25px;">🪲 Технический журнал багов и ошибок системы</h1>
+            <h1 style="margin-top: 0; font-size: 24px; margin-bottom: 25px;">🪲 Technical bug tracker</h1>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap;">
+                <div class="stat-card"><div style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;">Всего багов</div><div style="font-size: 24px; font-weight: bold; color: #fff;"><?= $bugStats['total'] ?></div></div>
+                <div class="stat-card"><div style="font-size: 11px; color: #ef4444; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;">🔴 Новые</div><div style="font-size: 24px; font-weight: bold; color: #ef4444;"><?= $bugStats['new'] ?></div></div>
+                <div class="stat-card"><div style="font-size: 11px; color: #f59e0b; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;">🟡 В работе</div><div style="font-size: 24px; font-weight: bold; color: #f59e0b;"><?= $bugStats['work'] ?></div></div>
+                <div class="stat-card"><div style="font-size: 11px; color: #10b981; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;">🟢 Исправлено</div><div style="font-size: 24px; font-weight: bold; color: #10b981;"><?= $bugStats['done'] ?></div></div>
+            </div>
+
             <div class="bug-card">
                 <form action="bug_reports.php" method="POST" style="margin: 0; padding: 0;">
                     <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px; font-weight:bold;">Краткая суть сбоя:</label>
@@ -128,13 +131,14 @@ try {
                     <button type="submit" class="btn-add">🚨 Зарегистрировать баг</button>
                 </form>
             </div>
+
             <h2 style="font-size: 18px; margin-bottom: 15px;">📋 Список зарегистрированных тикетов</h2>
             <div style="max-height: 500px; overflow-y: auto; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d;">
                 <table class="bug-table">
                     <thead>
                         <tr>
                             <th style="width: 50px;">ID</th>
-                            <th style="width: 140px;">Статус</th>
+                            <th style="width: 140px; text-align: center;">Статус / Галка</th>
                             <th style="width: 220px;">Краткая суть</th>
                             <th>Детали сбоя</th>
                             <th style="width: 250px; color: #10b981 !important;">Ответ / Отчет по исправлению</th>
@@ -145,31 +149,30 @@ try {
                     <tbody>
                         <?php if (count($bugs) > 0): ?>
                             <?php foreach ($bugs as $b): 
-                                $status = $b['status'];
-                                $badgeClass = 'badge-new';
-                                if ($status === 'В работе') $badgeClass = 'badge-work';
-                                if ($status === 'Исправлено') $badgeClass = 'badge-done';
+                                $status = (int)$b['status'];
+                                $badgeClass = 'badge-new'; $rusStatus = 'Новый';
+                                if ($status === 1) { $badgeClass = 'badge-work'; $rusStatus = 'В работе'; }
+                                if ($status === 2) { $badgeClass = 'badge-done'; $rusStatus = 'Исправлено'; }
                             ?>
                                 <tr>
                                     <td style="color: #64748b !important;"><?= (int)$b['id'] ?></td>
-                                    <td>
-           <?php if ($u_role === 'admin'): 
-    $cleanStatus = mb_strtolower(trim($status), 'UTF-8');
-    // Очищаем от возможных застрявших смайликов из старого бэкапа
-    if (strpos($cleanStatus, 'новый') !== false) $cleanStatus = 'новый';
-    if (strpos($cleanStatus, 'работе') !== false) $cleanStatus = 'в работе';
-    if (strpos($cleanStatus, 'исправлено') !== false) $cleanStatus = 'исправлено';
-?>
-    <select class="status-select" onchange="saveBugStatus(<?= $b['id'] ?>, this.value);">
-        <option value="Новый" style="color:#ef4444;" <?= $cleanStatus === 'новый' ? 'selected' : '' ?>>⚠️ Новый</option>
-        <option value="В работе" style="color:#f59e0b;" <?= $cleanStatus === 'в работе' ? 'selected' : '' ?>>⏳ В работе</option>
-        <option value="Исправлено" style="color:#10b981;" <?= $cleanStatus === 'исправлено' ? 'selected' : '' ?>>✓ Исправлено</option>
-    </select>
-<?php else: ?>
-    <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($status) ?></span>
-<?php endif; ?> 
+                                    <td style="text-align: center;">
+                                        <?php if ($u_role === 'admin'): ?>
+                                            <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                                                                                            <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                                                <input type="checkbox" class="bug-checkbox" 
+                                                       data-bug-id="<?= $b['id'] ?>" 
+                                                       <?= $status === 2 ? 'checked' : '' ?>
+                                                       onchange="toggleBugStatus(<?= $b['id'] ?>, this.checked);">
+                                                <span id="badge_text_<?= $b['id'] ?>" class="badge <?= $badgeClass ?>" style="font-size: 10px; padding: 2px 6px;">
+                                                    <?= $rusStatus ?>
+                                                </span>
+                                            </div>
+                                        <?php else: ?>
+                                            <span class="badge <?= $badgeClass ?>"><?= $rusStatus ?></span>
+                                        <?php endif; ?>
                                     </td>
-                                     <td style="font-weight: bold; color: #ef4444 !important;"><?= htmlspecialchars($b['title']) ?></td>
+                                    <td style="font-weight: bold; color: #ef4444 !important;"><?= htmlspecialchars($b['title']) ?></td>
                                     <td style="color: #92929f !important; font-size: 13px; line-height: 1.4;"><?= nl2br(htmlspecialchars($b['description'])) ?></td>
                                     <td>
                                         <?php if ($u_role === 'admin'): ?>
@@ -193,75 +196,33 @@ try {
         </div>
     </div>
     <script>
-    async function saveBugStatus(bugId, statusValue) {
-        const fd = new FormData();
-fd.append('action', 'update_bug_status');
-fd.append('id', bugId);
-fd.append('status', statusValue);
-try { 
-    await fetch('bug_reports.php', { method: 'POST', body: fd }); 
-    } catch (err) {}
-}
-async function saveBugReply(bugId, commentValue) {
-    const fd = new FormData();
-    fd.append('action', 'update_admin_comment');
-    fd.append('id', bugId);
-    fd.append('comment', commentValue);
-    try { await fetch('bug_reports.php', { method: 'POST', body: fd });
- } catch (err) {}
-    }
-
-    // ТОЧЕЧНЫЙ ФИКС: Отказоустойчивая AJAX-отправка отчетов админа
-async function saveBugReply(bugId, commentValue) {
-    console.log("Отправка отчета для бага ID:", bugId, "Текст:", commentValue);
-    
-    const fd = new FormData(); 
-    fd.append('action', 'update_admin_comment'); 
-    fd.append('id', bugId); 
-    fd.append('comment', commentValue);
-
-    try { 
-        const response = await fetch('bug_reports.php', { 
-            method: 'POST', 
-            body: fd
-        }); 
+    async function toggleBugStatus(bugId, isChecked) {
+        const statusCode = isChecked ? 2 : 1;
+        const badge = document.getElementById('badge_text_' + bugId);
         
-        const rawText = await response.text();
-        console.log("Сырой ответ сервера по багу:", rawText);
-        
-        const result = JSON.parse(rawText);
-        if (result.status !== 'success') {
-            alert("Ошибка сохранения на сервере: " + result.message);
+        if (badge) {
+            badge.innerText = isChecked ? 'Исправлено' : 'В работе';
+            badge.className = isChecked ? 'badge badge-done' : 'badge badge-work';
         }
-    } catch (err) { 
-        console.error("Критический сбой сети при сохранении ответа:", err); 
-    }
-}
-// ТОЧЕЧНЫЙ WINDOWS-ФИКС: Отказоустойчивая AJAX-смена статуса бага
-async function saveBugStatus(bugId, statusValue) {
-    console.log("Старт смены статуса. Баг ID:", bugId, "Новый статус:", statusValue);
-    
-    const fd = new FormData();
-    fd.append('action', 'update_bug_status');
-    fd.append('id', bugId);
-    fd.append('status', statusValue);
-    
-    try {
-        const response = await fetch('bug_reports.php', { 
-            method: 'POST', 
-            body: fd 
-        });
-        
-        const rawText = await response.text();
-        console.log("Сырой ответ сервера по статусу бага:", rawText);
-        
-        const result = JSON.parse(rawText);
-        if (result.status !== 'success') {
-            alert("Ошибка изменения статуса на сервере: " + result.message);
-        }
-    } catch (err) {
-        console.error("Критический сбой сети при смене статуса:", err);
-    }
-}
 
-</script>
+        try {
+            await fetch('bug_reports.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_bug_status', id: bugId, status: statusCode })
+            });
+        } catch (err) { console.error("Ошибка сети"); }
+    }
+
+    async function saveBugReply(bugId, commentValue) {
+        try {
+            await fetch('bug_reports.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_admin_comment', id: bugId, comment: commentValue })
+            });
+        } catch (err) { console.error("Ошибка сети"); }
+    }
+    </script>
+</body>
+</html>
