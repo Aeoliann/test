@@ -422,7 +422,7 @@ $totalClients = isset($clients) ? count($clients) : 0;
                 $daysDiff = ($contactDate - $currentDate) / 86400;
                 
                 // Если дата уже прошла (меньше 0) или наступит в ближайшие 3 дня
-                if ($daysDiff <= 42) {
+                if ($daysDiff <= 3) {
                     $isOverdue = true;
                 }
             }
