@@ -42,8 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// =========================================================================
+// ИСПРАВЛЕНО: Безопасная смена статуса задачи с мгновенной проверкой отчета
+// =========================================================================
 if (isset($_GET['toggle_id'])) {
     $t_id = (int)$_GET['toggle_id'];
+    
+    // Вытягиваем текущий статус и отчет напрямую из базы MariaDB
     $stmt_check = $pdo->prepare("SELECT status, manager_comment FROM tasks WHERE id = ?");
     $stmt_check->execute([$t_id]);
     $task_data = $stmt_check->fetch();
@@ -52,16 +57,19 @@ if (isset($_GET['toggle_id'])) {
         $current_status = $task_data['status'];
         $current_comment = trim($task_data['manager_comment'] ?? '');
         
+        // Блокируем ТОЛЬКО если задача была в ожидании, а отчет РЕАЛЬНО абсолютно пустой
         if ($current_status === 'pending' && empty($current_comment)) {
-            die("<script>alert('⚠️ Напишите отчет перед выполнением задачи!'); window.location.href='tasks.php';</script>");
+            die("<script>alert('⚠️ Ошибка CRM: Нельзя перевести задачу в статус Выполнено без заполнения текстового отчета по проделанной работе!'); window.location.href='tasks.php';</script>");
         }
         
+        // Меняем статус на противоположный
         $new_status = ($current_status === 'pending') ? 'completed' : 'pending';
         $pdo->prepare("UPDATE tasks SET status = ? WHERE id = ?")->execute([$new_status, $t_id]);
     }
     header("Location: tasks.php"); 
     exit;
 }
+
 
 if (isset($_GET['delete_id'])) {
     if ($u_role !== 'admin') {

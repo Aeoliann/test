@@ -13,6 +13,8 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+
+
 // Задаем единые сквозные переменные, которые используются и в логике, и в верстке
 $userId    = (int)$_SESSION['user_id'];
 $userRole  = $_SESSION['role'] ?? 'manager';
@@ -39,7 +41,7 @@ try {
     if ($userRole === 'admin') {
         $sql_stats = "SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
+           
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
         FROM clients";
@@ -47,7 +49,7 @@ try {
     } else {
         $sql_stats = "SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
+          
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
         FROM clients WHERE manager_id = ?";
@@ -133,7 +135,7 @@ try {
 $sourceFilter  = isset($_GET['source']) ? trim($_GET['source']) : '';
 $statusFilter  = isset($_GET['status']) ? trim($_GET['status']) : '';
 $productFilter = isset($_GET['product_type']) ? trim($_GET['product_type']) : '';
-
+$dateFilter    = isset($_GET['next_contact_date_filter']) ? trim($_GET['next_contact_date_filter']) : '';
 // 2. Очищаем дефолтные текстовые заглушки, чтобы они не летели в базу данных
 if ($sourceFilter === 'Все источники') $sourceFilter = '';
 if ($statusFilter === 'Все статусы')   $statusFilter = '';
@@ -174,6 +176,10 @@ try {
         $params[] = $productFilter;
     }
 
+    if (!empty($dateFilter)) {
+    $sql .= " AND next_contact_date = ?";
+    $params[] = $dateFilter;
+}
     // Пришиваем логику сортировки и запрашиваем данные из СУБД Windows
     $sql .= " " . $orderByLogic;
     $stmt = $pdo->prepare($sql);
@@ -278,7 +284,12 @@ $totalClients = isset($clients) ? count($clients) : 0;
 </div>
 
             
-            <button class="btn btn-success btn-import">Импорт Excel</button>
+           <a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
+   style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s;"
+   onmouseover="this.style.background='#059669';" 
+   onmouseout="this.style.background='#10b981';">
+    📊 СКАЧАТЬ ОТЧЕТ В EXCEL
+</a>
         </header>
         
 
@@ -309,16 +320,15 @@ $totalClients = isset($clients) ? count($clients) : 0;
                 <option value = "Другое" <?= $productFilter === "Другое" ? 'selected' : '' ?>>Другое</option>                
             </select>
         </div>
-
-        <!-- Фильтр 2: По статусу лида -->
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Статус клиента:</label>
-            <select name="status" style="padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px;" <?= $current_tab === 'refused' ? 'disabled title="В архиве отказов статус зафиксирован"' : '' ?>>
-                <option value="Все статусы" <?= $statusFilter === '' ? 'selected' : '' ?>>Все статусы</option>
-                <option value="Новый" <?= $statusFilter === 'Новый' ? 'selected' : '' ?>>Новый</option>
-                <option value="В работе" <?= $statusFilter === 'В работе' ? 'selected' : '' ?>>В работе</option>
-            </select>
+        <!-- Фильтр 2: По дате следующего контакта -->
+        <div style="display: flex; flex-direction: column; gap: 4px; width: 160px;">
+            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Дата контакта:</label>
+            <input type="date" 
+                   name="next_contact_date_filter" 
+                   value="<?= htmlspecialchars($dateFilter) ?>" 
+                   style="height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px; color-scheme: dark; cursor: pointer; width: 100%;">
         </div>
+
 
         <!-- Фильтр 3: По источнику привлечения -->
         <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -454,11 +464,14 @@ $totalClients = isset($clients) ? count($clients) : 0;
 
             <td class="cell-product"><?= htmlspecialchars($c['product_type']) ?></td>
             <td>
-                 <input type="checkbox" 
-           class="contract-checkbox" 
-           data-client-id="<?= (int)$c['id'] ?>" 
-           <?= $c['is_contract_signed'] ? 'checked' : '' ?>
-           <?= ($c['status'] === 'Отказ') ? 'disabled title="Нельзя заключить контракт при отказе"' : '' ?>>
+                <!-- ИСПРАВЛЕНО: Менеджер больше не может снять ранее поставленную галку контракта -->
+<input type="checkbox" 
+       class="contract-checkbox" 
+       data-client-id="<?= (int)$c['id'] ?>" 
+       <?= $c['is_contract_signed'] ? 'checked' : '' ?>
+       <?= ($c['status'] === 'Отказ') ? 'disabled title="Нельзя заключить контракт при отказе"' : '' ?>
+       <?= ($c['is_contract_signed'] && $userRole === 'manager') ? 'disabled title="Договор уже заключен! Снять галку может только Администратор."' : '' ?>>
+
             </td>
             <td>
       <!-- МАКСИМАЛЬНО ПРОСТАЯ И НАДЕЖНАЯ КНОПКА РЕДАКТИРОВАНИЯ -->
@@ -554,7 +567,7 @@ $totalClients = isset($clients) ? count($clients) : 0;
             <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Статус <span style="color:red;">*</span></label>
             <select id="status" name="status" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
                 <option value="Новый">Новый</option>
-                <option value="В работе">В работе</option>
+               
                 <option value="Отказ">Отказ</option>
             </select>
         </div>

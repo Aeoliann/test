@@ -114,8 +114,12 @@ $savedCurrency = 'RUB';
         <header>
             <h2>Учет договоров и проектов</h2>
             <div class="user-info">Вы: <?= $_SESSION['role'] ?></div>
-        <button onclick="exportToExcel()" class="btn-primary" style="background:#10b981; border:none; padding:10px 20px; border-radius:8px; color:white; cursor:pointer; font-weight:bold;">
-    <i class="fa-solid fa-file-excel"></i> СКАЧАТЬ ОТЧЕТ В EXCEL
+    <a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
+   style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s;"
+   onmouseover="this.style.background='#059669';" 
+   onmouseout="this.style.background='#10b981';">
+    📊 СКАЧАТЬ ОТЧЕТ В EXCEL
+</a>
 </button>
         </header>
 
