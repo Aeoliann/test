@@ -26,7 +26,7 @@ try {
             $pdo->prepare("DELETE FROM projects WHERE client_id = ?")->execute([$id]);
         } else {
             // МЕНЕДЖЕР: Удаляет только пустые черновики (чтобы не плодить мусор)
-            $pdo->prepare("DELETE FROM projects WHERE client_id = ? AND (contract_number = '' OR contract_number IS NULL) AND amount = 0")->execute([$id]);
+            $pdo->prepare("DELETE FROM projects WHERE client_id = ? AND (contract_number = '' OR contract_number IS NULL)")->execute([$id]);
         }
     }
 
@@ -36,7 +36,7 @@ try {
         $check->execute([$id]);
         if (!$check->fetch()) {
             // Создаем пустой черновик, чтобы клиент появился в contracts.php
-            $pdo->prepare("INSERT INTO projects (client_id, contract_number, amount, contract_date) VALUES (?, '', 0, CURDATE())")->execute([$id]);
+            $pdo->prepare("INSERT INTO projects (client_id, contract_number,  contract_date) VALUES (?, '',  CURDATE())")->execute([$id]);
         }
     }
 
