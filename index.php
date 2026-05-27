@@ -141,6 +141,10 @@ if ($sourceFilter === 'Все источники') $sourceFilter = '';
 if ($statusFilter === 'Все статусы')   $statusFilter = '';
 if ($productFilter === 'Все виды')     $productFilter = '';
 
+
+
+
+
 try {
     // Формируем каркас базового запроса с учетом ролей и вкладок (Рабочая/Архив)
     if ($userRole === 'admin') {
@@ -340,6 +344,27 @@ $totalClients = isset($clients) ? count($clients) : 0;
                 <option value="Закупки" <?= $sourceFilter === 'Закупки' ? 'selected' : '' ?>>Закупки</option>
             </select>
         </div>
+       
+         <!-- ФИЛЬТР ПО МЕНЕДЖЕРАМ: Отображается СТРОГО только для Администраторов -->
+<?php if ($userRole === 'admin'): 
+    // Запрашиваем всех активных менеджеров из базы данных для выпадающего списка
+    try {
+        $stmt_m = $pdo->query("SELECT id, login FROM users WHERE role = 'manager' ORDER BY login ASC");
+        $all_managers = $stmt_m->fetchAll() ?: [];
+    } catch (Exception $e) { $all_managers = []; }
+?>
+    <div style="display: flex; flex-direction: column; gap: 4px; width: 180px;">
+        <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Менеджер-фильтр:</label>
+        <select name="manager_id" style="padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px; box-sizing: border-box; width: 100%;">
+            <option value="0" <?= $filterManagerId === 0 ? 'selected' : '' ?>>Все менеджеры</option>
+            <?php foreach ($all_managers as $m): ?>
+                <option value="<?= (int)$m['id'] ?>" <?= $filterManagerId === (int)$m['id'] ? 'selected' : '' ?>>
+                    👤 <?= htmlspecialchars($m['login']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+<?php endif; ?>
 
         <!-- Кнопки управления фильтрацией -->
         <div style="display: flex; gap: 10px; margin-top: 18px;">

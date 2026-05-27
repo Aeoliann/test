@@ -122,16 +122,10 @@ $savedCurrency = 'RUB';
 </a>
 </button>
         </header>
-
-        <div class="table-container">
-
-        <div id="contract-reminder-box" style="display:none; background:#fff1f2; border:2px solid #fb7185; padding:15px; margin:20px; border-radius:12px;">
-        <h3 style="color:#e11d48; margin:0;">🔥 ГОРЯЩИЕ СРОКИ:</h3>
-        <ul id="contract-reminder-list"></ul>
-            </div>
             <table>
                 <thead>
-    <tr style="background: #2b2b40; text-align: left; color: #92929f;">
+           
+       <th style="padding: 12px;">Дата</th>
         <th style="padding: 12px;">Клиент</th>
         <th style="padding: 12px;">№ Договора</th>
         <th style="padding: 12px;">Тип продукции</th>
@@ -174,7 +168,7 @@ $savedCurrency = 'RUB';
     <?php if ($isNewGroup): ?>
         <!-- Заголовок группы клиента (Растягиваем строго на 8 колонок) -->
         <tr style="background: #1b1b28; font-weight: bold; border-left: 4px solid #4f46e5;">
-            <td colspan="8" style="padding: 12px 20px; color: #fff; font-size: 14px; text-align: left;">
+            <td colspan="10" style="padding: 12px 20px; color: #fff; font-size: 14px; text-align: left;">
                 <span style="color:#fff;">🏢 КЛИЕНТ: <?= htmlspecialchars($r['client_name']) ?></span>
                 <span style="color: #64748b; font-size: 11px; margin-left: 10px; font-weight: normal;">(Все договоры клиента)</span>
                 <button type="button" 
@@ -317,7 +311,7 @@ $savedCurrency = 'RUB';
 <tfoot style="background: #1a1a26; font-weight: bold; border-top: 2px solid #4f46e5;">
     <tr>
         <!-- Пропускаем первые 6 колонок, чтобы надпись встала перед суммами -->
-        <td colspan="6" style="text-align: right; padding: 15px; color: #92929f; font-size: 13px;">
+        <td colspan="10" style="text-align: right; padding: 15px; color: #92929f; font-size: 13px;">
             ИТОГО ПО ВСЕМ КЛИЕНТАМ:
         </td>
         
@@ -346,7 +340,9 @@ $savedCurrency = 'RUB';
             </h2>
         </div>
 
-        <form id="contractForm" class="p-24" style="margin: 0; padding: 0;">
+        <!-- ИСПРАВЛЕНО: Прямая, безотказная отправка данных на сервер в обход ломающегося JS -->
+<form id="contractForm" class="p-24" method="POST" action="save_project.php" style="margin: 0; padding: 0;">
+
             <input type="hidden" id="modal_client_id" name="client_id">
             
             <!-- Сетка: Номер и Дата (Выровнены в один ряд) -->
@@ -1235,7 +1231,7 @@ document.getElementById('contractForm').onsubmit = async function(e) {
         fd.append('project_id', modal.dataset.pid);
     }
 
-    const res = await fetch('save_new_contract.php', { method: 'POST', body: fd });
+    const res = await fetch('save_project.php', { method: 'POST', body: fd });
     if ((await res.json()).status === 'success') {
         window.location.href = 'contracts.php'; // Перезагружаем страницу без параметров
     }
