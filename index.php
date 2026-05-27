@@ -447,21 +447,19 @@ $totalClients = isset($clients) ? count($clients) : 0;
 
     <tbody>
              <?php $i = 1; foreach ($clients as $c): 
-            // ИСПРАВЛЕНО: Уведомление срабатывает, если до контакта осталось от 0 до 3 дней (или уже просрочено)
-            $isOverdue = false;
-            if ($c['status'] !== 'Отказ' && !empty($c['next_contact_date'])) {
-                $currentDate = strtotime(date('Y-m-d'));
-                $contactDate = strtotime($c['next_contact_date']);
-                
-                // Считаем чистую разницу в днях
-                $daysDiff = ($contactDate - $currentDate) / 86400;
-                
-                // Если дата уже прошла (меньше 0) или наступит в ближайшие 3 дня
-                if ($daysDiff <= 3) {
-                    $isOverdue = true;
-                }
-            }
-        ?>
+    $isOverdue = false;
+    if ($c['status'] !== 'Отказ' && !empty($c['next_contact_date'])) {
+        $currentDate = strtotime(date('Y-m-d'));
+        $contactDate = strtotime($c['next_contact_date']);
+        
+        $daysDiff = ($contactDate - $currentDate) / 86400;
+        
+        // Сработает на: сегодня, завтра, +6 дней вперед и любую прошлую просрочку
+        if ($daysDiff <= 6) {
+            $isOverdue = true;
+        }
+    }
+?>
 
         <tr data-id="<?= $c['id'] ?>" class="<?= $isOverdue ? 'reminder-row' : '' ?>">
             <td><?= $i++ ?></td>
@@ -1063,38 +1061,67 @@ if (isset($_SESSION['user_id'])) {
     $remindList = $remStmt->fetchAll();
     $remindCount = count($remindList);
 ?>
-    <div id="crmReminderWidget" style="position: fixed; bottom: 20px; right: 20px; z-index: 999999; font-family: sans-serif;">
-        <!-- Круглая кнопка (Если задачи есть — оранжевая, если нет — серая) -->
-        <div onclick="toggleReminderBoxWindow()" style="background: <?= $remindCount > 0 ? '#f6ad55' : '#3f3f46' ?>; color: <?= $remindCount > 0 ? '#151521' : '#fff' ?>; width: 55px; height: 55px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-weight: bold; font-size: 16px; user-select: none;">
-            🔔 <?php if ($remindCount > 0): ?>
-                <span style="position: absolute; top: 0; right: 0; background: #ef4444; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 10px; border: 2px solid #1e1e2d;"><?= $remindCount ?></span>
+    <?php
+// 1. ВСТРОЕННЫЙ СЕРВЕРНЫЙ ДВИЖОК ВЫБОРКИ ДЛЯ ВИДЖЕТА (ПРОСРОЧКА + 6 ДНЕЙ ВПЕРЕД)
+try {
+    if ($userRole === 'admin') {
+        $remind_stmt = $pdo->prepare("SELECT * FROM clients 
+            WHERE status != 'Отказ' 
+              AND next_contact_date IS NOT NULL 
+              AND next_contact_date <= DATE_ADD(CURDATE(), INTERVAL 4 DAY)
+            ORDER BY next_contact_date ASC LIMIT 5");
+        $remind_stmt->execute();
+    } else {
+        $remind_stmt = $pdo->prepare("SELECT * FROM clients 
+            WHERE manager_id = ? 
+              AND status != 'Отказ' 
+              AND next_contact_date IS NOT NULL 
+              AND next_contact_date <= DATE_ADD(CURDATE(), INTERVAL 4 DAY)
+            ORDER BY next_contact_date ASC LIMIT 5");
+        $remind_stmt->execute([$userId]);
+    }
+    $remindList = $remind_stmt->fetchAll() ?: [];
+} catch (Exception $e) { 
+    $remindList = []; 
+}
+
+$remindCount = count($remindList);
+?>
+
+<!-- 2. ВИЗУАЛЬНЫЙ БЛОК ИНТЕРАКТИВНОГО ВИДЖЕТА С СУПЕР-ПАСПОРТОМ НА 6 ДНЕЙ -->
+<div id="crmReminderWidget" style="position: fixed; bottom: 20px; right: 20px; z-index: 999999; font-family: sans-serif;">
+    
+    <!-- Круглая кнопка (Если задачи есть — оранжевая, если нет — серая) -->
+    <div onclick="toggleReminderBoxWindow()" style="background: <?= $remindCount > 0 ? '#f6ad55' : '#3f3f46' ?>; color: <?= $remindCount > 0 ? '#151521' : '#fff' ?>; width: 55px; height: 55px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-weight: bold; font-size: 16px; user-select: none; position: relative;">
+        🔔 <?php if ($remindCount > 0): ?>
+            <span style="position: absolute; top: 0; right: 0; background: #ef4444; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 10px; border: 2px solid #1e1e2d;"><?= $remindCount ?></span>
+        <?php endif; ?>
+    </div>  
+
+    <!-- Окно со списком фирм (ИСПРАВЛЕНО под коридор дедлайнов на неделю) -->
+    <div id="crmReminderBox" style="display: none; position: absolute; bottom: 65px; right: 0; width: 320px; background: #1e1e2d; border: 1px solid #323248; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); padding: 15px; box-sizing: border-box; flex-direction: column; gap: 10px;">
+        <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #f6ad55; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-bottom: 1px solid #323248; padding-bottom: 5px;">
+            <?= $remindCount > 0 ? '🔥 Горящие контакты (≤ 4 дн.):' : '✅ Все контакты обработаны' ?>
+        </h4>
+        
+        <div style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+            <?php if ($remindCount > 0): ?>
+                <?php foreach ($remindList as $item): 
+                    $isOverdue = (strtotime($item['next_contact_date']) < strtotime(date('Y-m-d')));
+                ?>
+                    <div style="background: #151521; padding: 8px 10px; border-radius: 6px; border-left: 3px solid <?= $isOverdue ? '#f56565' : '#f6ad55' ?>; text-align: left;">
+                        <div style="font-size: 12px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?= htmlspecialchars($item['client_name']) ?></div>
+                        <div style="font-size: 10px; color: <?= $isOverdue ? '#f56565' : '#92929f' ?>; margin-top: 2px;">
+                            <?= $isOverdue ? 'Просрочено: ' : 'Дата контакта: ' ?><?= date('d.m.Y', strtotime($item['next_contact_date'])) ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <span style="color: #64748b; font-size: 12px; padding: 10px 0; display: block; text-align: center;">Все клиенты обработаны вовремя!</span>
             <?php endif; ?>
         </div>
-
-        <!-- Окно со списком фирм -->
-        <div id="crmReminderBox" style="display: none; position: absolute; bottom: 65px; right: 0; width: 320px; background: #1e1e2d; border: 1px solid #323248; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); padding: 15px; box-sizing: border-box; flex-direction: column; gap: 10px;">
-            <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #f6ad55; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-bottom: 1px solid #323248; padding-bottom: 5px;">
-                <?= $remindCount > 0 ? '🔥 Горящие контакты:' : '✅ Нет задач на сегодня' ?>
-            </h4>
-            
-            <div style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
-                <?php if ($remindCount > 0): ?>
-                    <?php foreach ($remindList as $item): 
-                        $isOverdue = (strtotime($item['next_contact_date']) < strtotime(date('Y-m-d')));
-                    ?>
-                        <div style="background: #151521; padding: 8px 10px; border-radius: 6px; border-left: 3px solid <?= $isOverdue ? '#f56565' : '#f6ad55' ?>; text-align: left;">
-                            <div style="font-size: 12px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?= htmlspecialchars($item['client_name']) ?></div>
-                            <div style="font-size: 10px; color: <?= $isOverdue ? '#f56565' : '#92929f' ?>; margin-top: 2px;">
-                                <?= $isOverdue ? 'Просрочено: ' : 'Дата контакта: ' ?><?= date('d.m.Y', strtotime($item['next_contact_date'])) ?>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <span style="color: #64748b; font-size: 12px; padding: 10px 0; display: block; text-align: center;">Все клиенты обработаны вовремя!</span>
-                <?php endif; ?>
-            </div>
-        </div>
     </div>
+</div>
 
     <script>
     function toggleReminderBoxWindow() {

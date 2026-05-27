@@ -168,7 +168,7 @@ $savedCurrency = 'RUB';
     <?php if ($isNewGroup): ?>
         <!-- Заголовок группы клиента (Растягиваем строго на 8 колонок) -->
         <tr style="background: #1b1b28; font-weight: bold; border-left: 4px solid #4f46e5;">
-            <td colspan="10" style="padding: 12px 20px; color: #fff; font-size: 14px; text-align: left;">
+            <td colspan="10" style="padding: 12px 30px; color: #fff; font-size: 14px; text-align: left;">
                 <span style="color:#fff;">🏢 КЛИЕНТ: <?= htmlspecialchars($r['client_name']) ?></span>
                 <span style="color: #64748b; font-size: 11px; margin-left: 10px; font-weight: normal;">(Все договоры клиента)</span>
                 <button type="button" 
@@ -181,8 +181,12 @@ $savedCurrency = 'RUB';
         </tr>
         <?php $lastClient = $r['client_name']; ?>
     <?php endif; ?>
-
-    <tr style="border-bottom: 1px solid #2b2b40;" data-id="<?= $r['pid'] ?>">
+<tr data-pid="<?= (int)$r['pid'] ?>">
+    <!-- 1. Столбец "ДАТА" (Выводим дату создания договора или проекта) -->
+    <td style="text-align: center; color: #64748b; font-size: 13px;">
+        <?= date('d.m.Y', strtotime($r['created_at'] ?? date('Y-m-d'))) ?>
+    </td>
+   
         <!-- 1. Колонна КЛИЕНТ (пустая для структуры групп) -->
         <td style="padding: 12px; border-right: 1px solid #2b2b40;"></td>
         
@@ -247,7 +251,7 @@ $savedCurrency = 'RUB';
         </td>
 
         <!-- 8. Мультивалютный пересчет -->
-        <td style="padding: 12px; text-align: right; white-space: nowrap; padding-right: 20px;">
+        <td style="padding: 12px; text-align: right; white-space: nowrap; padding-right: 20px; width: 100%;">
             <strong class="js-converted-value" data-id="<?= $r['pid'] ?>" style="color: #10b981; font-size: 14px; margin-right: 5px;">
                 <?= number_format($convertedSum, 2, '.', ' ') ?>
             </strong>
@@ -265,8 +269,8 @@ $savedCurrency = 'RUB';
 <!-- КОЛОНКА «СКАН ДОГОВОРА» — СТРОГО НА СВОЕМ МЕСТЕ (№32 + №37) -->
 <!-- АВТОНОМНЫЙ ВЫВОД СКАНА ДОГОВОРА ЧЕРЕЗ ПРЯМОЙ ОПРОС БД (ЗАДАЧА №32) -->
 <!-- ОКОНЧАТЕЛЬНЫЙ ВЫВОД СКАНА ДОГОВОРА СТРОГО ПО КЛЮЧАМ PID И CONTRACT_FILE (№32) -->
-<td style="padding: 12px; text-align: center; border: 1px solid #2b2b40;">
-    <div style="display: inline-flex; align-items: center; gap: 8px; justify-content: center;">
+<td style="padding: 12  px; text-align: center; border: 1px solid #2b2b40;">
+    <div style="display: inline-flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding-right: 15px;">
         <?php
         $currentRecord = isset($r) ? $r : (isset($row) ? $row : []);
         $projectId    = isset($currentRecord['pid']) ? (int)$currentRecord['pid'] : 0;
@@ -297,13 +301,13 @@ $savedCurrency = 'RUB';
                    onchange="if(!this.files||!this.files.length)return; const fd=new FormData(); fd.append('pid',<?= $projectId ?>); fd.append('contract_pdf',this.files[0]); const path=window.location.pathname; const url=path.substring(0,path.lastIndexOf('/'))+'/upload_scan.php'; fetch(url,{method:'POST',body:fd}).then(r=>r.json()).then(res=>{ if(res.status==='success'){ window.location.reload(); }else{ alert('Ответ сервера:\n'+res.message); window.location.reload(); } }).catch(err=>alert('Ошибка сети или размера файла'));return false;">
         <?php endif; ?>
     </div>
-    <div style="color: #92929f; font-size: 11px; margin-top: 2px;">от <?= !empty($r['contract_date']) ? date('d.m.Y', strtotime($r['contract_date'])) : date('d.m.Y') ?></div>
+ 
 </td>
 
     </div>
         </div>
     </div>
-    <div style="color: #92929f; font-size: 11px; margin-top: 2px;">от <?= date('d.m.Y', strtotime($r['contract_date'])) ?></div>
+
 </td>
 
     <?php endforeach; ?>
@@ -1190,7 +1194,7 @@ async function closeContractModal() {
             console.error("Ошибка при отмене контракта:", err);
         }
     }
-    window.location.href = 'index.php';
+    window.location.href = 'contracts.php';
 }
 async function openTtnManager(pid, label) {
     console.log('открываем ТТН менеджер для договора с ID:', pid);
