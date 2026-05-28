@@ -15,7 +15,14 @@ $sql = "SELECT u.id, u.login, u.role, u.full_name, u.password,
         FROM users u";
 $stmt = $pdo->query($sql);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+
+
 ?>
+
+
+
 
 <!DOCTYPE html>
 <html lang="ru">
