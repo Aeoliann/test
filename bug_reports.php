@@ -133,7 +133,7 @@ try {
             </div>
 
             <h2 style="font-size: 18px; margin-bottom: 15px;">📋 Список зарегистрированных тикетов</h2>
-            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d;">
+            <div style="max-height: 450px; overflow-y: auto; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d;">
                 <table class="bug-table">
                     <thead>
                         <tr>

@@ -303,23 +303,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
 </head>
 <body>
     <!-- ИДЕАЛЬНОЕ ВЕРТИКАЛЬНОЕ МЕНЮ СИСТЕМЫ -->
-<div class="crm-sidebar-menu" style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 260px; background: #1e1e2d; padding: 15px; border-radius: 12px; border: 1px solid #323248; box-sizing: border-box;">
+
     <?php include 'sidebar.php'; ?>
    
-</div>
+
 
 <!-- СТИЛИ ДЛЯ КРАСИВОГО ХОВЕРА (НАВЕДЕНИЯ МЫШКИ) -->
 <style>
-    .crm-sidebar-menu a:hover {
-        filter: brightness(1.15);
-        transform: translateX(2px);
-    }
+   
 </style>
     <main>
 
         <header style =" background-color: #151521 !important;
     background: #151521 !important;
-    border-bottom: 1px solid #323248 !important;">
+    border-bottom: 1px solid #323248 !important; margin-left: 15px;">
           
        <button onclick="openAddModal()" class="btn-primary">+ Добавить клиента</button>
     <button type="button" onclick="openComplexModal();" style="background: #818cf8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#6366f1';" onmouseout="this.style.background='#818cf8';">
@@ -411,9 +408,7 @@ function closeComplexModal() {
     document.getElementById('complexModal').style.display = 'none';
 }
 </script>
-<div style="padding: 0 20px 10px;">
-    <input type="text" id="searchInput" placeholder="Поиск по названию или телефону..." >
-</div>
+
 
             
            <a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
@@ -428,7 +423,7 @@ function closeComplexModal() {
 
 
 <!-- БЛОК ФИЛЬТРАЦИИ ПО ИСТОЧНИКУ -->
-<div class="toolbar" style="background: #1e1e2d; padding: 15px; border-radius: 8px; border: 1px solid #323248; margin-bottom: 20px;">
+<div class="toolbar" style="background: #1e1e2d; padding: 15px; border-radius: 8px; border: 1px solid #323248; margin-bottom: 20px; margin-left:25px;">
     <form method="GET" action="index.php" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin: 0; padding: 0;">
         
         <!-- Сохраняем текущую вкладку (Рабочая база / Архив), чтобы при фильтрации она не сбрасывалась -->
@@ -436,6 +431,8 @@ function closeComplexModal() {
         <?php if ($userRole === 'admin' && $filterManagerId > 0): ?>
             <input type="hidden" name="manager_id" value="<?= $filterManagerId ?>">
         <?php endif; ?>
+
+           
 
         <!-- Фильтр 1: По типу продукции -->
         <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -473,6 +470,19 @@ function closeComplexModal() {
             </select>
         </div>
        
+
+            <div style="display: flex; flex-direction: column; gap: 4px; width: 300 px;">
+    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Быстрый поиск компании:</label>
+    <input type="text" 
+           id="client_live_search" 
+           placeholder="Введите любые сведения, которые помните" 
+           oninput="runLiveClientFilter(this.value)"
+           style="height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px; width: 100%;">
+</div>
+
+
+
+
          <!-- ФИЛЬТР ПО МЕНЕДЖЕРАМ: Отображается СТРОГО только для Администраторов -->
 <?php if ($userRole === 'admin'): 
     // Запрашиваем всех активных менеджеров из базы данных для выпадающего списка
@@ -511,28 +521,28 @@ function closeComplexModal() {
     </ul>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0 30px 0; width: 100%;">
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 5px 0 5px 0; width: 100%;">
     
     <!-- Карточка 1 -->
-    <div style="background: #1e1e2d; padding: 20px; border-radius: 12px; border-left: 4px solid #4f46e5; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+    <div style="background: #1e1e2d; padding: 15px; border-radius: 12px; border-left: 5px solid #4f46e5; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-left:25px; margin-right: 25px;">
         <div style="color: #92929f; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Всего клиентов</div>
         <div style="color: #fff; font-size: 28px; font-weight: bold; line-height: 1;"><?= (int)$stats['total'] ?></div>
     </div>
 
     <!-- Карточка 2 -->
-    <div style="background: #1e1e2d; padding: 20px; border-radius: 12px; border-left: 4px solid #f6ad55; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+    <div style="background: #1e1e2d; padding: 20px; border-radius: 12px; border-left: 4px solid #f6ad55; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-left:25px; margin-right:25px;">
         <div style="color: #92929f; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Новые</div>
         <div style="color: #fff; font-size: 28px; font-weight: bold; line-height: 1;"><?= (int)$stats['in_work'] ?></div>
     </div>
 
     <!-- Карточка 3 -->
-    <div style="background: #1e1e2d; padding: 20px; border-radius: 12px; border-left: 4px solid #f56565; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+    <div style="background: #1e1e2d; padding: 20px; border-radius: 12px; border-left: 4px solid #f56565; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-left:25px; margin-right: 25px;">
         <div style="color: #92929f; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Отказы</div>
         <div style="color: #fff; font-size: 28px; font-weight: bold; line-height: 1;"><?= (int)$stats['refusals'] ?></div>
     </div>
 
     <!-- Карточка 4 -->
-    <div style="background: #1e1e2d; padding: 20px; border-radius: 12px; border-left: 4px solid #10b981; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+    <div style="background: #1e1e2d; padding: 20px; border-radius: 12px; border-left: 4px solid #10b981; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-left:25px; margin-right:25px;">
         <div style="color: #92929f; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Заключено сделок</div>
         <div style="color: #fff; font-size: 28px; font-weight: bold; line-height: 1;"><?= (int)$stats['signed'] ?></div>
     </div>
@@ -545,7 +555,7 @@ function closeComplexModal() {
     <!-- Сохраняем manager_filter в ссылках, чтобы при переключении вкладок админский фильтр не сбрасывался -->
     <?php $mQuery = $filterManagerId > 0 ? '&manager_filter=' . $filterManagerId : ''; ?>
     
-    <a href="index.php?tab=active<?= $mQuery ?>" style="text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; background: <?= $tab === 'active' ? '#4f46e5' : '#1e1e2d' ?>; color: #fff; border: 1px solid <?= $tab === 'active' ? '#4f46e5' : '#323248' ?>; transition: 0.15s;">
+    <a href="index.php?tab=active<?= $mQuery ?>" style="text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 13px;  font-weight: bold; background: <?= $tab === 'active' ? '#4f46e5' : '#1e1e2d' ?>; color: #fff; border: 1px solid <?= $tab === 'active' ? '#4f46e5' : '#323248' ?>; transition: 0.15s;">
         💼 Рабочая база клиентов
     </a>
     
@@ -718,7 +728,7 @@ function closeComplexModal() {
             <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Статус <span style="color:red;">*</span></label>
             <select id="status" name="status" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
                 <option value="Новый">Новый</option>
-               
+                <option value="В работе">В работе</option>
                 <option value="Отказ">Отказ</option>
             </select>
         </div>
@@ -850,6 +860,32 @@ document.addEventListener("DOMContentLoaded", function() {
 </div>
     </main>
     <script>
+// ЖИВОЙ ФИЛЬТР: Фильтрация строк таблицы по первой и любым последующим буквам
+function runLiveClientFilter(searchQuery) {
+    // Переводим поисковый запрос в нижний регистр для игнорирования регистра
+    const query = searchQuery.toLowerCase().trim();
+    
+    // Находим все рабочие строки клиентов в нашей таблице базы (исключая шапку)
+    // Убедись, что у тебя у строк клиентов в tbody стоит класс или ищи просто tr внутри tbody
+    const tableRows = document.querySelectorAll("table tbody tr");
+
+    tableRows.forEach(row => {
+        // Ищем ячейку с именем клиента (обычно это второй или третий td, либо элемент с классом)
+        // Если у тебя есть класс на названии компании (например, .cell-name), укажи его, иначе берем текст всей строки
+        const rowText = row.innerText.toLowerCase();
+
+        if (query === "") {
+            // Если поле пустое — показываем вообще всех обратно
+            row.style.display = "";
+        } else if (rowText.includes(query)) {
+            // Если буквы совпали (в любом месте названия) — оставляем строку видимой
+            row.style.display = "";
+        } else {
+            // Если совпадений нет — мгновенно прячем строку с экрана
+            row.style.display = "none";
+        }
+    });
+}
 
         
 async function openProtectedEditModal(id) {
