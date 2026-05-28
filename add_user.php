@@ -8,3 +8,4 @@ if ($_SESSION['role'] === 'admin' && isset($data['login'])) {
     $stmt->execute([$data['login']]);
     echo json_encode(['status' => 'success']);
 }
+?>

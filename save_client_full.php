@@ -24,3 +24,4 @@ if ($id > 0) {
     echo json_encode(['status' => 'error', 'message' => 'ID не передан']);
 }
 exit;
+?>

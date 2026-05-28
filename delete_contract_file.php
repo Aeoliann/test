@@ -29,3 +29,4 @@ if ($pid > 0) {
 
 header("Location: contracts.php");
 exit;
+?>

@@ -15,3 +15,4 @@ $stmt = $pdo->prepare("SELECT * FROM project_ttns WHERE project_id = ? ORDER BY 
 $stmt->execute([$pid]);
 echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
 exit;
+?>

@@ -18,3 +18,4 @@ if ($user && $pass === $user['password']) {
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Неверный логин или пароль']);
 }
+?>

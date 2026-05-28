@@ -95,3 +95,4 @@ foreach ($clients as $c) {
 
 echo "</table></body></html>";
 exit;
+?>

@@ -38,3 +38,4 @@ if ($idToDelete > 0) {
 } else {
     echo json_encode(['status' => 'error', 'message' => 'ID не передан']);
 }
+?>

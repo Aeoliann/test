@@ -10,3 +10,4 @@ try {
 } catch (PDOException $e) {
     die(json_encode(['status' => 'error', 'message' => 'БД: ' . $e->getMessage()]));
 }
+?>

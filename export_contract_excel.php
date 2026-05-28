@@ -90,3 +90,4 @@ echo "<tr style='font-weight:bold; background:#f3f4f6;'>
 
 echo "</table></body></html>";
 exit;
+?>
