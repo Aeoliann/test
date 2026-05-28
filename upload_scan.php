@@ -13,9 +13,11 @@ try {
         throw new Exception("Ошибка авторизации. Доступ запрещен.");
     }
 
-    $projectId = isset($_POST['project_id']) ? (int)$_POST['project_id'] : 0;
-    if ($projectId <= 0) {
-        throw new Exception("Некорректный системный ID контракта.");
+  $projectId = 0;
+    if (isset($_POST['project_id'])) {
+        $projectId = (int)$_POST['project_id'];
+    } elseif (isset($_POST['pid'])) {
+        $projectId = (int)$_POST['pid'];
     }
 
     if (!isset($_FILES['contract_pdf']) || $_FILES['contract_pdf']['error'] !== UPLOAD_ERR_OK) {

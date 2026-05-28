@@ -241,17 +241,9 @@ $savedCurrency = 'RUB';
         <!-- 5. Управление ТТН -->
      <!-- КНОПКА ТТН БЕЗ ЛИШНИХ ПАРАМЕТРОВ -->
 <td style="padding: 12px; text-align: center;">
-    <button type="button" 
-            class="js-open-ttn-window-btn"
-            data-pid="<?= (int)$r['pid'] ?>" 
-            data-name="<?= htmlspecialchars($r['client_name'], ENT_QUOTES, 'UTF-8') ?>"
-            style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;">
-        📦 ТТН (<?php 
-            $c = $pdo->prepare("SELECT COUNT(*) FROM project_ttns WHERE project_id = ?"); 
-            $c->execute([$r['pid']]); 
-            echo $c->fetchColumn(); 
-        ?>)
-    </button>
+    <button type="button" onclick="openTtnManager(<?= (int)$r['pid'] ?>, '<?= htmlspecialchars($r['client_name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($r['product_type'], ENT_QUOTES) ?>')" style="background: #323248; color: #fff; border: 1px solid #4f46e5; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+    📦 ТТН (<?= (int)($r['ttn_count'] ?? 0) ?>)
+</button>
 </td>
 
 
@@ -449,8 +441,15 @@ $savedCurrency = 'RUB';
             
             <input type="number" id="new_ttn_amount" step="0.01" placeholder="Сумма по ТТН (в BYN)" style="width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; box-sizing: border-box;">
             <input type="number" id="new_ttn_quantity" placeholder="Количество продукции (шт)" style="width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; box-sizing: border-box;">
-            <input type="text" id="new_ttn_prod" placeholder="Спецификация (что отгружаем)" style="width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; box-sizing: border-box;">
-            
+             <div style="display: flex; flex-direction: column; gap: 4px; flex: 2; min-width: 200px;">
+    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Спецификация (Товар):</label>
+    <input type="text" 
+           name="product_info" 
+           value="<?= htmlspecialchars($project['product_type'] ?? ($project_data['product_type'] ?? ($r['product_type'] ?? 'Сантехника'))) ?>" 
+           readonly 
+           style="height: 42px; padding: 0 12px; background: #1a1a24; border: 1px solid #323248; color: #818cf8; border-radius: 6px; outline: none; font-size: 14px; font-weight: bold; box-sizing: border-box; width: 100%; cursor: not-allowed;" 
+           title="Данные автоматически подтянуты из связанного договора. Изменение запрещено.">
+</div>
             <!-- Чистая кнопка отправки с вызовом защищенной функции -->
             <button type="button" id="ttnActionBtn" onclick="saveTtnRecord();" style="background: #10b981; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; margin-top: 5px; transition: background 0.15s; width: 100%;">
                 Добавить в рамках контракта
@@ -806,27 +805,19 @@ document.addEventListener('click', function(e) {
         loadProjectTtns(pid);
     }
 });
-
-   function openTtnManager(pid, label) {
-    console.log("Открываю менеджер ТТН для договора ID:", pid);
+function openTtnManager(projectId, clientName, productType) {
+    console.log("Открытие ТТН менеджера для проекта:", projectId, "Продукция:", productType);
     
-    const modal = document.getElementById('ttnManagerModal');
-    const storage = document.getElementById('ttn_pid_storage');
-    const labelEl = document.getElementById('ttnContractLabel');
-
-    if (!modal || !storage) {
-        alert("Критическая ошибка: Элементы модального окна ТТН не найдены!");
-        return;
+    // Твои старые строки открытия модального окна (display = 'flex' и т.д.) остаются без изменений
+    
+    // ТОЧЕЧНЫЙ ВПРЫСК: Находим инпут спецификации и принудительно вставляем вид продукции
+    const ttnProductInput = document.getElementById('ttn_modal_product_type');
+    if (ttnProductInput) {
+        ttnProductInput.value = productType || 'Прочее';
     }
-
-    storage.value = pid;
-    if (labelEl) labelEl.innerText = "Клиент: " + label;
-    
-    modal.style.display = 'flex';
-    loadProjectTtns(pid);
-}
+}   
 async function executeSingleTtnSave() {
-    console.log("Запущен уникальный движок сохранения ТТН...");
+    console.log("Запущен уникальный движок сох  ранения ТТН...");
     
 
 let isTtnSendingNow = false;
@@ -1211,8 +1202,9 @@ async function closeContractModal() {
     }
     window.location.href = 'contracts.php';
 }
-async function openTtnManager(pid, label) {
-    console.log('открываем ТТН менеджер для договора с ID:', pid);
+
+async function openTtnManager(pid, label, productType) {
+    console.log('Открываем ТТН менеджер для договора с ID:', pid, 'Продукция:', productType);
     
     const modal = document.getElementById('ttnManagerModal');
     const storage = document.getElementById('ttn_pid_storage');
@@ -1221,12 +1213,24 @@ async function openTtnManager(pid, label) {
         alert("Ошибка: элементы модального окна ТТН не найдены в HTML!");
         return;
     }
+    
     storage.value = pid; 
+    
+    // БРОНЕБОЙНЫЙ ВПРЫСК: Ищем инпут по атрибуту name="product_info" внутри модалки
+    const specInput = modal.querySelector('input[name="product_info"]');
+    if (specInput) {
+        specInput.value = ""; // Тотальный сброс кэша
+        specInput.value = productType ? productType.trim() : 'Прочее';
+        specInput.readOnly = true; // Защита от ручного ввода на уровне JS
+        specInput.style.cursor = 'not-allowed';
+        specInput.style.color = '#818cf8';
+        console.log("Жесткий инжект спецификации выполнен! Записано:", specInput.value);
+    } else {
+        console.error("Варнинг: Инпут с name='product_info' не найден внутри #ttnManagerModal");
+    }
+    
     loadProjectTtns(pid);
-    modal.style.display ="flex";
-
-
-}
+    modal.style.display = "flex";}
 
 function exportToExcel() {
     // 1. Берем таблицу

@@ -1,32 +1,40 @@
 <?php
-session_start();
+// delete_contract_file.php — Безопасное удаление скана договора из базы Windows XAMPP
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require 'db.php';
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php"); exit;
+    die("Доступ запрещен. Авторизуйтесь.");
 }
 
-$pid = isset($_GET['pid']) ? (int)$_GET['pid'] : 0;
-
-if ($pid > 0) {
-    // 1. Ищем имя файла в базе данных
-    $stmt = $pdo->prepare("SELECT contract_file FROM projects WHERE id = ?");
-    $stmt->execute([$pid]);
-    $fileName = $stmt->fetchColumn();
-
-    if (!empty($fileName)) {
-        $filePath = 'uploads/contracts/' . $fileName;
-        // 2. Физически удаляем файл с диска
-        if (file_exists($filePath)) {
-            @unlink($filePath);
-        }
+try {
+    // 1. ПЕРЕХВАТЫВАЕМ ID ДОГОВОРА ИЗ ССЫЛКИ И ПРИВОДИМ К ЧИСЛУ
+    $pid = isset($_GET['pid']) ? (int)$_GET['pid'] : 0;
+    
+    if ($pid <= 0) {
+        throw new Exception("Критическая ошибка: Некорректный системный ID договора!");
     }
 
-    // 3. Очищаем поле в таблице projects
-    $updateStmt = $pdo->prepare("UPDATE projects SET contract_file = NULL WHERE id = ?");
-    $updateStmt->execute([$pid]);
-}
+    // 2. СНАЧАЛА НАХОДИМ ФАЙЛ НА ДИСКЕ WINDOWS И ФИЗИЧЕСКИ УДАЛЯЕМ ЕГО
+    $stmt_find = $pdo->prepare("SELECT scan_path FROM projects WHERE id = ?");
+    $stmt_find->execute([$pid]);
+    $filePath = $stmt_find->fetchColumn();
 
-header("Location: contracts.php");
-exit;
+    if ($filePath && file_exists($filePath)) {
+        @unlink($filePath); // Удаляем сам pdf-файл из папки uploads
+    }
+
+    // 3. ОБНУЛЯЕМ ПУТЬ К СКАНУ В ТАБЛИЦЕ (ИСПРАВЛЕНО НА ПРАВИЛЬНОЕ ПОЛЕ scan_path)
+    $stmt_update = $pdo->prepare("UPDATE projects SET scan_path = NULL WHERE id = ?");
+    $stmt_update->execute([$pid]);
+
+    // Возвращаем менеджера обратно в раздел контрактов без вылета ошибок
+    header("Location: contracts.php");
+    exit;
+
+} catch (Exception $e) {
+    die("Критический сбой СУБД при удалении файла: " . $e->getMessage());
+}
 ?>
