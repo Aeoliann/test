@@ -241,9 +241,50 @@ $totalClients = isset($clients) ? count($clients) : 0;
 ?>
 
 
+<?php
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_POST['action_type'] === 'create_client_with_contract') {
+    try {
+        // 1. Считываем данные для карточки клиента
+        $client_name    = trim($_POST['client_name'] ?? '');
+        $unp            = trim($_POST['unp'] ?? '');
+        $contact_person = trim($_POST['contact_person'] ?? '');
+        $phone          = trim($_POST['phone'] ?? '');
+        $email          = trim($_POST['email'] ?? '');
+        $source         = trim($_POST['source'] ?? 'Запрос');
+        $ct_type        = trim($_POST['ct_type'] ?? 'Сантехника');
+        $manager_id     = ($userRole === 'admin' && isset($_POST['assigned_manager_id'])) ? (int)$_POST['assigned_manager_id'] : $userId;
 
+        // 2. Считываем данные для договора
+        $contract_number = trim($_POST['contract_number'] ?? '');
+        $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
+        $product_type    = trim($_POST['product_type'] ?? 'Сантехника');
 
+        if (empty($client_name) || empty($contract_number)) {
+            throw new Exception("Критическая ошибка: Имя клиента и номер договора обязательны для заполнения!");
+        }
 
+        // БЕЗОПАСНАЯ ТРАНЗАКЦИЯ MySQL: Создаем клиента
+        $stmt_client = $pdo->prepare("INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, ct_type, manager_id, is_contract_signed, first_contact_date) VALUES (?, ?, ?, ?, ?, 'В работе', ?, ?, ?, 1, CURDATE())");
+        $stmt_client->execute([$client_name, $unp, $contact_person, $phone, $email, $source, $ct_type, $manager_id]);
+        
+        // Перехватываем автоинкрементный ID только что созданной фирмы
+        $new_client_id = (int)$pdo->lastInsertId();
+
+        if ($new_client_id > 0) {
+            // Сразу же создаем договор, намертво связав его с новым ID
+            $stmt_project = $pdo->prepare("INSERT INTO projects (client_id, contract_number, contract_date, product_type) VALUES (?, ?, ?, ?)");
+            $stmt_project->execute([$new_client_id, $contract_number, $contract_date, $product_type]);
+        }
+
+        // Чисто обновляем страницу без зависаний JavaScript
+        header("Location: index.php");
+        exit;
+
+    } catch (Exception $e) {
+        die("Критический сбой СУБД при комплексном создании: " . $e->getMessage());
+    }
+}
+?>
 
 <!DOCTYPE html>
 <html lang="ru">
@@ -281,8 +322,95 @@ $totalClients = isset($clients) ? count($clients) : 0;
     border-bottom: 1px solid #323248 !important;">
           
        <button onclick="openAddModal()" class="btn-primary">+ Добавить клиента</button>
-     
+    <button type="button" onclick="openComplexModal();" style="background: #818cf8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#6366f1';" onmouseout="this.style.background='#818cf8';">
+    💎 Добавить клиента и договор
+</button>
+<div id="complexModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); justify-content: center; align-items: center; z-index: 99999; box-sizing: border-box; padding: 15px;">
+    <div style="background: #1e1e2d; border-radius: 8px; border: 1px solid #323248; padding: 25px; width: 550px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        
+        <h3 style="margin-top: 0; color: #fff; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #323248; padding-bottom: 10px; margin-bottom: 20px;">
+            🗂 Создание контрагента и договора в одной связке
+        </h3>
 
+        <form method="POST" action="index.php" style="margin: 0; padding: 0;">
+            <input type="hidden" name="action_type" value="create_client_with_contract">
+
+            <!-- БЛОК 1: ДАННЫЕ ОРГАНИЗАЦИИ -->
+            <div style="margin-bottom: 15px; display: flex; gap: 15px;">
+                <div style="flex: 2; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Название компании</label>
+                    <input type="text" name="client_name" required placeholder="ООО СантехМонтаж" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">УНП / ИНН</label>
+                    <input type="text" name="unp" placeholder="123456789" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px; display: flex; gap: 15px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Телефон связи</label>
+                    <input type="text" name="phone" placeholder="+375 (...)" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Контактное лицо</label>
+                    <input type="text" name="contact_person" placeholder="Иванов И.И." style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                </div>
+            </div>
+
+            <!-- БЛОК 2: ДАННЫЕ ДОГОВОРА -->
+            <div style="border-top: 1px dashed #323248; padding-top: 15px; margin-bottom: 15px; display: flex; gap: 15px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #818cf8; font-weight: bold; text-transform: uppercase;">№ Нового договора</label>
+                    <input type="text" name="contract_number" required placeholder="Напр: 240/Т" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; border-color: #4f46e5;">
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #818cf8; font-weight: bold; text-transform: uppercase;">Дата заключения</label>
+                    <input type="date" name="contract_date" value="<?= date('Y-m-d') ?>" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; color-scheme: dark; border-color: #4f46e5;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 25px; display: flex; gap: 15px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Вид продукции</label>
+                    <select name="product_type" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">
+                        <option value="Сантехника">Сантехника</option>
+                        <option value="Посуда">Посуда</option>
+                        <option value="Резервуары">Резервуары</option>
+                        <option value="ЕКМ">ЕКМ</option>
+                        <option value="МПДУ">МПДУ</option>
+                        <option value="Эмалированные таблички">Эмалированные таблички</option>
+                        <option value="УОКТ">УОКТ</option>
+                        <option value="Прочее">Прочее</option>
+                    </select>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Источник привлечения</label>
+                    <select name="source" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">
+                        <option value="Запрос">Запрос</option>
+                        <option value="Холодный поиск">Холодный поиск</option>
+                        <option value="Закупки">Закупки</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ПОДВАЛ МОДАЛКИ: КНОПКИ -->
+            <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #323248; padding-top: 15px; background: transparent !important;">
+                <button type="button" onclick="closeComplexModal();" style="height: 40px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">Отмена</button>
+                <button type="submit" style="height: 40px; padding: 0 20px; background: #10b981; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🚀 Создать связку</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openComplexModal() {
+    document.getElementById('complexModal').style.display = 'flex';
+}
+function closeComplexModal() {
+    document.getElementById('complexModal').style.display = 'none';
+}
+</script>
 <div style="padding: 0 20px 10px;">
     <input type="text" id="searchInput" placeholder="Поиск по названию или телефону..." >
 </div>

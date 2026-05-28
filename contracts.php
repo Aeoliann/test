@@ -10,36 +10,36 @@ if (!isset($_SESSION['user_id'])) {
 // АВТОНОМНОЕ СОХРАНЕНИЕ ПРОДУКЦИИ ДЛЯ ДОГОВОРА ВНУТРИ CONTRACTS.PHP
 // =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contract_number'])) {
-    
-    $client_id       = (int)($_POST['client_id'] ?? 0);
-    $contract_number = trim($_POST['contract_number'] ?? '');
-    $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
-    
-    // СЧИТЫВАЕМ тип продукции, выбранный именно в модалке добавления договора
-    // Если менеджер ничего не выбрал, принудительно наследуем базовый тип из карточки клиента clients
-    $product_type = isset($_POST['product_type']) ? trim($_POST['product_type']) : '';
-    
-    if (empty($product_type) && $client_id > 0) {
-        $getProdStmt = $pdo->prepare("SELECT product_type FROM clients WHERE id = ?");
-        $getProdStmt->execute([$client_id]);
-        $product_type = $getProdStmt->fetchColumn() ?: 'Прочее';
-    }
+    try {
+        $client_id       = (int)($_POST['client_id'] ?? 0);
+        $contract_number = trim($_POST['contract_number'] ?? '');
+        $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
+        $product_type    = isset($_POST['product_type']) ? trim($_POST['product_type']) : '';
+        
+        if (empty($product_type) && $client_id > 0) {
+            $getProdStmt = $pdo->prepare("SELECT product_type FROM clients WHERE id = ?");
+            $getProdStmt->execute([$client_id]);
+            $product_type = $getProdStmt->fetchColumn() ?: 'Прочее';
+        }
 
-    if ($client_id > 0 && !empty($contract_number)) {
-        // Жестко пишем product_type в таблицу projects, обеспечивая автономность строки
-        $sql = "INSERT INTO projects (client_id, contract_number, contract_date, product_type) VALUES (?, ?, ?, ?)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$client_id, $contract_number, $contract_date, $product_type]);
+        if ($client_id > 0 && !empty($contract_number)) {
+            $sql = "INSERT INTO projects (client_id, contract_number, contract_date, product_type) VALUES (?, ?, ?, ?)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$client_id, $contract_number, $contract_date, $product_type]);
+            
+            $uClient = $pdo->prepare("UPDATE clients SET is_contract_signed = 1 WHERE id = ?");
+            $uClient->execute([$client_id]);
+        }
         
-        // Переключаем у клиента флаг подписания договора
-        $uClient = $pdo->prepare("UPDATE clients SET is_contract_signed = 1 WHERE id = ?");
-        $uClient->execute([$client_id]);
-        
-        // Мягко перезагружаем страницу, чтобы исключить дублирование при F5
+        // ЧИСТЫЙ ПЕРЕЗАПУСК СТРАНИЦЫ: Браузер сам закроет модалку и обновит таблицу
         header("Location: contracts.php");
         exit;
+
+    } catch (Exception $e) {
+        die("Критический сбой СУБД при создании договора: " . $e->getMessage());
     }
 }
+
 
 $userId = (int)$_SESSION['user_id'];
 $userRole = $_SESSION['role'] ?? 'manager';
@@ -114,7 +114,7 @@ $savedCurrency = 'RUB';
         <header>
             <h2>Учет договоров и проектов</h2>
             <div class="user-info">Вы: <?= $_SESSION['role'] ?></div>
-    <a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
+    <a href="export_contract;excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
    style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s;"
    onmouseover="this.style.background='#059669';" 
    onmouseout="this.style.background='#10b981';">
@@ -175,7 +175,27 @@ $savedCurrency = 'RUB';
         onclick="openAddContractModal(<?= (int)$r['cid'] ?>, '<?= htmlspecialchars($r['client_name'], ENT_QUOTES, 'UTF-8') ?>')" 
         style="background: #4f46e5; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold;">
     + Добавить договор
+    <script>
+             function openAddContractModal(clientId, clientName, projectId = '') {
+    const modal = document.getElementById('contractModal');
+    if (!modal) return;
+
+    document.getElementById('contractForm').reset();
+    document.getElementById('modal_client_id').value = clientId;
+    document.getElementById('modalClientName').innerText = clientName;
+    
+    // Если передали ID проекта (черновика), сохраняем его в форму
+    if (projectId) {
+        modal.dataset.pid = projectId;
+    }
+
+    modal.style.display = 'flex';
+}   
+    </script>
 </button>
+
+
+
 
             </td>
         </tr>
@@ -345,7 +365,9 @@ $savedCurrency = 'RUB';
         </div>
 
         <!-- ИСПРАВЛЕНО: Прямая, безотказная отправка данных на сервер в обход ломающегося JS -->
-<form id="contractForm" class="p-24" method="POST" action="save_project.php" style="margin: 0; padding: 0;">
+<!-- ИСПРАВЛЕНО: Форма отправляет данные напрямую силами браузера, минуя ломающийся JS -->
+<form  id="contractForm" method="POST" action="contracts.php" class="p-24" style="margin: 0; padding: 0;">
+
 
             <input type="hidden" id="modal_client_id" name="client_id">
             
@@ -1090,7 +1112,6 @@ async function uploadTtnPdf(ttnId, pid, input) {
 }
 
 
-
 document.addEventListener('click', function(e) {
     const editBtn = e.target.closest('.js-ttn-edit-btn');
     
@@ -1147,21 +1168,7 @@ document.addEventListener('click', function(e) {
         openAddContractModal(autoOpenId, "Оформление нового договора");
     }
 });
- function openAddContractModal(clientId, clientName, projectId = '') {
-    const modal = document.getElementById('contractModal');
-    if (!modal) return;
 
-    document.getElementById('contractForm').reset();
-    document.getElementById('modal_client_id').value = clientId;
-    document.getElementById('modalClientName').innerText = clientName;
-    
-    // Если передали ID проекта (черновика), сохраняем его в форму
-    if (projectId) {
-        modal.dataset.pid = projectId;
-    }
-
-    modal.style.display = 'flex';
-}
 
 
 // 2. ЗАКРЫТИЕ МОДАЛКИ

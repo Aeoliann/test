@@ -614,7 +614,6 @@ async function deleteUser(id) {
 
 
 
-
 // Запуск строго после полной загрузки страницы
 window.onload = function() {
     checkAllDeadlines();
@@ -737,6 +736,7 @@ window.onclick = function(event) {
     const modal = document.getElementById('clientModal');
     if (event.target == modal) closeModal();
 }
+
 
 // Открыть для редактирования
 function openAddModal() {
