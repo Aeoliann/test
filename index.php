@@ -265,27 +265,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
         $phone          = trim($_POST['phone'] ?? '');
         $email          = trim($_POST['email'] ?? '');
         $source         = trim($_POST['source'] ?? 'Запрос');
-        $ct_type        = trim($_POST['ct_type'] ?? 'Сантехника');
         $manager_id     = ($userRole === 'admin' && isset($_POST['assigned_manager_id'])) ? (int)$_POST['assigned_manager_id'] : $userId;
 
-        // 2. Считываем данные для договора
+        // 2. Считываем данные для договора и синхронизируем тип продукции
         $contract_number = trim($_POST['contract_number'] ?? '');
         $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
-        $product_type    = trim($_POST['product_type'] ?? 'Сантехника');
+        $product_type    = trim($_POST['product_type'] ?? 'Сантехника'); 
 
         if (empty($client_name) || empty($contract_number)) {
             throw new Exception("Критическая ошибка: Имя клиента и номер договора обязательны для заполнения!");
         }
 
-        // БЕЗОПАСНАЯ ТРАНЗАКЦИЯ MySQL: Создаем клиента
-        $stmt_client = $pdo->prepare("INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, ct_type, manager_id, is_contract_signed, first_contact_date) VALUES (?, ?, ?, ?, ?, 'В работе', ?, ?, ?, 1, CURDATE())");
-        $stmt_client->execute([$client_name, $unp, $contact_person, $phone, $email, $source, $ct_type, $manager_id]);
+        // БЕЗОПАСНАЯ ТРАНЗАКЦИЯ MySQL: Записываем $product_type в оба поля карточки клиента для полной совместимости
+        $stmt_client = $pdo->prepare("INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, product_type, ct_type, manager_id, is_contract_signed, first_contact_date) VALUES (?, ?, ?, ?, ?, 'В работе', ?, ?, ?, ?, 1, CURDATE())");
+        $stmt_client->execute([$client_name, $unp, $contact_person, $phone, $email, $source, $product_type, $product_type, $manager_id]);
         
         // Перехватываем автоинкрементный ID только что созданной фирмы
         $new_client_id = (int)$pdo->lastInsertId();
 
         if ($new_client_id > 0) {
-            // Сразу же создаем договор, намертво связав его с новым ID
+            // Намертво связываем этот же тип продукции с договором в projects
             $stmt_project = $pdo->prepare("INSERT INTO projects (client_id, contract_number, contract_date, product_type) VALUES (?, ?, ?, ?)");
             $stmt_project->execute([$new_client_id, $contract_number, $contract_date, $product_type]);
         }
@@ -705,11 +704,17 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
             </td>
             <td>
       <!-- МАКСИМАЛЬНО ПРОСТАЯ И НАДЕЖНАЯ КНОПКА РЕДАКТИРОВАНИЯ -->
+<?php 
+// Жесткое условие блокировки: у клиента есть договор ($c['is_contract_signed'] == 1) и залогинен менеджер
+$isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'manager'); 
+?>
+
 <button type="button" 
         class="btn-edit"
-        onclick="openProtectedEditModal(<?= (int)$c['id'] ?>); return false;"
-        style="background: #4f46e5; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-    Ред.
+        onclick="<?= $isComplexLock ? "alert('⚠️ Доступ ограничен: Карточка заблокирована для редактирования, так как по ней уже заключен договор! Обратитесь к Администратору.'); return false;" : "openProtectedEditModal(" . (int)$c['id'] . "); return false;" ?>"
+        style="background: <?= $isComplexLock ? '#3f3f46' : '#4f46e5' ?>; color: <?= $isComplexLock ? '#92929f' : 'white' ?>; border: none; padding: 4px 10px; border-radius: 4px; cursor: <?= $isComplexLock ? 'not-allowed' : 'pointer' ?>; font-size: 12px; font-weight: bold;"
+        title="<?= $isComplexLock ? 'Редактирование запрещено! Карточка создана в связке с договором.' : 'Редактировать личные данные клиента' ?>">
+    <?= $isComplexLock ? '🔒 Ред.' : '✏️ Ред.' ?>
 </button>
 
 </td>

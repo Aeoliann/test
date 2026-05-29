@@ -1106,7 +1106,6 @@ function editTtn(id, num, date, amount, prod) {
         btn.style.background = '#f6ad55';
     }
 }
-
 // 4. БЕЗВОЗВРАТНОЕ УДАЛЕНИЕ PDF С СЕРВЕРА
 async function deleteTtnPdf(ttnId, pid) {
     if (!confirm("Вы уверены, что хотите БЕЗВОЗВРАТНО удалить PDF-файл?")) return;
