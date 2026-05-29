@@ -1,5 +1,5 @@
 <?php
-// export_contracts_excel.php — Экспорт реестра договоров в Excel под Windows XAMPP
+// export_contracts_excel.php — XLS-экспортер реестра договоров под Windows XAMPP
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -12,8 +12,8 @@ if (!isset($_SESSION['user_id'])) {
 $userRole = $_SESSION['role'] ?? 'manager';
 $userId   = (int)$_SESSION['user_id'];
 
-// 1. СБОР ДАННЫХ ИЗ БАЗЫ С УЧЕТОМ РОЛИ
 try {
+    // Выгружаем договоры с подсчётом ТТН и сумм индивидуально для каждого клиента
     if ($userRole === 'admin') {
         $sql = "SELECT p.*, c.client_name, 
                 (SELECT COUNT(*) FROM project_ttns WHERE project_id = p.id) as ttn_count,
@@ -37,16 +37,15 @@ try {
     }
     $projects = $stmt->fetchAll() ?: [];
 } catch (Exception $e) {
-    die("Ошибка СУБД при формировании отчета: " . $e->getMessage());
+    die("Критическая ошибка СУБД при формировании XLS: " . $e->getMessage());
 }
 
-// 2. СИСТЕМНЫЕ ЗАГОЛОВКИ WINDOWS ДЛЯ СКАЧИВАНИЯ FILE
+// Формируем системные заголовки скачивания для Windows-браузеров
 $filename = "Santeks_Contracts_Report_" . date('Y-m-d_H-i') . ".xls";
 header("Content-Type: application/vnd.ms-excel; charset=utf-8");
 header("Content-Disposition: attachment; filename=\"$filename\"");
 header("Cache-Control: max-age=0");
 
-// Выводим XLS-структуру
 echo "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://w3.org'>";
 echo "<head><meta charset='utf-8'></head><body>";
 echo "<table border='1'>";
@@ -74,15 +73,14 @@ foreach ($projects as $r) {
     echo "<td>" . htmlspecialchars($r['contract_number'] ?? '—') . "</td>";
     echo "<td>" . htmlspecialchars($r['product_type'] ?? 'Прочее') . "</td>";
     echo "<td>" . htmlspecialchars($r['contract_date'] ?? '—') . "</td>";
-    echo "<td style='text-align:center;'>" . (int)$r['ttn_count'] . "</td>";
-    echo "<td style='text-align:center;'>trim" . htmlspecialchars($r['last_ttn_date'] ?? '—') . "</td>";
+    echo "<td style='text-align:center;'> " . (int)$r['ttn_count'] . "</td>";
+    echo "<td style='text-align:center;'>" . htmlspecialchars($r['last_ttn_date'] ?? '—') . "</td>";
     echo "<td style='text-align:right;'>" . number_format($amt, 2, '.', '') . "</td>";
     echo "<td style='text-align:right;'>" . number_format($rub, 2, '.', '') . "</td>";
     echo "</tr>";
 }
 
-// Добавляем строку ИТОГО в конец таблицы файла
-echo "<tr style='font-weight:bold; background:#f3f4f6;'>
+echo "<tr style='font-weight:bold; background:#242434; color:#fff;'>
         <td colspan='7' style='text-align:right;'>ИТОГО ПО ВСЕМ КЛИЕНТАМ:</td>
         <td style='text-align:right;'>" . number_format($totalSumAll, 2, '.', '') . " BYN</td>
         <td></td>
@@ -90,4 +88,3 @@ echo "<tr style='font-weight:bold; background:#f3f4f6;'>
 
 echo "</table></body></html>";
 exit;
-?>
