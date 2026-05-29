@@ -14,7 +14,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 
-
 // Задаем единые сквозные переменные, которые используются и в логике, и в верстке
 $userId    = (int)$_SESSION['user_id'];
 $userRole  = $_SESSION['role'] ?? 'manager';
@@ -23,21 +22,7 @@ $u_id      = $userId;   // Дублируем для старой верстки
 
 // 2. ФИЛЬТРАЦИЯ ПО МЕНЕДЖЕРУ ДЛЯ АДМИНИСТРАТОРА
 $filterManagerId = isset($_GET['manager_id']) ? (int)$_GET['manager_id'] : 0;
-if ($userRole === 'admin') {
-    if ($current_tab === 'refused') {
-        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.status = 'Отказ'";
-    } else {
-        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.status != 'Отказ'";
-    }
-    $params = [];
-} else {
-    if ($current_tab === 'refused') {
-        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.manager_id = ? AND c.status = 'Отказ'";
-    } else {
-        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.manager_id = ? AND c.status != 'Отказ'";
-    }
-    $params = [$userId];
-}
+
 
 
 $filterSource = isset($_GET['source']) ? trim($_GET['source']) : '';
@@ -156,7 +141,22 @@ if ($statusFilter === 'Все статусы')   $statusFilter = '';
 if ($productFilter === 'Все виды')     $productFilter = '';
 
 
-
+// ИСПРАВЛЕНО: Запрос на главной теперь подтягивает реальный тип продукции ИЗ ДОГОВОРА (project_product_type)
+if ($userRole === 'admin') {
+    if ($current_tab === 'refused') {
+        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.status = 'Отказ'";
+    } else {
+        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.status != 'Отказ'";
+    }
+    $params = [];
+} else {
+    if ($current_tab === 'refused') {
+        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.manager_id = ? AND c.status = 'Отказ'";
+    } else {
+        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.manager_id = ? AND c.status != 'Отказ'";
+    }
+    $params = [$userId];
+}
 
 
 try {
@@ -697,7 +697,11 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
 }</script>
 </td>
 
-            <td class="cell-product"><?= htmlspecialchars($c['product_type']) ?></td>
+            <!-- ИСПРАВЛЕНО: Выводим тип продукции привязанного договора вместо дефолтного значения -->
+<td style="color: #92929f !important; text-align: center;">
+    <?= htmlspecialchars($c['product_type'] ?? 'Сантехника') ?>
+</td>
+
             <td>
                 <!-- ИСПРАВЛЕНО: Менеджер больше не может снять ранее поставленную галку контракта -->
 <input type="checkbox" 
