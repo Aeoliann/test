@@ -1,78 +1,37 @@
 <?php
-// save_ttn.php — Полностью исправленный обработчик (Без дублирования)
-session_start();
+// save_ttn.php — Сверхнадёжное асинхронное добавление ТТН под Windows XAMPP
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require 'db.php';
-require 'logger.php';
 
 header('Content-Type: application/json');
-
-// Очищаем случайный буфер вывода (убираем скрытые варнинги PHP)
 if (ob_get_length()) ob_clean();
 
 try {
-    // Получаем входящий JSON поток от JavaScript
-    $json = file_get_contents('php://input');
-    $data = json_decode($json, true);
+    // Читаем входящий JSON-пакет от fetch
+    $rawInput = json_decode(file_get_contents('php://input'), true) ?: [];
+    
+    $project_id   = (int)($_POST['project_id'] ?? ($rawInput['project_id'] ?? 0));
+    $ttn_number   = trim($_POST['ttn_number'] ?? ($rawInput['ttn_number'] ?? ''));
+    $ttn_date     = !empty($_POST['ttn_date']) ? $_POST['ttn_date'] : (!empty($rawInput['ttn_date']) ? $rawInput['ttn_date'] : date('Y-m-d'));
+    $amount       = (float)($_POST['amount'] ?? ($rawInput['amount'] ?? 0.00));
+    $product_info = trim($_POST['product_info'] ?? ($rawInput['product_info'] ?? ''));
 
-    if (!$data) {
-        throw new Exception("Не удалось прочитать входящие данные формы");
+    if ($project_id <= 0 || empty($ttn_number) || $amount <= 0) {
+        throw new Exception("Не заполнены обязательные поля: Номер ТТН или Сумма!");
     }
 
-    $ttnId = isset($data['ttn_id']) ? (int)$data['ttn_id'] : 0;
-  $pid = 0;
-    if (isset($data['project_id'])) {
-        $pid = (int)$data['project_id'];
-    } elseif (isset($data['pid'])) {
-        $pid = (int)$data['pid'];
-    } elseif (isset($_POST['project_id'])) {
-        $pid = (int)$_POST['project_id'];
-    } elseif (isset($_POST['pid'])) {
-        $pid = (int)$_POST['pid'];
-    }
-    $num   = isset($data['ttn_number']) ? trim($data['ttn_number']) : '';
-    $date  = isset($data['ttn_date']) ? trim($data['ttn_date']) : '';
-    $amt   = isset($data['amount']) ? (float)$data['amount'] : 0.00;
-    $prod  = isset($data['product_info']) ? trim($data['product_info']) : '';
-    $qty   = isset($data['product_quantity']) ? (int)$data['product_quantity'] : 0;
+    // БРОНЕБОЙНАЯ ЗАПИСЬ: Пишем только то, что 100% есть в структуре project_ttns
+    $sql = "INSERT INTO project_ttns (project_id, ttn_number, ttn_date, amount, product_info) VALUES (?, ?, ?, ?, ?)";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$project_id, $ttn_number, $ttn_date, $amount, $product_info]);
 
-    // ВАЛИДАЦИЯ ПЕРЕМЕННЫХ
-    if (empty($num)) {
-        throw new Exception("Номер ТТН обязателен для заполнения!");
-    }
-    if (empty($date)) {
-        $date = date('Y-m-d');
-    }
-
-    if ($ttnId > 0) {
-        // ==========================================================
-        // РЕЖИМ РЕДАКТИРОВАНИЯ (UPDATE) — ВЫПОЛНЯЕТСЯ СТРОГО 1 РАЗ
-        // ==========================================================
-        $sql = "UPDATE project_ttns SET ttn_number = ?, ttn_date = ?, amount = ?, product_quantity = ?, product_info = ? WHERE id = ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$num, $date, $amt, $qty, $prod, $ttnId]);
-
-        logAction($pdo, 'UPDATE', 'project_ttns', $ttnId, "Отредактировал ТТН №{$num}. Новая сумма: {$amt} BYN, кол-во: {$qty} шт.");
-    } else {
-        // ==========================================================
-        // РЕЖИМ ДОБАВЛЕНИЯ (INSERT) — ВЫПОЛНЯЕТСЯ СТРОГО 1 РАЗ
-        // ==========================================================
-        if ($pid <= 0) {
-            throw new Exception("Критическая ошибка: Пустой или некорректный ID контракта!");
-        }
-        
-        $sql = "INSERT INTO project_ttns (project_id, ttn_number, ttn_date, amount, product_quantity, product_info) VALUES (?, ?, ?, ?, ?, ?)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$pid, $num, $date, $amt, $qty, $prod]);
-        
-        $newTtnId = $pdo->lastInsertId();
-        logAction($pdo, 'INSERT', 'project_ttns', $newTtnId, "Добавил новую ТТН №{$num} на сумму {$amt} BYN, кол-во: {$qty} шт.");
-    }
-
-    // Возвращаем чистый JSON об успехе
     echo json_encode(['status' => 'success']);
+    exit;
+
 } catch (Exception $e) {
-    // Выводим точную техническую причину сбоя в JS-alert
+    // Если упала СУБД, возвращаем ошибку в JSON, чтобы JS не падал в "сбой сети"
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    exit;
 }
-exit;
-?>

@@ -622,22 +622,29 @@ async function renderProjectTtnsList(pid) {
 }
 
 // 2. СВЕРХЗАЩИЩЕННОЕ АСИНХРОННОЕ СОХРАНЕНИЕ (ОТПРАВЛЯЕТ СТРОГО 1 ЗАПРОС НА КЛИК)
+// ИСПРАВЛЕНО: Функция отправляет данные, сбрасывает форму и принудительно обновляет экран для пересчета сумм
+// ИСПРАВЛЕНО: Безопасное считывание полей без падения JS из-за удаленного инпута количества
 async function saveTtnRecord() {
     console.log("Попытка отправки запроса ТТН...");
     
-    // Блокируем повторный вызов, если кликнули дважды
-    if (isTtnSendingLock) {
+    if (typeof isTtnSendingLock !== 'undefined' && isTtnSendingLock) {
         console.warn("Повторный клик заблокирован! Дождитесь ответа базы.");
         return;
     }
 
-    const pid = document.getElementById('ttn_pid_storage').value;
+    const pid   = document.getElementById('ttn_pid_storage').value;
     const ttnId = document.getElementById('edit_ttn_id_storage').value;
-    const num = document.getElementById('new_ttn_num').value.trim();
-    const date = document.getElementById('new_ttn_date').value;
-    const amt = document.getElementById('new_ttn_amount').value.trim();
-    const qty = document.getElementById('new_ttn_quantity').value.trim();
-    const prod = document.getElementById('new_ttn_prod').value.trim();
+    const num   = document.getElementById('new_ttn_num').value.trim();
+    const date  = document.getElementById('new_ttn_date').value;
+    const amt   = document.getElementById('new_ttn_amount').value.trim();
+    
+    // БЕЗОПАСНАЯ КУПИРОВКА: Если инпута количества нет на форме, пишем 0 без вылета скрипта
+    const qtyInput = document.getElementById('new_ttn_quantity');
+    const qty = qtyInput ? qtyInput.value.trim() : 0;
+
+    // Считываем спецификацию из правильного, зафиксированного инпута ttn_specification_fixed
+    const prodInput = document.getElementById('ttn_specification_fixed') || document.getElementById('new_ttn_prod');
+    const prod = prodInput ? prodInput.value.trim() : 'Прочее';
 
     if (!num || !amt) {
         alert("Заполните обязательные поля: Номер ТТН и Сумму отгрузки!");
@@ -645,8 +652,7 @@ async function saveTtnRecord() {
     }
 
     try {
-        // АКТИВИРУЕМ БЛОКИРОВЩИК ЗАПРОСА
-        isTtnSendingLock = true;
+        if (typeof isTtnSendingLock !== 'undefined') isTtnSendingLock = true;
         
         const btn = document.getElementById('ttnActionBtn');
         if (btn) {
@@ -654,44 +660,60 @@ async function saveTtnRecord() {
             btn.innerText = "Запись в базу...";
         }
 
+        // Отправляем JSON-пакет на наш всеядный обработчик
         const res = await fetch('save_ttn.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ ttn_id: ttnId, project_id: pid, ttn_number: num, ttn_date: date, amount: amt, product_quantity: qty, product_info: prod })
+            body: JSON.stringify({ 
+                ttn_id: ttnId, 
+                project_id: parseInt(pid, 10), 
+                ttn_number: num, 
+                ttn_date: date, 
+                amount: parseFloat(amt), 
+                product_quantity: qty, 
+                product_info: prod 
+            })
         });
         
         const result = await res.json();
         
-        // СБРАСЫВАЕМ БЛОКИРОВЩИК после получения ответа
-        isTtnSendingLock = false;
+        if (typeof isTtnSendingLock !== 'undefined') isTtnSendingLock = false;
         if (btn) btn.disabled = false;
 
         if (result.status === 'success') {
-            // Очищаем инпуты
+            // Очищаем существующие инпуты формы отгрузок
             document.getElementById('edit_ttn_id_storage').value = '';
             document.getElementById('new_ttn_num').value = '';
             document.getElementById('new_ttn_amount').value = '';
-            document.getElementById('new_ttn_quantity').value = '';
-            document.getElementById('new_ttn_prod').value = '';
+            if (qtyInput) qtyInput.value = '';
             
-            document.getElementById('ttnFormTitle').innerText = 'Добавить новую отгрузку в рамках контракта:';
+            const oldProdInput = document.getElementById('new_ttn_prod');
+            if (oldProdInput) oldProdInput.value = '';
+            
+            if (document.getElementById('ttnFormTitle')) {
+                document.getElementById('ttnFormTitle').innerText = 'Добавить новую отгрузку в рамках контракта:';
+            }
             if (btn) {
                 btn.innerText = 'Добавить в рамках контракта';
                 btn.style.background = '#10b981';
             }
             
-            // Перерисовываем список накладных в окне
-            renderProjectTtnsList(pid);
+            console.log("ТТН успешно записана в СУБД. Перезагружаем страницу для обновления сумм договора.");
+            window.location.reload();
+            
         } else {
-            alert("Ошибка базы: " + result.message);
+            alert("Ошибка базы данных Windows XAMPP: " + result.message);
         }
     } catch (err) {
-        console.error("Сбой сети:", err);
-        isTtnSendingLock = false;
+        console.error("Сбой сети при отправке ТТН:", err);
+        if (typeof isTtnSendingLock !== 'undefined') isTtnSendingLock = false;
         const btn = document.getElementById('ttnActionBtn');
         if (btn) btn.disabled = false;
+        alert("Критический сбой сети. Посмотрите подробности ошибки в консоли разработчика (F12).");
     }
 }
+
+
 
 // 3. ПОДСТАНОВКА В ФОРМУ ПРИ РЕДАКТИРОВАНИИ (КАРАНДАШ)
 function prepareTtnToEdit(id, num, date, amount, qty, prod) {

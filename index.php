@@ -395,16 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
                         <option value="Прочее">Прочее</option>
                     </select>
                 </div>
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Источник привлечения</label>
-                    <select name="source" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">
-                        <option value="Запрос">Запрос</option>
-                        <option value="Холодный поиск">Холодный поиск</option>
-                        <option value="Закупки">Закупки</option>
-                    </select>
-                </div>
-            </div>
-
+           
             <!-- ПОДВАЛ МОДАЛКИ: КНОПКИ -->
             <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #323248; padding-top: 15px; background: transparent !important;">
                 <button type="button" onclick="closeComplexModal();" style="height: 40px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">Отмена</button>
