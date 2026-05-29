@@ -23,7 +23,21 @@ $u_id      = $userId;   // Дублируем для старой верстки
 
 // 2. ФИЛЬТРАЦИЯ ПО МЕНЕДЖЕРУ ДЛЯ АДМИНИСТРАТОРА
 $filterManagerId = isset($_GET['manager_id']) ? (int)$_GET['manager_id'] : 0;
-
+if ($userRole === 'admin') {
+    if ($current_tab === 'refused') {
+        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.status = 'Отказ'";
+    } else {
+        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.status != 'Отказ'";
+    }
+    $params = [];
+} else {
+    if ($current_tab === 'refused') {
+        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.manager_id = ? AND c.status = 'Отказ'";
+    } else {
+        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.manager_id = ? AND c.status != 'Отказ'";
+    }
+    $params = [$userId];
+}
 
 
 $filterSource = isset($_GET['source']) ? trim($_GET['source']) : '';
@@ -394,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
             <!-- ПОДВАЛ МОДАЛКИ: КНОПКИ -->
             <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #323248; padding-top: 15px; background: transparent !important;">
                 <button type="button" onclick="closeComplexModal();" style="height: 40px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">Отмена</button>
-                <button type="submit" style="height: 40px; padding: 0 20px; background: #10b981; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🚀 Создать связку</button>
+                <button type="button" class="btn-contract-save"; onclick="this.form.submit()";style="height: 40px; padding: 0 20px; background: #10b981; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🚀 Создать связку</button>
             </div>
         </form>
     </div>
@@ -801,6 +815,10 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
             <textarea id="comment" name="comment" placeholder="Введите примечание..." style="width: 100%; height: 100px; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; resize: vertical; font-family: sans-serif;"></textarea>
         </div>
     </div>
+<!-- ИСПРАВЛЕНО: Скрытый транзит истории комментариев для защиты от затирания при редактировании -->
+<input type="hidden" id="modal_client_hidden_comment" name="comment">
+
+<input type="hidden" id="modal_client_hidden_comment" name="comment">
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
@@ -994,7 +1012,12 @@ async function openProtectedEditModal(id) {
         if(document.getElementById('first_contact_date')) document.getElementById('first_contact_date').value = c.first_contact_date || '';
         if(document.getElementById('next_contact_date')) document.getElementById('next_contact_date').value = c.next_contact_date || '';
         if(document.getElementById('status')) document.getElementById('status').value = c.status || '';
-        
+                  // БРОНЕБОЙНЫЙ АВТОПОДБОР ДЛЯ ПОЛЯ КОММЕНТАРИЯ (comment или client_comment)
+        const commentField = document.getElementById('comment') || document.getElementById('client_comment');
+        if (commentField) {
+            commentField.value = c.comment || '';
+            console.log("Текущий комментарий успешно подтянут в форму редактирования контрагента.");
+        }
         // БРОНЕБОЙНЫЙ АВТОПОДБОР ДЛЯ ПОЛЯ ИСТОЧНИКА
        const sourceField = document.getElementById('source') || document.getElementById('client_source');
 if (sourceField) {
@@ -1011,6 +1034,12 @@ if (sourceField) {
         console.error("Сбой fetch при запросе клиента:", err);
         alert("Не удалось загрузить данные клиента. Проверьте файл get_client.php");
     }
+
+  
+
+
+
+
 }
 // Сохранение (обработка формы)
 document.getElementById('clientForm').onsubmit = async function(e) {
