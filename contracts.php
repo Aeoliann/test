@@ -122,7 +122,11 @@ $savedCurrency = 'RUB';
 </a>
 </button>
         </header>
-            <table>
+
+
+<div style="max-height: 1024px; overflow-y: auto; width: 100% !important; border: 1px solid #323248; border-radius: 8px;">
+    
+    <table class="tasks-table" style="width: 100% !important; border-collapse: collapse; margin: 0;">
                 <thead>
            
        <th style="padding: 12px;">Дата</th>

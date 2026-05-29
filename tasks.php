@@ -42,6 +42,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Первым делом читаем сырой JSON поток, если JavaScript шлёт fetch
+    $rawInput = json_decode(file_get_contents('php://input'), true) ?: [];
+    
+    $action = $_POST['action'] ?? ($rawInput['action'] ?? '');
+    $t_id   = (int)($_POST['id'] ?? ($rawInput['id'] ?? 0));
+    $report = trim($_POST['report'] ?? ($rawInput['report'] ?? ''));
+
+    // 1. ПОДПРОГРАММА: Асинхронное сохранение отчета менеджера по задаче
+    if ($action === 'update_task_report') {
+        header('Content-Type: application/json');
+        if (ob_get_length()) ob_clean();
+        try {
+            if ($t_id <= 0) {
+                throw new Exception("Критическая ошибка: Некорректный ID задачи!");
+            }
+            
+            // Жестко фиксируем текст отчета в базе данных Windows XAMPP
+            $stmt = $pdo->prepare("UPDATE tasks SET manager_comment = ? WHERE id = ?");
+            $stmt->execute([$report, $t_id]);
+            
+            echo json_encode(["status" => "success"]); 
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(["status" => "error", "message" => $e->getMessage()]); 
+            exit;
+        }
+    }
+
+    // 2. ПОДПРОГРАММА: Классическая отправка новой задачи из формы (для Админа)
+    if (isset($_POST['task_text'])) {
+        if ($u_role !== 'admin') {
+            die("Критическая ошибка безопасности: У вашей роли нет прав на создание задач!");
+        }
+        
+        $task_text   = trim($_POST['task_text']);
+        $assigned_to = isset($_POST['assigned_to']) ? (int)$_POST['assigned_to'] : $userId;
+        $due_date    = !empty($_POST['due_date']) ? $_POST['due_date'] : date('Y-m-d');
+        
+        if (!empty($task_text)) {
+            $stmt = $pdo->prepare("INSERT INTO tasks (task_text, assigned_to, due_date, created_by, status) VALUES (?, ?, ?, ?, 'pending')");
+            $stmt->execute([$task_text, $assigned_to, $due_date, $userId]);
+            header("Location: tasks.php");
+            exit;
+        }
+    }
+}
+
 // =========================================================================
 // ИСПРАВЛЕНО: Безопасная смена статуса задачи с мгновенной проверкой отчета
 // =========================================================================
@@ -198,16 +248,26 @@ try {
                                     <?= $isOverdue ? ' <span style="font-size:10px; background:#3d1d1d; padding:2px 4px; border-radius:3px; color:#ef4444;">🔥 СГОРЕЛ</span>' : '' ?>
                                 </td>
 
-                                <td>
-                                    <?php if ($u_role === 'manager' && !$isComp): ?>
-                                        <input type="text" value="<?= htmlspecialchars($t['manager_comment'] ?? '') ?>" 
-                                               data-task-id="<?= $t['id'] ?>"
-                                               placeholder="Напишите отчет..." class="comment-input" 
-                                               onchange="saveTaskComment(<?= $t['id'] ?>, this.value);">
-                                    <?php else: ?>
-                                        <span style="color: #92929f;"><?= !empty($t['manager_comment']) ? '💬 ' . htmlspecialchars($t['manager_comment']) : '—' ?></span>
-                                    <?php endif; ?>
-                                </td>
+                               <td style="padding: 12px; vertical-align: middle;">
+    <!-- Текстовый вид (виден по умолчанию) -->
+    <div id="report_view_<?= (int)$t['id'] ?>" 
+         onclick="switchToEditReport(<?= (int)$t['id'] ?>)"
+         style="cursor: pointer; color: #10b981; font-size: 13px; font-weight: 500; min-height: 20px; transition: color 0.15s;"
+         title="Кликните, чтобы написать отчет по выполнению задачи"
+         onmouseover="this.style.color='#fff';"
+         onmouseout="this.style.color='#10b981';">
+        <?= !empty($t['manager_comment']) ? '💬 ' . htmlspecialchars($t['manager_comment']) : '<span style="color:#64748b;">Написать отчет...</span>' ?>
+    </div>
+
+    <!-- Поле ввода (скрыто, появляется при клике) -->
+    <input type="text" 
+           id="report_input_<?= (int)$t['id'] ?>" 
+           value="<?= htmlspecialchars($t['manager_comment'] ?? '') ?>" 
+           placeholder="Что было сделано по задаче?..."
+           onblur="saveInlineReport(<?= (int)$t['id'] ?>, this.value)"
+           onkeydown="if(event.key === 'Enter') this.blur();"
+           style="display: none; width: 100%; height: 32px; padding: 0 8px; background: #151521; border: 1px solid #4f46e5; color: #fff; border-radius: 4px; outline: none; box-sizing: border-box; font-size: 13px;">
+</td>
                                 
                                 <td style="color: #92929f !important;">✍ <?= htmlspecialchars($t['creator_name'] ?? 'Админ') ?></td>
                                 <?php if ($u_role === 'admin'): ?><td style="font-weight: bold; color: #a855f7 !important;">👤 <?= htmlspecialchars($t['executor_name'] ?? 'Админ') ?></td><?php endif; ?>
@@ -250,6 +310,44 @@ try {
         }
         return true;
     }
+
+    function switchToEditReport(taskId) {
+    const viewDiv = document.getElementById('report_view_' + taskId);
+    const inputField = document.getElementById('report_input_' + taskId);
+    
+    if (viewDiv && inputField) {
+        viewDiv.style.display = 'none';
+        inputField.style.display = 'block';
+        inputField.focus();
+    }
+}
+
+// Функция 2: AJAX-отправка отчета в базу Windows XAMPP
+async function saveInlineReport(taskId, reportValue) {
+    const viewDiv = document.getElementById('report_view_' + taskId);
+    const inputField = document.getElementById('report_input_' + taskId);
+    const trimmedVal = reportValue.trim();
+
+    if (viewDiv && inputField) {
+        viewDiv.innerHTML = trimmedVal !== '' ? '💬 ' + trimmedVal : '<span style="color:#64748b;">Написать отчет...</span>';
+        inputField.style.display = 'none';
+        viewDiv.style.display = 'block';
+    }
+
+    try {
+        await fetch('tasks.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update_task_report',
+                id: parseInt(taskId, 10),
+                report: trimmedVal
+            })
+        });
+    } catch (err) {
+        console.error("Ошибка связи при сохранении отчета:", err);
+    }
+}
     </script>
 </body>
 </html>

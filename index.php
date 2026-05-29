@@ -501,7 +501,29 @@ function closeComplexModal() {
                 </option>
             <?php endforeach; ?>
         </select>
+    
     </div>
+<?php
+
+$statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
+    // Фильтр №2: По коммерческому статусу лида (Новый, В работе)
+    if (!empty($statusFilter) && $current_tab !== 'refused') {
+        $sql .= " AND status = ?";
+        $params[] = $statusFilter;
+    }
+
+
+?>
+        <!-- Фильтр: Статус лида (Возвращен в систему) -->
+        <div style="display: flex; flex-direction: column; gap: 4px; width: 160px;">
+            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Статус клиента:</label>
+            <select name="status" style="height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px; box-sizing: border-box; width: 100%;">
+                <option value="" <?= empty($statusFilter) ? 'selected' : '' ?>>Все статусы</option>
+                <option value="Новый" <?= $statusFilter === 'Новый' ? 'selected' : '' ?>>🔴 Новый</option>
+                <option value="В работе" <?= $statusFilter === 'В работе' ? 'selected' : '' ?>>🟡 В работе</option>
+            </select>
+        </div>
+
 <?php endif; ?>
 
         <!-- Кнопки управления фильтрацией -->
@@ -621,6 +643,44 @@ function closeComplexModal() {
     style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: #92929f;"
     title="Кликните для просмотра полного комментария">
     <?= htmlspecialchars($c['comment'] ?? '—') ?>
+
+    <script>function openCommentHistoryModal(clientId, clientName) {
+    currentActiveHistoryClientId = clientId;
+    
+    // Находим элементы модалки
+    const modal = document.getElementById('commentHistoryModal');
+    const inputId = document.getElementById('history_modal_client_id');
+    const spanName = document.getElementById('historyModalClientName');
+    const inputField = document.getElementById('new_history_comment_input');
+    const container = document.getElementById('historyLogsContainer');
+    
+    // Находим ячейку с текущим комментарием
+    const viewDiv = document.getElementById('comment_view_' + clientId);
+
+    if (inputId) inputId.value = clientId;
+    if (spanName) spanName.innerText = clientName || '';
+
+    // 1. Вытягиваем всю сырую историю для блока логов
+    const rawHistory = viewDiv ? viewDiv.getAttribute('data-raw-history') : '';
+    if (container) {
+        container.innerText = rawHistory && rawHistory.trim() !== '' ? rawHistory : 'История переговоров пуста.';
+    }
+
+    // 2. ХИРУРГИЧЕСКИЙ ВПРЫСК: Забираем текущий видимый текст ячейки ("раавыы") и шлем в форму
+    if (inputField && viewDiv) {
+        const currentText = viewDiv.innerText.trim();
+        // Если там прочерк — оставляем поле пустым, если текст есть — подставляем для редактирования
+        inputField.value = (currentText === '—') ? '' : currentText;
+    }
+
+    // Показываем окно
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+    if (inputField) {
+        inputField.focus();
+    }
+}</script>
 </td>
 
             <td class="cell-product"><?= htmlspecialchars($c['product_type']) ?></td>
@@ -720,7 +780,7 @@ function closeComplexModal() {
             <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Источник привлечения <span style="color:red;">*</span></label>
             <select id="source" name="source" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
                 <option value="Запрос">Запрос</option>
-                <option value="Холодный звонок">Холодный звонок</option>
+                <option value="Холодный поиск">Холодный поиск</option>
                 <option value="Закупки  ">Закупки</option>
             </select>
         </div>
