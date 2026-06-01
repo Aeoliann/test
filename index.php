@@ -32,7 +32,7 @@ $current_tab = isset($_GET['tab']) ? strtolower(trim($_GET['tab'])) : 'active';
 $tab = $current_tab; // Синхронизируем, чтобы HTML-ссылки понимали активный статус
 
 // Единая логика сортировки: просроченные контакты летят наверх, отказники всегда вниз
-$orderByLogic = "ORDER BY (status != 'Отказ' AND next_contact_date <= CURDATE()) DESC, id DESC";
+$orderByLogic = "ORDER BY (first_contact_date)";
 
 // 4. СБОР СТАТИСТИКИ ДЛЯ ПЛАШЕК ДАШБОРДА (БЕЗ ВАРНИНГОВ)
 $stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
@@ -103,7 +103,7 @@ try {
         if ($current_tab === 'refused') {
             $sql = "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'";
         } else {
-            $sql = "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
+            $sql = "SELECT * FROM clients ORDER BY  WHERE manager_id = ? AND status != 'Отказ' ";
         }
         $params = [$userId];
     }
@@ -222,19 +222,19 @@ $stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
 
 try {
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
-        // АДМИН: Считает 'В работе' по всей компании
+        // АДМИН: Считает 'Текущий' по всей компании
         $sql_stats = "SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
+            SUM(CASE WHEN status = 'Текущий' THEN 1 ELSE 0 END) as in_work,
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
         FROM clients";
         $stats = $pdo->query($sql_stats)->fetch() ?: $stats;
     } else {
-        // МЕНЕДЖЕР: Считает 'В работе' только по своим клиентам
+        // МЕНЕДЖЕР: Считает 'Текущий' только по своим клиентам
         $sql_stats = "SELECT 
             COUNT(*) as total,  
-            SUM(CASE WHEN status = 'В работе' THEN 1 ELSE 0 END) as in_work,
+            SUM(CASE WHEN status = 'Текущий' THEN 1 ELSE 0 END) as in_work,
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
         FROM clients WHERE manager_id = ?";
@@ -277,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
         }
 
         // БЕЗОПАСНАЯ ТРАНЗАКЦИЯ MySQL: Записываем $product_type в оба поля карточки клиента для полной совместимости
-        $stmt_client = $pdo->prepare("INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, product_type, ct_type, manager_id, is_contract_signed, first_contact_date) VALUES (?, ?, ?, ?, ?, 'В работе', ?, ?, ?, ?, 1, CURDATE())");
+        $stmt_client = $pdo->prepare("INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, product_type, ct_type, manager_id, is_contract_signed, first_contact_date) VALUES (?, ?, ?, ?, ?, 'Текущий', ?, ?, ?, ?, 1, CURDATE())");
         $stmt_client->execute([$client_name, $unp, $contact_person, $phone, $email, $source, $product_type, $product_type, $manager_id]);
         
         // Перехватываем автоинкрементный ID только что созданной фирмы
@@ -453,6 +453,7 @@ function closeComplexModal() {
                 <option value = "Другое" <?= $productFilter === "Другое" ? 'selected' : '' ?>>Другое</option>                
             </select>
         </div>
+    
         <!-- Фильтр 2: По дате следующего контакта -->
         <div style="display: flex; flex-direction: column; gap: 4px; width: 160px;">
             <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Дата контакта:</label>
@@ -485,6 +486,15 @@ function closeComplexModal() {
 </div>
 
 
+ <!-- Фильтр: Статус лида (Возвращен в систему) -->
+        <div style="display: flex; flex-direction: column; gap: 4px; width: 160px;">
+            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Статус клиента:</label>
+            <select name="status" style="height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px; box-sizing: border-box; width: 100%;">
+                <option value="" <?= empty($statusFilter) ? 'selected' : '' ?>>Все статусы</option>
+                <option value="Новый" <?= $statusFilter === 'Новый' ? 'selected' : '' ?>>🔴 Новый</option>
+                <option value="Текущий" <?= $statusFilter === 'Текущий' ? 'selected' : '' ?>>🟡 Текущий</option>
+            </select>
+        </div>
 
 
          <!-- ФИЛЬТР ПО МЕНЕДЖЕРАМ: Отображается СТРОГО только для Администраторов -->
@@ -510,7 +520,7 @@ function closeComplexModal() {
 <?php
 
 $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
-    // Фильтр №2: По коммерческому статусу лида (Новый, В работе)
+    // Фильтр №2: По коммерческому статусу лида (Новый, Текущий)
     if (!empty($statusFilter) && $current_tab !== 'refused') {
         $sql .= " AND status = ?";
         $params[] = $statusFilter;
@@ -518,16 +528,7 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
 
 
 ?>
-        <!-- Фильтр: Статус лида (Возвращен в систему) -->
-        <div style="display: flex; flex-direction: column; gap: 4px; width: 160px;">
-            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Статус клиента:</label>
-            <select name="status" style="height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px; box-sizing: border-box; width: 100%;">
-                <option value="" <?= empty($statusFilter) ? 'selected' : '' ?>>Все статусы</option>
-                <option value="Новый" <?= $statusFilter === 'Новый' ? 'selected' : '' ?>>🔴 Новый</option>
-                <option value="В работе" <?= $statusFilter === 'В работе' ? 'selected' : '' ?>>🟡 В работе</option>
-            </select>
-        </div>
-
+       
 <?php endif; ?>
 
         <!-- Кнопки управления фильтрацией -->
@@ -635,11 +636,12 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
             <td class="cell-email"><?= htmlspecialchars($c['email']) ?></td>
             <td class="cell-status"><?= htmlspecialchars($c['status']) ?></td>
             <td class="source"><?= htmlspecialchars($c['source'])?></td>
-           <td class="cell-next" 
-    style="cursor: pointer; transition: color 0.15s ease;" 
-    onmouseover="this.style.color='#4f46e5';" 
-    onmouseout="this.style.color='#fff';">
-    <?= !empty($c['next_contact_date']) ? date('d.m.Y', strtotime($c['next_contact_date'])) : '—' ?>
+          <td style="text-align: center;">
+    <?php if (!empty($c['next_contact_date']) && $c['next_contact_date'] !== '0000-00-00'): ?>
+        <?= date('d.m.Y', strtotime($c['next_contact_date'])) ?>
+    <?php else: ?>
+        <span style="color: #64748b;">—</span>
+    <?php endif; ?>
 </td>
            <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
 <td class="cell-comment js-comment-preview" 
@@ -802,7 +804,7 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
             <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Статус <span style="color:red;">*</span></label>
             <select id="status" name="status" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
                 <option value="Новый">Новый</option>
-                <option value="В работе">В работе</option>
+                <option value="Текущий">Текущий</option>
                 <option value="Отказ">Отказ</option>
             </select>
         </div>

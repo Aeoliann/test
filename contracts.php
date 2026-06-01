@@ -132,8 +132,9 @@ $savedCurrency = 'RUB';
        <th style="padding: 12px;">Дата</th>
         <th style="padding: 12px;">Клиент</th>
         <th style="padding: 12px;">№ Договора</th>
+         <th style="padding: 12px;">Дата договора</th>
         <th style="padding: 12px;">Тип продукции</th>
-        <th style="padding: 12px;">Дата договора</th>
+       
         <th style="padding: 12px; text-align: center;">Управление ТТН</th>
         <th style="padding: 12px; text-align: center;">Последняя отгрузка</th>
         <th style="padding: 12px; text-align: right;">Сумма (BYN)</th>
@@ -220,7 +221,8 @@ $savedCurrency = 'RUB';
                 <?= htmlspecialchars($r['contract_number'] ?: '—') ?>
             </div>
         </td>
-        
+             <!-- 4. Дата договора -->
+        <td style="padding: 12px; color: #92929f;"><?= htmlspecialchars($r['contract_date'] ?? '—') ?></td>
         <!-- 3. Тип продукции -->
         <td style="padding: 12px; text-align: left; color: #fff; border: 1px solid #2b2b40;">
     <?php
@@ -239,8 +241,7 @@ $savedCurrency = 'RUB';
     ?>
 </td>
         
-        <!-- 4. Дата договора -->
-        <td style="padding: 12px; color: #92929f;"><?= htmlspecialchars($r['contract_date'] ?? '—') ?></td>
+   
         
         <!-- 5. Управление ТТН -->
      <!-- КНОПКА ТТН БЕЗ ЛИШНИХ ПАРАМЕТРОВ -->
@@ -300,7 +301,6 @@ $savedCurrency = 'RUB';
             <a href="<?= htmlspecialchars($contractPath) ?>" 
                target="_blank" 
                style="color: #10b981; text-decoration: none; font-size: 11px; font-weight: bold; background: #1a2e26; padding: 4px 8px; border-radius: 4px; display: inline-block; white-space: nowrap;">👁 PDF</a>
-            
             <!-- Крестик удаления файла -->
             <button type="button" 
                     onclick="if(confirm('Вы уверены, что хотите безвозвратно удалить скан договора?')){ window.location.href='delete_contract_file.php?pid=<?= $projectId ?>'; } return false;" 
@@ -746,18 +746,33 @@ async function removeTtnFile(ttnId, pid) {
 }
 
 // 5. ПОТОКОВАЯ ЗАГРУЗКА PDF (СКРЕПКА)
-async function uploadTtnFile(ttnId, pid, input) {
-    if (!input.files || !input.files.length) return;
+async function uploadTtnFile(ttnId, pid, inputElement) {
+    if (!inputElement.files || !inputElement.files.length) return;
+    
+    console.log("Запуск загрузки скана для ТТН ID:", ttnId);
+    
+    const file = inputElement.files[0]; // Берем сам выбранный файл
     const fd = new FormData();
-    fd.append('ttn_id', ttnId);
-    fd.append('ttn_pdf', input.files[0]);
+    fd.append('ttn_id', parseInt(ttnId, 10)); 
+    fd.append('ttn_pdf', file); 
 
     try {
         const res = await fetch('upload_ttn_pdf.php', { method: 'POST', body: fd });
-        if ((await res.json()).status === 'success') renderProjectTtnsList(pid);
-    } catch (err) { alert("Ошибка загрузки скана"); }
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            console.log("Скан накладной успешно сохранен в СУБД Santeks!");
+            
+            // ЖЕСТКИЙ ПЕРЕЗАПУСК: Принудительно обновляем страницу, чтобы перерисовать скрепки в PDF и зафиксировать штуки
+            window.location.reload();
+        } else {
+            alert("Ошибка загрузки скана базы Windows XAMPP:\n" + result.message);
+        }
+    } catch (err) {
+        console.error("Сбой сети при отправке файла:", err);
+        alert("Критический сбой отправки файла на сервер. Проверьте права папки uploads/ttn_scans/.");
+    }
 }
-
 // 6. ЗАКРЫТИЕ ОКНА
 function closeTtnManager() {
     document.getElementById('ttnManagerModal').style.display = 'none';
