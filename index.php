@@ -590,24 +590,90 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
         ❌ Архив отказов
     </a>
 </div>
-   <table style="margin-top:20px; width:100%;">
+  <div style="max-height: 650px; overflow-y: auto; overflow-x: auto; width: 100%; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+    
+   <!-- ИСПРАВЛЕНО НАМЕРТВО: Колонки освобождены от жестких процентов экрана и двигаются динамически по длине текста! -->
+<table style="min-width: max-content; width: 100%; border-collapse: collapse; margin: 0; background: #1e1e2d; table-layout: auto !important;">
+
+
     <thead>
-        <tr>
-            <th>П/П</th>
-            <th>ДАТА ПЕРВОГО КОНТАКТА</th>
-            <th>КЛИЕНТ</th>
-            <th>УНП</th>
-            <th>КОНТАКТНОЕ ЛИЦО</th>
-            <th>ТЕЛЕФОН</th>
-            <th>EMAIL</th>
-            <th>СТАТУС</th>
-            <th>ИСТОЧНИК ПРИВЛЕЧЕНИЯ</th>
-            <th>СЛЕД. КОНТАКТ</th>
-            <th>КОММЕНТАРИЙ</th>
-            <th>ВИД ПРОДУКЦИИ</th>
-            <th>КОНТРАКТ</th>
-            <th>ДЕЙСТВИЕ</th>
+       <tr style="background: #242434; border-bottom: 2px solid #323248; position: sticky; top: 0; z-index: 10;">
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">П/П<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Дата первого контакта<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Клиент<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">УНП<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Контактное лицо<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Телефон<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Email<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Статус<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Источник привлечения<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">След. контакт<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Комментарий<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Вид продукции<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Контракт<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Действие<div class="resizer"></div></th>
         </tr>
+        <script>document.addEventListener('DOMContentLoaded', function() {
+    const createResizableTable = function(table) {
+        if (!table) return;
+        const cols = table.querySelectorAll('th');
+        
+        cols.forEach(function(col) {
+            const resizer = col.querySelector('.resizer');
+            if (!resizer) return;
+            
+            let x = 0;
+            let w = 0;
+            
+            const mouseMoveHandler = function(e) {
+                const dx = e.clientX - x;
+                col.style.width = (w + dx) + 'px';
+                col.style.minWidth = (w + dx) + 'px'; // Фиксируем min-width для удержания структуры
+            };
+            
+            const mouseUpHandler = function() {
+                resizer.classList.remove('resizing');
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', mouseUpHandler);
+            };
+            
+            resizer.addEventListener('mousedown', function(e) {
+                x = e.clientX;
+                const styles = window.getComputedStyle(col);
+                w = parseInt(styles.width, 10);
+                
+                resizer.classList.add('resizing');
+                document.addEventListener('mousemove', mouseMoveHandler);
+                document.addEventListener('mouseup', mouseUpHandler);
+            });
+        });
+    };
+
+    // Находим нашу главную таблицу и инициализируем на ней ручной сплиттер колонок
+    const mainTable = document.querySelector('table');
+    createResizableTable(mainTable);
+});</script>
+        <style>
+            /* Стили для интерактивных ползунков ручного изменения ширины колонок */
+th {
+  position: sticky; /* Оставляем шапку зафиксированной сверху */
+  top: 0;
+}
+.resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  cursor: col-resize;
+  user-select: none;
+  height: 100%;
+  z-index: 1;
+}
+.resizer:hover, .resizing {
+  border-right: 2px solid #4f46e5; /* Подсветка границы фиолетовым при перетаскивании */
+}
+
+        </style>
     </thead>
 
     <tbody>
