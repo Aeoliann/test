@@ -9,10 +9,11 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$pid = isset($_GET['pid']) ? (int)$_GET['pid'] : 0;
-
-$stmt = $pdo->prepare("SELECT * FROM project_ttns WHERE project_id = ? ORDER BY id DESC");
+$pid = (int)($_GET['pid'] ?? 0);
+$stmt = $pdo->prepare("SELECT id, ttn_number, ttn_date, amount, product_info, product_quantity, scan_path FROM project_ttns WHERE project_id = ? ORDER BY id DESC");
 $stmt->execute([$pid]);
-echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+$ttns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+echo json_encode($ttns ?: []);
 exit;
 ?>

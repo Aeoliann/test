@@ -1051,7 +1051,7 @@ async function executeContractUpload(pid, inputElement) {
     // Собираем виртуальный пакет данных FormData для отправки на сервер
     const fd = new FormData();
     fd.append('project_id', parseInt(pid));
-    fd.append('contract_pdf', file);
+    fd.append('ttn_pdf', inputElement.files[0]); 
 
     try {
         const response = await fetch('upload_contract_file.php', {

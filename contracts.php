@@ -751,26 +751,25 @@ async function uploadTtnFile(ttnId, pid, inputElement) {
     
     console.log("Запуск загрузки скана для ТТН ID:", ttnId);
     
-    const file = inputElement.files[0]; // Берем сам выбранный файл
+    const file = inputElement.files; 
     const fd = new FormData();
     fd.append('ttn_id', parseInt(ttnId, 10)); 
-    fd.append('ttn_pdf', file); 
+    
+    // ЖЕСТКИЙ ФИКС: Передаем file[0], чтобы улетал сам документ, а не массив метаданных
+    fd.append('ttn_pdf', file[0]); 
 
     try {
         const res = await fetch('upload_ttn_pdf.php', { method: 'POST', body: fd });
         const result = await res.json();
         
         if (result.status === 'success') {
-            console.log("Скан накладной успешно сохранен в СУБД Santeks!");
-            
-            // ЖЕСТКИЙ ПЕРЕЗАПУСК: Принудительно обновляем страницу, чтобы перерисовать скрепки в PDF и зафиксировать штуки
-            window.location.reload();
+            console.log("Скан накладной успешно сохранен!");
+            window.location.reload(); // Перезапускаем страницу для отрисовки кнопок
         } else {
             alert("Ошибка загрузки скана базы Windows XAMPP:\n" + result.message);
         }
     } catch (err) {
         console.error("Сбой сети при отправке файла:", err);
-        alert("Критический сбой отправки файла на сервер. Проверьте права папки uploads/ttn_scans/.");
     }
 }
 // 6. ЗАКРЫТИЕ ОКНА
