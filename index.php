@@ -599,18 +599,18 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
     <thead>
        <tr style="background: #242434; border-bottom: 2px solid #323248; position: sticky; top: 0; z-index: 10;">
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">П/П<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Дата первого контакта<div class="resizer"></div></th>
+            <th style=" max-width: 5px; padding: 14px 1px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Дата первого контакта<div class="resizer"></div></th>
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Клиент<div class="resizer"></div></th>
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">УНП<div class="resizer"></div></th>
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Контактное лицо<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Телефон<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; max-width:4px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Телефон<div class="resizer"></div></th>
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Email<div class="resizer"></div></th>
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Статус<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Источник привлечения<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; max-width: 1px;color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Источник привлечения<div class="resizer"></div></th>
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">След. контакт<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Комментарий<div class="resizer"></div></th>
+           <!-- <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Комментарий<div class="resizer"></div></th> -->
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Вид продукции<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Контракт<div class="resizer"></div></th>
+            <th style="padding: 14px 10px; max-width: 5px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Контракт<div class="resizer"></div></th>
             <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Действие<div class="resizer"></div></th>
         </tr>
         <script>document.addEventListener('DOMContentLoaded', function() {
@@ -709,8 +709,8 @@ th {
         <span style="color: #64748b;">—</span>
     <?php endif; ?>
 </td>
-           <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
-<td class="cell-comment js-comment-preview" 
+       <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
+ <!--   <td class="cell-comment js-comment-preview"</td>
     data-client-name="<?= htmlspecialchars($c['client_name'], ENT_QUOTES, 'UTF-8') ?>"
     style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: #92929f;"
     title="Кликните для просмотра полного комментария">
@@ -753,6 +753,7 @@ th {
         inputField.focus();
     }
 }</script>
+-->
 </td>
 
             <!-- ИСПРАВЛЕНО: Выводим тип продукции привязанного договора вместо дефолтного значения -->
@@ -794,7 +795,7 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
 </div>
 <!-- МОДАЛЬНОЕ ОКНО (ОДНО НА ВЕСЬ ФАЙЛ, ВНЕ ЦИКЛА!) -->
 <div id="clientModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:9999;">
-    <div class="stylish-modal" style="background:#1e1e2d; padding:25px; border-radius:12px; width:600px; color:#fff; font-family: sans-serif;">
+    <div class="stylish-modal" style="background:#1e1e2d; padding:25px; border-radius:12px; height: 800px; width:800px; color:#fff; font-family: sans-serif;">
         <h2 id="modalTitle" style="margin-top:0; text-align: left;">Добавить клиента</h2>
         
         <form id="clientForm" style="margin: 0; padding: 0;">
@@ -877,10 +878,10 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
     </div>
 
     <!-- РЯД 6: КОММЕНТАРИЙ МЕНЕДЖЕРА (НА ВСЮ ШИРИНУ) -->
-    <div class="form-row" style="margin-bottom: 20px;">
+    <div class="form-row" style="margin-bottom: 5px;">
         <div class="form-group" style="width: 100%; text-align: left;">
             <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Комментарий менеджера</label>
-            <textarea id="comment" name="comment" placeholder="Введите примечание..." style="width: 100%; height: 100px; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; resize: vertical; font-family: sans-serif;"></textarea>
+            <textarea id="comment" name="comment" placeholder="Введите примечание..." style="width: 100%; height: 210px; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; resize: vertical; font-family: sans-serif;"></textarea>
         </div>
     </div>
 <!-- ИСПРАВЛЕНО: Скрытый транзит истории комментариев для защиты от затирания при редактировании -->
