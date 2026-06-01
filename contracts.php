@@ -563,64 +563,6 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 1. АСИНХРОННАЯ ПОДГРУЗКА И КРАСИВЫЙ РЕНДЕРИНГ СПИСКА ТТН
-async function renderProjectTtnsList(pid) {
-    const container = document.getElementById('ttnListContainer');
-    if (!container) return;
-    
-    container.innerHTML = '<span style="color:#92929f; font-size:12px; padding:10px; display:block; text-align:left;">Загрузка списка отгрузок...</span>';
-
-    try {
-        const res = await fetch('get_ttns.php?pid=' + parseInt(pid));
-        const data = await res.json();
-        
-        let html = '<div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">';
-        
-        if (data && data.length > 0) {
-            data.forEach(function(t) {
-                // Безопасное экранирование строк
-                const safeProd = (t.product_info || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                const safeQty  = parseInt(t.product_quantity || 0);
-                const safeNum  = (t.ttn_number || '').replace(/"/g, '&quot;');
-                const safeDate = (t.ttn_date || '');
-                const safeAmt  = parseFloat(t.amount || 0).toFixed(2);
-                
-                // Блок управления файлом (PDF / Скрепка / Крестик)
-                let fileControls = '';
-                if (t.ttn_file) {
-                    fileControls += '<a href="uploads/ttn/' + t.ttn_file + '" target="_blank" style="color:#10b981; text-decoration:none; font-size:11px; font-weight:bold; background:#1a2e26; padding:4px 8px; border-radius:4px; margin-right:5px; display:inline-block;">👁 PDF</a>';
-                    fileControls += '<button type="button" onclick="removeTtnFile(' + t.id + ', ' + pid + ')" style="background:none; border:none; color:#f56565; cursor:pointer; font-size:12px; font-weight:bold; padding:4px; margin-left:2px;">❌</button>';
-                } else {
-                    fileControls += '<label for="ttn_file_input_' + t.id + '" style="cursor:pointer; color:#4f46e5; font-size:13px; padding:4px 8px; background:#1e1e2d; border:1px solid #323248; border-radius:4px; display:inline-block;">📎</label>';
-                    fileControls += '<input type="file" id="ttn_file_input_' + t.id + '" accept=".pdf" style="display:none;" onchange="uploadTtnFile(' + t.id + ', ' + pid + ', this)">';
-                }
-
-                // Сборка карточки ТТН
-                html += '<div style="background: #242434; padding: 10px; border-radius: 8px; border: 1px solid #2b2b40; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">';
-                html +=   '<div style="flex: 1; min-width: 0; padding-right: 10px; text-align:left;">';
-                html +=     '<div style="font-weight: bold; color: #fff; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">ТТН № ' + safeNum + '</div>';
-                html +=     '<div style="color: #92929f; font-size: 11px; margin-top: 2px;">Дата: ' + safeDate + ' | Кол-во: <strong style="color:#f6ad55;">' + safeQty + ' шт.</strong></div>';
-                html +=     '<div style="color: #64748b; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">' + (t.product_info || 'Без спецификации') + '</div>';
-                html +=   '</div>';
-                html +=   '<div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">';
-                html +=     '<div style="font-weight: bold; color: #10b981; font-size: 13px;">' + safeAmt + ' BYN</div>';
-                html +=     '<div style="display: flex; align-items: center;">' + fileControls + '</div>';
-                html +=     '<button type="button" onclick="prepareTtnToEdit(' + t.id + ', \'' + safeNum + '\', \'' + safeDate + '\', ' + t.amount + ', ' + safeQty + ', \'' + safeProd + '\')" style="background:none; border:none; color:#f6ad55; cursor:pointer; font-size:13px; padding:4px; margin-left:3px;">✏️</button>';
-                html +=   '</div>';
-                html += '</div>';
-            });
-        } else {
-            html += '<span style="color:#666; font-size:12px; padding:15px; display:block; text-align:center;">Отгрузок по контракту пока нет</span>';
-        }
-        
-        html += '</div>';
-        container.innerHTML = html;
-
-    } catch (err) {
-        console.error("Сбой отображения списка ТТН:", err);
-    }
-}
-
 // 2. СВЕРХЗАЩИЩЕННОЕ АСИНХРОННОЕ СОХРАНЕНИЕ (ОТПРАВЛЯЕТ СТРОГО 1 ЗАПРОС НА КЛИК)
 // ИСПРАВЛЕНО: Функция отправляет данные, сбрасывает форму и принудительно обновляет экран для пересчета сумм
 // ИСПРАВЛЕНО: Безопасное считывание полей без падения JS из-за удаленного инпута количества
@@ -749,27 +691,32 @@ async function removeTtnFile(ttnId, pid) {
 async function uploadTtnFile(ttnId, pid, inputElement) {
     if (!inputElement.files || !inputElement.files.length) return;
     
-    console.log("Запуск загрузки скана для ТТН ID:", ttnId);
+    console.log("Отправка файла для ТТН ID:", ttnId, "Договор PID:", pid);
     
-    const file = inputElement.files; 
+    const file = inputElement.files[0]; // Берем сам бинарный файл PDF
     const fd = new FormData();
-    fd.append('ttn_id', parseInt(ttnId, 10)); 
-    
-    // ЖЕСТКИЙ ФИКС: Передаем file[0], чтобы улетал сам документ, а не массив метаданных
-    fd.append('ttn_pdf', file[0]); 
+    fd.append('ttn_id', parseInt(ttnId, 10)); // Передаем ID накладной ТТН
+    fd.append('ttn_pdf', file); // Кладём файл в пакет под правильным именем ключа
 
     try {
-        const res = await fetch('upload_ttn_pdf.php', { method: 'POST', body: fd });
+        // Шлём AJAX-запрос на наш готовый обработчик
+        const res = await fetch('upload_ttn_pdf.php', {
+            method: 'POST',
+            body: fd
+        });
+        
         const result = await res.json();
         
         if (result.status === 'success') {
-            console.log("Скан накладной успешно сохранен!");
-            window.location.reload(); // Перезапускаем страницу для отрисовки кнопок
+            console.log("Файл успешно сохранен на сервере Windows XAMPP!");
+            // Жестко перезапускаем страницу, чтобы скрепка мгновенно сменилась на кнопку просмотра PDF!
+            window.location.reload();
         } else {
-            alert("Ошибка загрузки скана базы Windows XAMPP:\n" + result.message);
+            alert("Ошибка СУБД: " + result.message);
         }
     } catch (err) {
-        console.error("Сбой сети при отправке файла:", err);
+        console.error("Сбой сети при загрузке скана ТТН:", err);
+        alert("Критическая ошибка отправки файла на бэкенд.");
     }
 }
 // 6. ЗАКРЫТИЕ ОКНА
@@ -1019,13 +966,18 @@ async function loadProjectTtns(pid) {
                 const safeAmt  = parseFloat(t.amount || 0).toFixed(2);
                 
                 // Формируем блок управления файлом ТТН (PDF)
+                // ИСПРАВЛЕНО: Генератор карточек считывает актуальный путь scan_path из базы данных
                 let fileControls = '';
-                if (t.ttn_file) {
-                    fileControls += '<a href="uploads/ttn/' + t.ttn_file + '" target="_blank" style="color:#10b981; text-decoration:none; font-size:11px; font-weight:bold; background:#1a2e26; padding:4px 8px; border-radius:4px; margin-right:5px; display:inline-block;">👁 PDF</a>';
-                    fileControls += '<button type="button" onclick="deleteTtnPdf(' + t.id + ', ' + pid + ')" style="background:none; border:none; color:#f56565; cursor:pointer; font-size:12px; font-weight:bold; padding:4px; margin-left:2px;">❌</button>';
+                const fileUrl = t.scan_path ? t.scan_path.trim() : '';
+
+                if (fileUrl !== '' && fileUrl !== 'NULL' && fileUrl !== '0') {
+                    // Если путь к файлу записан — выводим сочную зелёную кнопку просмотра
+                    fileControls += '<a href="' + fileUrl + '" target="_blank" style="color:#10b981; text-decoration:none; font-size:11px; font-weight:bold; background:#1a2e26; padding:4px 8px; border-radius:4px; margin-right:5px; display:inline-block;">👁 PDF</a>';
+                    fileControls += '<button type="button" onclick="removeTtnFile(' + t.id + ', ' + pid + ')" style="background:none; border:none; color:#f56565; cursor:pointer; font-size:12px; font-weight:bold; padding:4px; margin-left:2px;">❌</button>';
                 } else {
+                    // Если файла ещё нет — выводим интерактивную скрепку загрузки скана
                     fileControls += '<label for="ttn_file_input_' + t.id + '" style="cursor:pointer; color:#4f46e5; font-size:13px; padding:4px 8px; background:#1e1e2d; border:1px solid #323248; border-radius:4px; display:inline-block;">📎</label>';
-                    fileControls += '<input type="file" id="ttn_file_input_' + t.id + '" accept=".pdf" style="display:none;" onchange="uploadTtnPdf(' + t.id + ', ' + pid + ', this)">';
+                    fileControls += '<input type="file" id="ttn_file_input_' + t.id + '" accept=".pdf" style="display:none;" onchange="uploadTtnFile(' + t.id + ', ' + pid + ', this)">';
                 }
 
                 // Шаблон строки ТТН (Чистое строковое сложение)
@@ -1141,7 +1093,7 @@ async function uploadTtnPdf(ttnId, pid, input) {
     const file = input.files[0];
     const fd = new FormData();
     fd.append('ttn_id', ttnId);
-    fd.append('ttn_pdf', file);
+  fd.append('ttn_pdf', inputElement.files[0]); 
 
     try {
         const res = await fetch('upload_ttn_pdf.php', { method: 'POST', body: fd });
