@@ -385,7 +385,24 @@ function openAddContractModal(clientId, clientName) {
 }
 
 function closeContractModal() {
-    document.getElementById('contractModal').style.display = 'none';
+    // 1. Прячем модальное окно с экрана
+    const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
+    // 2. СБРОС ГАЛОЧКИ: Находим все чекбоксы контрактов на странице
+    // Если менеджер нажал отмену, мы снимаем выделение со всех активных чекбоксов,
+    // чтобы галочка не оставалась гореть вхолостую!
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        // Если чекбокс был нажат, но договор отменили — сбрасываем его назад
+        if (cb.checked) {
+            cb.checked = false;
+        }
+    });
+
+    console.log("Оформление договора отменено. Пустые данные заблокированы, чекбокс сброшен.");
 }
 
 document.getElementById('contractForm').onsubmit = async function(e) {

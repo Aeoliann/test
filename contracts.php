@@ -123,7 +123,74 @@ $savedCurrency = 'RUB';
 </button>
         </header>
 
+   <div style="display: flex; flex-direction: column; gap: 4px; width: 300 px;">
+    
+  <div style="display: flex; flex-direction: column; gap: 4px; width: 280px; box-sizing: border-box;">
+    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Быстрый поиск контракта:</label>
+    <input type="text" 
+           id="contract_live_search" 
+           placeholder="Имя, № договора, продукция..." 
+           oninput="runLiveContractFilter(this.value)"
+           style="height: 42px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px; width: 100%;">
+</div><script>
+// ИСПРАВЛЕНО: Адаптивный сквозной поиск по Клиенту, Номеру договора и Виду продукции
+function runLiveContractFilter(searchQuery) {
+    const query = searchQuery.toLowerCase().trim();
+    const tableRows = Array.from(document.querySelectorAll("table tbody tr"));
 
+    if (query === "") {
+        // Если инпут пустой — мгновенно возвращаем стопроцентную видимость всем строкам
+        tableRows.forEach(row => row.style.display = "");
+        return;
+    }
+
+    // Шаг 1: Сначала разбиваем всю таблицу на изолированные группы (Клиент + его контракты)
+    let groups = [];
+    let currentGroup = null;
+
+    tableRows.forEach(row => {
+        // Проверяем, является ли строка заголовком клиента.
+        // Обычно у тебя строка клиента имеет отличительный фон (например, #242434) или жирный шрифт,
+        // либо в ней ячейка td имеет атрибут colspan. Самый надежный способ — проверить наличие colspan.
+        const isClientHeader = row.querySelector('td[colspan]') !== null || row.style.fontWeight === 'bold' || row.textContent.includes('📦') === false;
+
+        if (isClientHeader) {
+            // Началась новая группа компании
+            if (currentGroup) groups.push(currentGroup);
+            currentGroup = { header: row, childs: [] };
+        } else {
+            // Это строка контракта — пришиваем её к текущему родителю-клиенту
+            if (currentGroup) {
+                currentGroup.childs.push(row);
+            }
+        }
+    });
+    // Не забываем положить в массив последнюю обработанную группу
+    if (currentGroup) groups.push(currentGroup);
+
+    // Шаг 2: Сканируем каждую группу на совпадение букв из поиска
+    groups.forEach(group => {
+        // Проверяем текст в самом заголовке клиента
+        let hasMatch = group.header.textContent.toLowerCase().includes(query);
+
+        // Проверяем текст в каждом контракте этого клиента
+        group.childs.forEach(child => {
+            if (child.textContent.toLowerCase().includes(query)) {
+                hasMatch = true; // Совпадение найдено в контракте!
+            }
+        });
+
+        // Шаг 3: Управляем видимостью всей группы на экране
+        if (hasMatch) {
+            group.header.style.display = ""; // Показываем клиента
+            group.childs.forEach(child => child.style.display = ""); // Показываем ВСЕ его контракты
+        } else {
+            group.header.style.display = "none"; // Прячем всю группу
+            group.childs.forEach(child => child.style.display = "none");
+        }
+    });
+}
+</script>
 <div style="max-height: 1024px; overflow-y: auto; width: 100% !important; border: 1px solid #323248; border-radius: 8px;">
     
     <table class="tasks-table" style="width: 100% !important; border-collapse: collapse; margin: 0;">
@@ -176,27 +243,30 @@ $savedCurrency = 'RUB';
             <td colspan="10" style="padding: 12px 30px; color: #fff; font-size: 14px; text-align: left;">
                 <span style="color:#fff;">🏢 КЛИЕНТ: <?= htmlspecialchars($r['client_name']) ?></span>
                 <span style="color: #64748b; font-size: 11px; margin-left: 10px; font-weight: normal;">(Все договоры клиента)</span>
-                <button type="button" 
-        onclick="openAddContractModal(<?= (int)$r['cid'] ?>, '<?= htmlspecialchars($r['client_name'], ENT_QUOTES, 'UTF-8') ?>')" 
-        style="background: #4f46e5; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold;">
+     <button type="button" 
+        onclick="openNewContractModal(<?= (int)$r['cid'] ?>); return false;" 
+        style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; margin-left: 15px;">
     + Добавить договор
-    <script>
-             function openAddContractModal(clientId, clientName, projectId = '') {
-    const modal = document.getElementById('contractModal');
-    if (!modal) return;
-
-    document.getElementById('contractForm').reset();
-    document.getElementById('modal_client_id').value = clientId;
-    document.getElementById('modalClientName').innerText = clientName;
+<script>function openNewContractModal(clientId) {
+    console.log("Открытие формы договора для клиента ID:", clientId);
     
-    // Если передали ID проекта (черновика), сохраняем его в форму
-    if (projectId) {
-        modal.dataset.pid = projectId;
+    // Находим модальное окно договора на странице contracts.php
+    const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
+    
+    // Находим скрытый инпут внутри формы, куда нужно записать ID клиента
+    const clientIdInput = document.getElementById('contract_client_id_storage') || document.getElementById('modal_client_id');
+    
+    if (clientIdInput) {
+        clientIdInput.value = parseInt(clientId, 10);
     }
+    
+    if (modal) {
+        modal.style.display = 'block';
+    } else {
+        alert("Критическая ошибка: Модальное окно договора не найдено в разметке contracts.php!");
+    }
+}</script>
 
-    modal.style.display = 'flex';
-}   
-    </script>
 </button>
 
 
@@ -206,7 +276,7 @@ $savedCurrency = 'RUB';
         </tr>
         <?php $lastClient = $r['client_name']; ?>
     <?php endif; ?>
-<tr data-pid="<?= (int)$r['pid'] ?>">
+<tr data-pid="<?= (int)$r['cid'] ?>"">
     <!-- 1. Столбец "ДАТА" (Выводим дату создания договора или проекта) -->
     <td style="text-align: center; color: #64748b; font-size: 13px;">
         <?= date('d.m.Y', strtotime($r['created_at'] ?? date('Y-m-d'))) ?>
@@ -243,15 +313,29 @@ $savedCurrency = 'RUB';
         
    
         
-        <!-- 5. Управление ТТН -->
-     <!-- КНОПКА ТТН БЕЗ ЛИШНИХ ПАРАМЕТРОВ -->
-<td style="padding: 12px; text-align: center;">
-    <button type="button" onclick="openTtnManager(<?= (int)$r['pid'] ?>, '<?= htmlspecialchars($r['client_name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($r['product_type'], ENT_QUOTES) ?>')" style="background: #323248; color: #fff; border: 1px solid #4f46e5; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-    📦 ТТН (<?= (int)($r['ttn_count'] ?? 0) ?>)
-</button>
+
+
 </td>
+<td>
+
+<?php
+$line324_data = isset($c) ? $c : (isset($p) ? $p : (isset($t) ? $t : (isset($row) ? $row : (isset($r) ? $r : []))));
+$line324_pid  = (int)($line324_data['pid'] ?? ($line324_data['id'] ?? ($line324_data['project_id'] ?? ($line324_data['cid'] ?? 0))));
+?>
+<button type="button" 
+        data-id="<?= $line324_pid ?>"
+        onclick="openTtnManagerFromButton(this); return false;" 
+        style="background: #3182ce; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; transition: background 0.15s;"
+        onmouseover="this.style.background='#2b6cb0';"
+        onmouseout="this.style.background='#3182ce';">
+    📦 ТТН
+</button>
 
 
+
+
+</button>
+    </td>
         <!-- 6. Последняя отгрузка -->
         <td style="padding: 12px; text-align: center; font-size: 12px; color: #92929f;">
             <?php 
@@ -259,6 +343,7 @@ $savedCurrency = 'RUB';
                 $ld->execute([$r['pid']]);
                 $d = $ld->fetchColumn(); echo $d ? date('d.m.Y', strtotime($d)) : '—';
             ?>
+
         </td>
 
         <!-- 7. Сумма (BYN) — Жесткая и неизменяемая на основе ТТН -->
@@ -297,11 +382,13 @@ $savedCurrency = 'RUB';
 
         if (!empty($contractPath) && $contractPath !== 'NULL' && $contractPath !== '0'): 
         ?>
+        
             <!-- Кнопка просмотра PDF (ИСПРАВЛЕНО: Ссылка сразу ведет на полный путь из базы) -->
             <a href="<?= htmlspecialchars($contractPath) ?>" 
                target="_blank" 
                style="color: #10b981; text-decoration: none; font-size: 11px; font-weight: bold; background: #1a2e26; padding: 4px 8px; border-radius: 4px; display: inline-block; white-space: nowrap;">👁 PDF</a>
             <!-- Крестик удаления файла -->
+             
             <button type="button" 
                     onclick="if(confirm('Вы уверены, что хотите безвозвратно удалить скан договора?')){ window.location.href='delete_contract_file.php?pid=<?= $projectId ?>'; } return false;" 
                     style="background: none; border: none; color: #f56565; cursor: pointer; font-size: 12px; padding: 4px; display: inline-block; line-height: 1;">❌</button>
@@ -316,6 +403,8 @@ $savedCurrency = 'RUB';
                    style="display: none;" 
                    onchange="if(!this.files||!this.files.length)return; const fd=new FormData(); fd.append('pid',<?= $projectId ?>); fd.append('contract_pdf',this.files[0]); const path=window.location.pathname; const url=path.substring(0,path.lastIndexOf('/'))+'/upload_scan.php'; fetch(url,{method:'POST',body:fd}).then(r=>r.json()).then(res=>{ if(res.status==='success'){ window.location.reload(); }else{ alert('Ответ сервера:\n'+res.message); window.location.reload(); } }).catch(err=>alert('Ошибка сети или размера файла'));return false;">
         <?php endif; ?>
+        <!-- ИСПРАВЛЕНО НАМЕРТВО: ID договора зашит в data-id, а функция вызывается автономно (this) -->
+
     </div>
  
 </td>
@@ -351,8 +440,11 @@ $savedCurrency = 'RUB';
     
 
 <!-- ИСПРАВЛЕНО: Полный редизайн модалки договора и новые виды продукции -->
-<div id="contractModal" class="modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); justify-content: center; align-items: center; z-index: 1000; box-sizing: border-box; padding: 15px;">
-    <div class="modal-content stylish-modal" style="background: #1e1e2d; border-radius: 8px; border: 1px solid #323248; padding: 25px; width: 500px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+<!-- ИСПРАВЛЕНО UI/UX: Идеальное центрирование окна ровно по центру экрана менеджера -->
+<div id="contractModal" 
+     style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: 9999; justify-content: center; align-items: center; box-sizing: border-box;">
+
+    <div class="modal-content stylish-modal" style=" position: fixed; top: 35%; left: 35%;background: #1e1e2d; border-radius: 8px; border: 1px solid #323248; padding: 25px; width: 500px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
         
         <div class="modal-header" style="margin-bottom: 20px;">
             <h2 style="margin: 0; color: #fff; font-size: 18px;">
@@ -397,7 +489,13 @@ $savedCurrency = 'RUB';
             <!-- Подвал: Кнопки (Разнесены по правому краю, правильные отступы) -->
            <!-- ХИРУРГИЧЕСКИЙ ФИКС: Вырезали белый фон через принудительный transparent !important -->
 <div class="modal-footer" style="display: flex !important; justify-content: flex-end !important; gap: 12px !important; margin-top: 25px !important; padding: 0 !important; background: transparent !important; background-color: transparent !important; border: none !important; border-top: none !important; box-shadow: none !important;">
-    <button type="button" class="btn-cancel" onclick="closeContractModal()" style="height: 42px; padding: 0 24px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.15s; box-sizing: border-box;" onmouseover="this.style.color='#fff'; this.style.background='#2b2b3d';" onmouseout="this.style.color='#92929f'; this.style.background='#242434';">Отмена</button>
+  <button type="button" 
+        onclick="closeContractModal(); return false;" 
+        style="height: 42px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;"
+        onmouseover="this.style.color='#fff';"
+        onmouseout="this.style.color='#92929f';">
+    Отмена
+</button>
  <!-- ИСПРАВЛЕНО: Кнопка жестко шлет POST-запрос формы силами самого браузера -->
 <button type="submit" 
         class="btn-contract-save" 
@@ -416,17 +514,18 @@ $savedCurrency = 'RUB';
 
 </main>
 </body>
-<div id="ttnManagerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 99999;">
-    <div style="background: #1e1e2d; padding: 25px; border-radius: 12px; width: 500px; border: 1px solid #323248; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: sans-serif; color: #fff; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box;">
+<!-- ИСПРАВЛЕНО: Полностью рабочий монолит формы управления ТТН/CMR Santeks CRM -->
+<div id="ttnManagerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 99999; box-sizing: border-box;">
+     <div style="background: #1e1e2d; padding: 25px; border-radius: 12px; width: 500px; border: 1px solid #323248; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: sans-serif; color: #fff; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; position: relative;">
         
         <!-- Шапка окна -->
         <div style="text-align: left;">
             <h3 style="margin: 0; color: #fff; font-size: 16px; font-weight: bold;">📦 Управление отгрузками ТТН / CMR</h3>
-            <p id="ttnContractLabel" style="color: #4f46e5; margin-top: 5px; font-size: 13px; margin-bottom: 0; font-weight: bold;"></p>
+            <p id="ttnContractLabel" data-pid="0" style="color: #4f46e5; margin-top: 5px; font-size: 13px; margin-bottom: 0; font-weight: bold;"></p>
         </div>
         
-        <!-- Скрытые технические хранилища ID -->
-        <input type="hidden" id="ttn_pid_storage" value="<?= isset($_GET['project_id']) ? (int)$_GET['project_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0) ?>">
+        <!-- Скрытые технические хранилища ID (ИСПРАВЛЕНО: значение по умолчанию 0, заполняется строго силами JS) -->
+        <input type="hidden" id="ttn_pid_storage" value="0">
         <input type="hidden" id="edit_ttn_id_storage" value="">
         
         <!-- КОНТЕЙНЕР ДЛЯ ВЫВОДА СПИСКА НАКЛАДНЫХ -->
@@ -434,28 +533,32 @@ $savedCurrency = 'RUB';
             <!-- Данные подгружаются асинхронно через JS -->
         </div>
 
-        <!-- ИЗОЛИРОВАННЫЙ БЛОК ПОЛЕЙ ВВОДА (БЕЗ ТЕГА FORM) -->
+        <!-- ИЗОЛИРОВАННЫЙ БЛОК ПОЛЕЙ ВВОДА -->
         <div style="background: #242434; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; text-align: left; box-sizing: border-box;">
             <h4 id="ttnFormTitle" style="margin: 0; font-size: 13px; color: #92929f; font-weight: normal;">Добавить новую отгрузку в рамках контракта:</h4>
             
             <div style="display: flex; gap: 10px; width: 100%; box-sizing: border-box;">
                 <input type="text" id="new_ttn_num" placeholder="№ ТТН" style="flex: 2; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
-                <input type="date" id="new_ttn_date" value="<?= date('Y-m-d') ?>" style="flex: 1; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                <input type="date" id="new_ttn_date" value="<?= date('Y-m-d') ?>" style="flex: 1; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; color-scheme: dark;">
             </div>
             
             <input type="number" id="new_ttn_amount" step="0.01" placeholder="Сумма по ТТН (в BYN)" style="width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; box-sizing: border-box;">
             <input type="number" id="new_ttn_quantity" placeholder="Количество продукции (шт)" style="width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; box-sizing: border-box;">
-             <div style="display: flex; flex-direction: column; gap: 4px; flex: 2; min-width: 200px;">
-    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Спецификация (Товар):</label>
-    <input type="text" 
-           name="product_info" 
-           value="<?= htmlspecialchars($project['product_type'] ?? ($project_data['product_type'] ?? ($r['product_type'] ?? 'Сантехника'))) ?>" 
-           readonly 
-           style="height: 42px; padding: 0 12px; background: #1a1a24; border: 1px solid #323248; color: #818cf8; border-radius: 6px; outline: none; font-size: 14px; font-weight: bold; box-sizing: border-box; width: 100%; cursor: not-allowed;" 
-           title="Данные автоматически подтянуты из связанного договора. Изменение запрещено.">
-</div>
+            
+            <div style="display: flex; flex-direction: column; gap: 4px; width: 100%; box-sizing: border-box;">
+                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Спецификация (Товар):</label>
+                <!-- ИСПРАВЛЕНО: Добавлен жесткий id="new_ttn_prod" для чтения из JavaScript! -->
+                <input type="text" 
+                       id="new_ttn_prod" 
+                       name="product_info" 
+                       value="Сантехника" 
+                       readonly 
+                       style="height: 38px; padding: 0 12px; background: #1a1a24; border: 1px solid #323248; color: #818cf8; border-radius: 6px; outline: none; font-size: 13px; font-weight: bold; box-sizing: border-box; width: 100%; cursor: not-allowed;" 
+                       title="Данные автоматически подтянуты из связанного договора. Изменение запрещено.">
+            </div>
+
             <!-- Чистая кнопка отправки с вызовом защищенной функции -->
-            <button type="button" id="ttnActionBtn" onclick="saveTtnRecord();" style="background: #10b981; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; margin-top: 5px; transition: background 0.15s; width: 100%;">
+            <button type="button" id="ttnActionBtn" onclick="saveTtnRecord(); return false;" style="background: #10b981; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; margin-top: 5px; transition: background 0.15s; width: 100%;">
                 Добавить в рамках контракта
             </button>
         </div>
@@ -469,6 +572,7 @@ $savedCurrency = 'RUB';
 
     </div>
 </div>
+
 
 <script>
 
@@ -531,6 +635,66 @@ async function executeContractUpload(pid, inputElement) {
     }
 }
 
+// ИСПРАВЛЕНО НАМЕРТВО: Функция запрашивает данные у get_ttns.php и рисует список накладных
+async function renderProjectTtnsList(pid) {
+    console.log("Загрузка списка ТТН для договора ID:", pid);
+    const container = document.getElementById('ttnListContainer');
+    if (!container) return;
+
+    container.innerHTML = '<div style="color:#64748b; font-size:12px; padding:10px; text-align:center;">Загрузка данных из СУБД...</div>';
+
+    try {
+        // Отправляем GET-запрос с явным указанием pid
+        const res = await fetch('get_ttns.php?pid=' + parseInt(pid, 10));
+        const data = await res.json();
+
+        // Проверяем, не вернул ли сервер ошибку
+        if (data.error) {
+            container.innerHTML = '<div style="color:#f43f5e; font-size:12px; padding:10px;">Ошибка: ' + data.message + '</div>';
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div style="color:#4e4e6a; font-size:12px; padding:15px; text-align:center;">По этому договору отгрузок пока нет.</div>';
+            return;
+        }
+
+        // Очищаем контейнер перед прорисовкой строк
+        container.innerHTML = '';
+
+        // Перебираем накладные и строим интерактивные строки карточек
+        data.forEach(t => {
+            const fileUrl = t.scan_path ? t.scan_path.trim() : '';
+            let fileControls = '';
+
+            // Логика управления файлом (PDF / Скрепка 📎)
+            if (fileUrl !== '' && fileUrl !== 'NULL' && fileUrl !== '0') {
+                fileControls += '<a href="' + fileUrl + '" target="_blank" style="color:#10b981; text-decoration:none; font-size:11px; font-weight:bold; background:#1a2e26; padding:4px 8px; border-radius:4px; margin-right:5px; display:inline-block;">👁 PDF</a>';
+                fileControls += '<button type="button" onclick="removeTtnFile(' + t.id + ', ' + pid + ')" style="background:none; border:none; color:#f56565; cursor:pointer; font-size:12px; font-weight:bold; padding:4px;">❌</button>';
+            } else {
+                fileControls += '<label for="ttn_file_input_' + t.id + '" style="cursor:pointer; color:#4f46e5; font-size:13px; padding:4px 8px; background:#1e1e2d; border:1px solid #323248; border-radius:4px; display:inline-block;">📎</label>';
+                fileControls += '<input type="file" id="ttn_file_input_' + t.id + '" accept=".pdf" style="display:none;" onchange="uploadTtnFile(' + t.id + ', ' + pid + ', this)">';
+            }
+
+            // Формируем саму строку накладной
+            const itemHtml = `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#1a1a24; padding:8px 12px; border-radius:6px; border:1px solid #2b2b40; font-size:13px;">
+                    <div>
+                        <strong style="color:#fff;">№ ${t.ttn_number}</strong> 
+                        <span style="color:#64748b; font-size:11px; margin-left:8px;">${t.ttn_date}</span>
+                        <span style="color:#10b981; font-weight:bold; margin-left:12px;">${parseFloat(t.amount).toFixed(2)} BYN</span>
+                    </div>
+                    <div>${fileControls}</div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', itemHtml);
+        });
+
+    } catch (err) {
+        console.error("Сбой сети при получении ТТН:", err);
+        container.innerHTML = '<div style="color:#f43f5e; font-size:12px; padding:10px; text-align:center;">Критический сбой подгрузки списка.</div>';
+    }
+}
 
 
 // Глобальный маркер защиты от повторных сверхбыстрых кликов менеджеров
@@ -573,8 +737,9 @@ async function saveTtnRecord() {
         console.warn("Повторный клик заблокирован! Дождитесь ответа базы.");
         return;
     }
-
-    const pid   = document.getElementById('ttn_pid_storage').value;
+ const labelElement = document.getElementById('ttnContractLabel');
+    const pid = labelElement ? parseInt(labelElement.getAttribute('data-pid'), 10) : 0;
+    console.log("Считанный для отправки в базу project_id =", pid); 
     const ttnId = document.getElementById('edit_ttn_id_storage').value;
     const num   = document.getElementById('new_ttn_num').value.trim();
     const date  = document.getElementById('new_ttn_date').value;
@@ -655,6 +820,86 @@ async function saveTtnRecord() {
     }
 }
 
+// =========================================================================
+// БРОНЕБОЙНЫЙ ДВИЖОК УПРАВЛЕНИЯ ТТН/CMR С ЗАЩИТОЙ ОТ ЗАНУЛЕНИЯ ДАННЫХ
+// =========================================================================
+
+
+
+// 2. Функция сохранения отгрузки ТТН в базу данных Windows XAMPP
+async function saveTtnRecord() {
+    console.log("Старт отправки отгрузки ТТН...");
+
+    // Забираем ID договора прямо из атрибута заголовка модалки, защитившись от зануления инпутов!
+    const labelElement = document.getElementById('ttnContractLabel');
+    const pid = labelElement ? parseInt(labelElement.getAttribute('data-pid'), 10) : 0;
+
+    console.log("Считанный для отправки в базу project_id =", pid);
+
+    if (isNaN(pid) || pid <= 0) {
+        alert("Критическая ошибка: Системный ID договора потерян. Переоткройте окно ТТН.");
+        return;
+    }
+
+    // Получаем значения остальных полей по их ID
+    const ttnId = document.getElementById('edit_ttn_id_storage') ? document.getElementById('edit_ttn_id_storage').value : '';
+    const num = document.getElementById('new_ttn_num') ? document.getElementById('new_ttn_num').value.trim() : '';
+    const date = document.getElementById('new_ttn_date') ? document.getElementById('new_ttn_date').value : '';
+    const amt = document.getElementById('new_ttn_amount') ? document.getElementById('new_ttn_amount').value.trim() : '';
+    const qty = document.getElementById('new_ttn_quantity') ? document.getElementById('new_ttn_quantity').value.trim() : 0;
+    const prod = document.getElementById('new_ttn_prod') ? document.getElementById('new_ttn_prod').value.trim() : 'Прочее';
+
+    if (!num || !amt) {
+        alert("Заполните обязательные поля формы: Номер ТТН и Сумму!");
+        return;
+    }
+
+    try {
+        const btn = document.getElementById('ttnActionBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = "Запись в базу...";
+        }
+
+        // Формируем классический POST-пакет параметров
+        const params = new URLSearchParams();
+        params.append('project_id', pid);
+        params.append('ttn_id', ttnId);
+        params.append('ttn_number', num);
+        params.append('ttn_date', date);
+        params.append('amount', parseFloat(amt));
+        params.append('product_quantity', parseInt(qty, 10) || 0);
+        params.append('product_info', prod);
+
+        const res = await fetch('save_ttn.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+
+        const result = await res.json();
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Добавить в рамках контракта";
+        }
+
+        if (result.status === 'success') {
+            console.log("ТТН успешно занесена в СУБД Santeks!");
+            window.location.reload(); // Мгновенно перезагружаем страницу для обновления сумм
+        } else {
+            alert("Ошибка базы данных Windows XAMPP:\n" + result.message);
+        }
+    } catch (err) {
+        console.error("Критический сбой отправки ТТН:", err);
+        alert("Ошибка соединения с сервером. Проверьте работоспособность Apache.");
+        const btn = document.getElementById('ttnActionBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Добавить в рамках контракта";
+        }
+    }
+}
 
 
 // 3. ПОДСТАНОВКА В ФОРМУ ПРИ РЕДАКТИРОВАНИИ (КАРАНДАШ)
@@ -675,16 +920,39 @@ function prepareTtnToEdit(id, num, date, amount, qty, prod) {
 }
 
 // 4. УДАЛЕНИЕ ФАЙЛА PDF У НАКЛАДНОЙ
+// ИСПРАВЛЕНО НАМЕРТВО: Функция удаления шлет понятный для Windows XAMPP POST-пакет параметров
 async function removeTtnFile(ttnId, pid) {
-    if (!confirm("Вы уверены, что хотите БЕЗВОЗВРАТНО удалить прикрепленный PDF-файл?")) return;
+    if (!confirm("⚠️ Вы уверены, что хотите БЕЗВОЗВРАТНО удалить прикрепленный PDF-файл накладной?")) return;
+    
+    console.log("Запуск удаления файла для ТТН ID:", ttnId, "Договор PID:", pid);
+
     try {
+        // Упаковываем параметры в стандартный формат веб-форм
+        const params = new URLSearchParams();
+        params.append('ttn_id', parseInt(ttnId, 10));
+
         const res = await fetch('delete_ttn_pdf.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ttn_id: parseInt(ttnId) })
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded' // Классический, надежный тип передачи
+            },
+            body: params.toString() // Передаем в виде строки ttn_id=...
         });
-        if ((await res.json()).status === 'success') renderProjectTtnsList(pid);
-    } catch (err) { alert("Ошибка соединения с сервером"); }
+        
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            console.log("Скан накладной успешно удален с сервера и очищен в СУБД!");
+            
+            // ЖЕСТКИЙ ПЕРЕЗАПУСК: Обновляем экран, чтобы кнопка просмотра моментально превратилась обратно в скрепку 📎
+            window.location.reload();
+        } else {
+            alert("Ошибка удаления файла: " + result.message);
+        }
+    } catch (err) {
+        console.error("Сбой сети при удалении файла ТТН:", err);
+        alert("Ошибка соединения с сервером Windows XAMPP.");
+    }
 }
 
 // 5. ПОТОКОВАЯ ЗАГРУЗКА PDF (СКРЕПКА)
@@ -792,17 +1060,10 @@ document.addEventListener('click', function(e) {
         loadProjectTtns(pid);
     }
 });
-function openTtnManager(projectId, clientName, productType) {
-    console.log("Открытие ТТН менеджера для проекта:", projectId, "Продукция:", productType);
-    
-    // Твои старые строки открытия модального окна (display = 'flex' и т.д.) остаются без изменений
-    
-    // ТОЧЕЧНЫЙ ВПРЫСК: Находим инпут спецификации и принудительно вставляем вид продукции
-    const ttnProductInput = document.getElementById('ttn_modal_product_type');
-    if (ttnProductInput) {
-        ttnProductInput.value = productType || 'Прочее';
-    }
-}   
+// ИСПРАВЛЕНО: Функция открытия модалки принудительно прописывает ID договора и базовый товар
+// ИСПРАВЛЕНО НАМЕРТВО: Глобальная фиксация ID договора для защиты от зануления в СУБД
+
+
 async function executeSingleTtnSave() {
     console.log("Запущен уникальный движок сох  ранения ТТН...");
     
@@ -818,7 +1079,10 @@ async function executeSingleTtnSave() {
         return;
     }
 
-    const pid = document.getElementById('ttn_pid_storage').value;
+    let pid = document.getElementById('ttn_pid_storage').value;
+    if (!pid || parseInt(pid, 10) <= 0) {
+        pid = window.currentTtnProjectId; // Берем резервную копию
+    }
     const ttnId = document.getElementById('edit_ttn_id_storage') ? document.getElementById('edit_ttn_id_storage').value : '';
     const num = document.getElementById('new_ttn_num').value.trim();
     const date = document.getElementById('new_ttn_date').value;
@@ -1193,35 +1457,156 @@ async function closeContractModal() {
     }
     window.location.href = 'contracts.php';
 }
-
-async function openTtnManager(pid, label, productType) {
-    console.log('Открываем ТТН менеджер для договора с ID:', pid, 'Продукция:', productType);
+// ИСПРАВЛЕНО: Функция считывает ID и выводит подробный лог в консоль F12
+function openTtnManagerFromButton(buttonElement) {
+    if (!buttonElement) return;
     
-    const modal = document.getElementById('ttnManagerModal');
-    const storage = document.getElementById('ttn_pid_storage');
+    // Считываем значение из data-id кнопки
+    const rawId = buttonElement.getAttribute('data-id');
+    const pid = parseInt(rawId, 10);
     
-    if (!modal || !storage) {
-        alert("Ошибка: элементы модального окна ТТН не найдены в HTML!");
+    console.log("=== ЛОГ КЛИКА КНОПКИ ТТН ===");
+    console.log("Сырое значение из HTML атрибута data-id =", rawId);
+    console.log("Распарсенный числовой ID договора =", pid);
+    
+    if (isNaN(pid) || pid <= 0) {
+        alert("Критическая ошибка: Кнопка передала ID = " + rawId + ". Проверьте имя переменной ($p, $t, $row) в PHP цикле таблицы!");
         return;
     }
     
-    storage.value = pid; 
-    
-    // БРОНЕБОЙНЫЙ ВПРЫСК: Ищем инпут по атрибуту name="product_info" внутри модалки
-    const specInput = modal.querySelector('input[name="product_info"]');
-    if (specInput) {
-        specInput.value = ""; // Тотальный сброс кэша
-        specInput.value = productType ? productType.trim() : 'Прочее';
-        specInput.readOnly = true; // Защита от ручного ввода на уровне JS
-        specInput.style.cursor = 'not-allowed';
-        specInput.style.color = '#818cf8';
-        console.log("Жесткий инжект спецификации выполнен! Записано:", specInput.value);
-    } else {
-        console.error("Варнинг: Инпут с name='product_info' не найден внутри #ttnManagerModal");
+    if (typeof openTtnManager === 'function') {
+        openTtnManager(pid);
     }
+}
+
+
+// =========================================================================
+// АРХИТЕКТУРНЫЙ ФИКС: Хранение ID договора в оперативной памяти window
+// =========================================================================
+
+// Глобальное хранилище ID активного договора (застраховано от затирания в HTML)
+window.currentTtnProjectId = 0;
+
+
+// 2. Главная функция инициализации и открытия модального окна
+function openTtnManager(pid) {
+    console.log("=== ЗАПУСК ДВИЖКА ТТН ===");
+    const safePid = parseInt(pid, 10);
     
-    loadProjectTtns(pid);
-    modal.style.display = "flex";}
+    if (isNaN(safePid) || safePid <= 0) {
+        alert("Критическая ошибка JS: Некорректный ID договора!");
+        return;
+    }
+
+    // НАМЕРТВО ЗАПИСЫВАЕМ ID В ОПЕРАТИВНУЮ ПАМЯТЬ БРАУЗЕРА
+    window.currentTtnProjectId = safePid;
+    console.log("ID договора надежно зафиксирован в памяти: window.currentTtnProjectId =", window.currentTtnProjectId);
+
+    // Визуально выводим ID в заголовок окна (для менеджера)
+    const label = document.getElementById('ttnContractLabel');
+    if (label) {
+        label.innerText = 'Системный ID договора: №' + safePid;
+    }
+
+    // Ищем и открываем модальное окно
+    let modal = document.getElementById('ttnManagerModal');
+    if (!modal) {
+        const headers = Array.from(document.querySelectorAll('h3'));
+        const ttnHeader = headers.find(h => h.textContent.includes('Управление отгрузками ТТН'));
+        if (ttnHeader) modal = ttnHeader.parentElement.parentElement;
+    }
+
+    if (modal) {
+        modal.style.display = 'flex';
+        console.log("Модальное окно выведено на экран.");
+    } else {
+        alert("Критическая ошибка UI: Не найден контейнер модального окна отгрузок!");
+        return;
+    }
+
+    // Очищаем поле редактирования ТТН (так как создаем новую отгрузку)
+    if (document.getElementById('edit_ttn_id_storage')) {
+        document.getElementById('edit_ttn_id_storage').value = '';
+    }
+
+    // Загружаем асинхронный список уже созданных накладных из базы
+    if (typeof renderProjectTtnsList === 'function') {
+        renderProjectTtnsList(safePid);
+    }
+}
+
+// 3. Функция сохранения отгрузки ТТН в базу данных Windows XAMPP
+async function saveTtnRecord() {
+    console.log("Старт отправки отгрузки ТТН...");
+
+    // СЧИТЫВАЕМ ID НАПРЯМУЮ ИЗ ОПЕРАТИВНОЙ ПАМЯТИ ОКНА БРАУЗЕРА
+    const pid = window.currentTtnProjectId;
+    console.log("Извлечен ID договора из глобальной памяти браузера для отправки в СУБД =", pid);
+
+    if (isNaN(pid) || pid <= 0) {
+        alert("Критическая ошибка: Системный ID договора потерян в памяти. Переоткройте окно ТТН.");
+        return;
+    }
+
+    // Получаем значения остальных полей по их ID
+    const ttnId = document.getElementById('edit_ttn_id_storage') ? document.getElementById('edit_ttn_id_storage').value : '';
+    const num = document.getElementById('new_ttn_num') ? document.getElementById('new_ttn_num').value.trim() : '';
+    const date = document.getElementById('new_ttn_date') ? document.getElementById('new_ttn_date').value : '';
+    const amt = document.getElementById('new_ttn_amount') ? document.getElementById('new_ttn_amount').value.trim() : '';
+    const qty = document.getElementById('new_ttn_quantity') ? document.getElementById('new_ttn_quantity').value.trim() : 0;
+    const prod = document.getElementById('new_ttn_prod') ? document.getElementById('new_ttn_prod').value.trim() : 'Прочее';
+
+    if (!num || !amt) {
+        alert("Заполните обязательные поля формы: Номер ТТН и Сумму!");
+        return;
+    }
+
+    try {
+        const btn = document.getElementById('ttnActionBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = "Запись в базу...";
+        }
+
+        // Формируем классический POST-пакет параметров
+        const params = new URLSearchParams();
+        params.append('project_id', pid);
+        params.append('ttn_id', ttnId);
+        params.append('ttn_number', num);
+        params.append('ttn_date', date);
+        params.append('amount', parseFloat(amt));
+        params.append('product_quantity', parseInt(qty, 10) || 0);
+        params.append('product_info', prod);
+
+        const res = await fetch('save_ttn.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+
+        const result = await res.json();
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Добавить в рамках контракта";
+        }
+
+        if (result.status === 'success') {
+            console.log("ТТН успешно занесена в СУБД Santeks!");
+            window.location.reload(); // Перезагружаем страницу для обновления сумм на экране
+        } else {
+            alert("Ошибка базы данных Windows XAMPP:\n" + result.message);
+        }
+    } catch (err) {
+        console.error("Критический сбой отправки ТТН:", err);
+        alert("Ошибка соединения с сервером Apache.");
+        const btn = document.getElementById('ttnActionBtn');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Добавить в рамках контракта";
+        }
+    }
+}
 
 function exportToExcel() {
     // 1. Берем таблицу

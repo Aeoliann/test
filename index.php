@@ -32,7 +32,7 @@ $current_tab = isset($_GET['tab']) ? strtolower(trim($_GET['tab'])) : 'active';
 $tab = $current_tab; // Синхронизируем, чтобы HTML-ссылки понимали активный статус
 
 // Единая логика сортировки: просроченные контакты летят наверх, отказники всегда вниз
-$orderByLogic = "ORDER BY (first_contact_date)";
+$orderByLogic = "ORDER BY first_contact_date DESC";
 
 // 4. СБОР СТАТИСТИКИ ДЛЯ ПЛАШЕК ДАШБОРДА (БЕЗ ВАРНИНГОВ)
 $stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
@@ -88,7 +88,7 @@ try {
             if ($current_tab === 'refused') {
                 $sql = "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'";
             } else {
-                $sql = "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
+                $sql = "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ' ";
             }
             $params = [$filterManagerId];
         } else {
@@ -103,7 +103,7 @@ try {
         if ($current_tab === 'refused') {
             $sql = "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'";
         } else {
-            $sql = "SELECT * FROM clients ORDER BY  WHERE manager_id = ? AND status != 'Отказ' ";
+            $sql = "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ' ";
         }
         $params = [$userId];
     }
@@ -590,10 +590,10 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
         ❌ Архив отказов
     </a>
 </div>
-  <div style="max-height: 650px; overflow-y: auto; overflow-x: auto; width: 100%; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+ <div style="max-height: 820px; width: 100%; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d; box-shadow: 0 4px 20px rgba(0,0,0,0.3); box-sizing: border-box;">
     
    <!-- ИСПРАВЛЕНО НАМЕРТВО: Колонки освобождены от жестких процентов экрана и двигаются динамически по длине текста! -->
-<table style="min-width: max-content; width: 100%; border-collapse: collapse; margin: 0; background: #1e1e2d; table-layout: auto !important;">
+<table style="width: 100% !important; min-width: 1300px; border-collapse: collapse; margin: 0; background: #1e1e2d; table-layout: auto !important;">
 
 
     <thead>
@@ -1089,12 +1089,10 @@ async function openProtectedEditModal(id) {
         }
         // БРОНЕБОЙНЫЙ АВТОПОДБОР ДЛЯ ПОЛЯ ИСТОЧНИКА
        const sourceField = document.getElementById('source') || document.getElementById('client_source');
-if (sourceField) {
-    // Чистим текст от случайных скрытых пробелов, которые мог записать PHP
-    const dbSourceValue = (c.source || '').trim();
-    sourceField.value = dbSourceValue;
-    console.log("Устанавливаю источник привлечения в селект:", dbSourceValue);
-}
+        if (sourceField && c.source) {
+            sourceField.value = c.source;
+            console.log("Источник привлечения успешно подтянут в модалку: ", c.source);
+        }
         // Показываем идеально заполненную форму
         modal.style.display = 'flex';
         console.log("Данные успешно подтянуты из API без единого сбоя.");

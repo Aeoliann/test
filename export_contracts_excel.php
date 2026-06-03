@@ -1,5 +1,5 @@
 <?php
-// export_contracts_excel.php — XLS-экспортер реестра договоров под Windows XAMPP
+// export_contracts_excel.php — Изолированный экспортер реестра контрактов и отгрузок ТТН в Excel
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -9,82 +9,118 @@ if (!isset($_SESSION['user_id'])) {
     die("Доступ запрещен. Авторизуйтесь.");
 }
 
-$userRole = $_SESSION['role'] ?? 'manager';
-$userId   = (int)$_SESSION['user_id'];
+$userId = (int)$_SESSION['user_id'];
+$u_role = $_SESSION['role'] ?? 'manager';
+
+// Перехватываем строку живого поиска со страницы контрактов
+$searchQuery = isset($_GET['query']) ? trim($_GET['query']) : '';
 
 try {
-    // Выгружаем договоры с подсчётом ТТН и сумм индивидуально для каждого клиента
-    if ($userRole === 'admin') {
-        $sql = "SELECT p.*, c.client_name, 
-                (SELECT COUNT(*) FROM project_ttns WHERE project_id = p.id) as ttn_count,
-                (SELECT MAX(ttn_date) FROM project_ttns WHERE project_id = p.id) as last_ttn_date,
-                (SELECT SUM(amount) FROM project_ttns WHERE project_id = p.id) as total_amount
-                FROM projects p 
-                INNER JOIN clients c ON p.client_id = c.id 
-                ORDER BY c.client_name ASC, p.id DESC";
-        $stmt = $pdo->query($sql);
-    } else {
-        $sql = "SELECT p.*, c.client_name, 
-                (SELECT COUNT(*) FROM project_ttns WHERE project_id = p.id) as ttn_count,
-                (SELECT MAX(ttn_date) FROM project_ttns WHERE project_id = p.id) as last_ttn_date,
-                (SELECT SUM(amount) FROM project_ttns WHERE project_id = p.id) as total_amount
-                FROM projects p 
-                INNER JOIN clients c ON p.client_id = c.id 
-                WHERE c.manager_id = ?
-                ORDER BY c.client_name ASC, p.id DESC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$userId]);
+    $conditions = [];
+    $params = [];
+    
+    // Ограничение прав: менеджер выгружает только свои контракты (твое поле user_id)
+    if ($u_role !== 'admin') {
+        $conditions[] = "p.user_id = ?";
+        $params[] = $userId;
     }
-    $projects = $stmt->fetchAll() ?: [];
+    
+    // Фильтрация по поисковому слову (клиент, номер или продукция)
+    if (!empty($searchQuery)) {
+        $conditions[] = "(c.client_name LIKE ? OR p.contract_number LIKE ? OR p.product_type LIKE ?)";
+        $params[] = "%$searchQuery%";
+        $params[] = "%$searchQuery%";
+        $params[] = "%$searchQuery%";
+    }
+    
+    $whereSql = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";
+    
+    // ИСПРАВЛЕНО НАМЕРТВО: Выравнивание JOIN и GROUP BY строго по структуре твоей базы!
+    $sql = "SELECT 
+                p.id,
+                p.contract_number,
+                p.contract_date,
+                p.product_type,
+                c.client_name, 
+                c.unp, 
+                u.login AS manager_name,
+                COALESCE(SUM(t.amount), 0) AS total_shipped_amount
+            FROM projects p
+            LEFT JOIN clients c ON p.client_id = c.id
+            LEFT JOIN users u ON p.user_id = u.id
+            LEFT JOIN project_ttns t ON p.id = t.project_id
+            $whereSql
+            GROUP BY 
+                p.id, 
+                p.contract_number, 
+                p.contract_date, 
+                p.product_type, 
+                c.client_name, 
+                c.unp, 
+                u.login
+            ORDER BY p.id DESC";
+            
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Exception $e) {
-    die("Критическая ошибка СУБД при формировании XLS: " . $e->getMessage());
+    die("Ошибка СУБД при экспорте контрактов: " . $e->getMessage());
 }
+    
 
-// Формируем системные заголовки скачивания для Windows-браузеров
+// Формируем имя файла и MIME-заголовки скачивания
 $filename = "Santeks_Contracts_Report_" . date('Y-m-d_H-i') . ".xls";
+
 header("Content-Type: application/vnd.ms-excel; charset=utf-8");
 header("Content-Disposition: attachment; filename=\"$filename\"");
 header("Cache-Control: max-age=0");
-
-echo "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://w3.org'>";
-echo "<head><meta charset='utf-8'></head><body>";
-echo "<table border='1'>";
-echo "<tr style='background: #4f46e5; color: #fff; font-weight: bold;'>
-        <th>Дата создания</th>
-        <th>Наименование организации (Клиент)</th>
-        <th>№ Договора</th>
-        <th>Тип продукции</th>
-        <th>Дата договора</th>
-        <th>Кол-во ТТН</th>
-        <th>Дата последней отгрузки</th>
-        <th>Сумма отгрузок (BYN)</th>
-        <th>Пересчет (RUB)</th>
-      </tr>";
-
-$totalSumAll = 0;
-foreach ($projects as $r) {
-    $amt = (float)($r['total_amount'] ?? 0.00);
-    $rub = $amt * 28.5;
-    $totalSumAll += $amt;
-
-    echo "<tr>";
-    echo "<td>" . htmlspecialchars($r['created_at'] ?? '—') . "</td>";
-    echo "<td>" . htmlspecialchars($r['client_name']) . "</td>";
-    echo "<td>" . htmlspecialchars($r['contract_number'] ?? '—') . "</td>";
-    echo "<td>" . htmlspecialchars($r['product_type'] ?? 'Прочее') . "</td>";
-    echo "<td>" . htmlspecialchars($r['contract_date'] ?? '—') . "</td>";
-    echo "<td style='text-align:center;'> " . (int)$r['ttn_count'] . "</td>";
-    echo "<td style='text-align:center;'>" . htmlspecialchars($r['last_ttn_date'] ?? '—') . "</td>";
-    echo "<td style='text-align:right;'>" . number_format($amt, 2, '.', '') . "</td>";
-    echo "<td style='text-align:right;'>" . number_format($rub, 2, '.', '') . "</td>";
-    echo "</tr>";
-}
-
-echo "<tr style='font-weight:bold; background:#242434; color:#fff;'>
-        <td colspan='7' style='text-align:right;'>ИТОГО ПО ВСЕМ КЛИЕНТАМ:</td>
-        <td style='text-align:right;'>" . number_format($totalSumAll, 2, '.', '') . " BYN</td>
-        <td></td>
-      </tr>";
-
-echo "</table></body></html>";
-exit;
+echo "\xEF\xBB\xBF"; // UTF-8 BOM для корректного отображения кириллицы в Excel
+?>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://w3.org">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <style>
+        table { border-collapse: collapse; }
+        th { background-color: #242434; color: #ffffff; font-weight: bold; border: 1px solid #323248; text-align: center; height: 35px; }
+        td { border: 1px solid #2b2b40; text-align: left; height: 30px; }
+        .num-cell { text-align: center; }
+    </style>
+</head>
+<body>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>П/П</th>
+                <th>Наименование организации / Клиент</th>
+                <th>УНП</th>
+                <th>№ Договора</th>
+                <th>Дата договора</th>
+                <th>Вид продукции</th>
+                <th>Сумма отгрузок (BYN)</th>
+                <th>Сумма отгрузок (RUB)</th>
+                <th>Ответственный менеджер</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (!empty($rows)): $pp = 1; foreach ($rows as $r): 
+                $sumByn = (float)$r['total_shipped_amount'];
+                $sumRub = $sumByn * 28.5; // Наш внутренний мультивалютный коэффициент
+            ?>
+                <tr>
+                    <td class="num-cell"><?= $pp++ ?></td>
+                    <td><?= htmlspecialchars($r['client_name'] ?? '') ?></td>
+                    <td style="vnd.ms-excel.numberformat:@"><?= htmlspecialchars($r['unp'] ?? '') ?></td> <!-- Защита от усечения нулей в УНП -->
+                    <td><?= htmlspecialchars($r['contract_number'] ?? '') ?></td>
+                    <td style="text-align:center;"><?= !empty($r['contract_date']) ? date('d.m.Y', strtotime($r['contract_date'])) : '—' ?></td>
+                    <td><?= htmlspecialchars($r['product_type'] ?? '') ?></td>
+                    <td style="text-align:right; font-weight:bold;"><?= number_format($sumByn, 2, '.', '') ?></td>
+                    <td style="text-align:right; color:#f59e0b;"><?= number_format($sumRub, 2, '.', '') ?></td>
+                    <td><?= htmlspecialchars($r['manager_name'] ?? '') ?></td>
+                </tr>
+            <?php endforeach; else: ?>
+                <tr><td colspan="9" style="text-align: center;">Контракты не найдены.</td></tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
+</body>
+</html>

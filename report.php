@@ -1,349 +1,148 @@
 <?php
-session_start();
+// summary_report.php — Сводная матрица эффективности менеджеров по суммам отгрузок
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require 'db.php';
-require 'rates.php'; // Живой центр курсов Нацбанка РБ
 
-// ЖЕСТКАЯ БЕЗОПАСНОСТЬ: Если зашел не админ, выкидываем
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header("Location: index.php");
-    exit;
+if (!isset($_SESSION['user_id'])) {
+    die("Доступ запрещен. Авторизуйтесь.");
 }
 
-// Забираем живой курс рубля (стоимость 1 RUB в BYN)
-$rate = isset($globalRates['RUB']) ? (float)$globalRates['RUB'] : 0.0352;
+$userRole = $_SESSION['role'] ?? 'manager';
 
-// НАДЕЖНЫЙ СБОР ПОЛЬЗОВАТЕЛЕЙ БЕЗ СТРОГИХ СВЯЗЕЙ С КЛИЕНТАМИ
-$managersList = [];
+// Перехватываем даты из календарей. По умолчанию — текущий месяц
+$dateFrom = isset($_GET['date_from']) ? trim($_GET['date_from']) : date('Y-m-01');
+$dateTo   = isset($_GET['date_to']) ? trim($_GET['date_to']) : date('Y-m-t');
 
-// Список возможных имен колонок для проверки
-$nameColumns = ['full_name'];
-$chosenColumn = 'id';
-
-// Шаг A. Определяем, как в твоей базе называется колонка с именем пользователя
-foreach ($nameColumns as $col) {
-    try {
-        $test = $pdo->query("SELECT $col FROM users LIMIT 1");
-        if ($test) {
-            $chosenColumn = $col;
-            break;
-        }
-    } catch (Exception $e) {
-        continue; // Если колонки нет, пробуем следующую
-    }
-}
-
-// Шаг Б. Пробуем вытащить пользователей по роли (независимо от регистра)
 try {
-    $managersList = $pdo->query("
-        SELECT id, $chosenColumn AS name 
-        FROM users 
-        WHERE role LIKE '%man%' OR role LIKE '%мен%'
-        ORDER BY id ASC
-    ")->fetchAll(PDO::FETCH_ASSOC);
+    // ЖЕСТКИЙ АНАЛИТИЧЕСКИЙ SQL-ЗАПРОС: Агрегируем суммы ТТН строго за выбранный период
+    $sql = "SELECT 
+                u.id AS manager_id,
+                u.login AS manager_name,
+                COUNT(DISTINCT c.id) AS active_clients_count,
+                COUNT(DISTINCT p.id) AS active_contracts_count,
+                COUNT(t.id) AS ttn_count_period,
+                COALESCE(SUM(t.amount), 0) AS total_amount_period
+            FROM users u
+            LEFT JOIN clients c ON u.id = c.manager_id
+            LEFT JOIN projects p ON c.id = p.client_id
+            LEFT JOIN project_ttns t ON p.id = t.project_id 
+                AND t.ttn_date >= ? 
+                AND t.ttn_date <= ?
+            WHERE u.role = 'manager'
+            GROUP BY u.id, u.login
+            ORDER BY total_amount_period DESC"; // Ранжируем строго по сумме!
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$dateFrom, $dateTo]);
+    $matrix = $stmt->fetchAll() ?: [];
+
 } catch (Exception $e) {
-    $managersList = [];
+    die("Критический сбой построения матрицы: " . $e->getMessage());
 }
-
-// Шаг В. Если роли не подошли или пустые, забираем вообще ВСЕХ из таблицы users
-if (empty($managersList)) {
-    try {
-        $managersList = $pdo->query("
-            SELECT id, $chosenColumn AS name 
-            FROM users 
-            ORDER BY id ASC
-        ")->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        $managersList = [];
-    }
-}
-
-// Шаг Г. Если база пользователей вообще заблокирована или пуста — создаем аварийный дефолт,
-// чтобы админ панель отрисовала структуру, а не пустой экран
-if (empty($managersList)) {
-    $managersList = [
-        ['id' => 1, 'name' => 'Администратор (Тест)']
-    ];
-}
-
-// Официальный перечень видов продукции
-$productTypes = ['Посуда', 'Сантехника', 'ЕКМ', 'Резервуары', 'МПДУ', 'УОКТ', 'Прочее'];
 ?>
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Сводный аналитический отчёт - Santeks CRM</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Подключаем FontAwesome для иконок, если используется в проекте -->
-    <link rel="stylesheet" href="cloudflare.com">
-    
+    <title>Сводная матрица отгрузок — Santeks</title>
     <style>
-        body {
-            background: #151521;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 30px;
-            margin: 0;
-            box-sizing: border-box;
-        }
-        .nav-panel {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            background: #1e1e2d;
-            padding: 15px 25px;
-            border-radius: 12px;
-            border: 1px solid #323248;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .nav-title {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .btn-back {
-            background: #4f46e5;
-            color: #fff;
-            text-decoration: none;
-            padding: 9px 18px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            transition: background 0.2s, transform 0.1s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .btn-back:hover {
-            background: #4338ca;
-        }
-        .btn-back:active {
-            transform: scale(0.98);
-        }
-        .matrix-container {
-            background: #1e1e2d;
-            padding: 25px;
-            border-radius: 16px;
-            border: 1px solid #323248;
-            overflow-x: auto;
-            box-shadow: 0 10px 35px rgba(0,0,0,0.3);
-        }
-        .matrix-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            text-align: left;
-            font-size: 13px;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .matrix-table th {
-            background: #242434;
-            color: #92929f;
-            padding: 12px;
-            font-weight: 600;
-            border: 1px solid #2b2b40;
-            text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 0.5px;
-        }
-        .matrix-table td {
-            padding: 12px;
-            border: 1px solid #2b2b40;
-            vertical-align: middle;
-        }
-        .matrix-table tbody tr {
-            background: #1b1b28;
-            transition: background 0.15s;
-        }
-        .matrix-table tbody tr:hover {
-            background: #222235 !important;
-        }
-        .prod-title {
-            font-weight: 600;
-            color: #a3a3bc;
-            background: #1e1e2d;
-            font-size: 13px;
-            border-right: 2px solid #4f46e5 !important;
-        }
-        .cell-count {
-            text-align: center;
-            color: #e2e8f0;
-            font-weight: 500;
-        }
-        .cell-amount {
-            text-align: right;
-            font-weight: 600;
-            color: #10b981;
-        }
-        .cell-empty {
-            color: #3f3f56;
-            font-weight: normal;
-        }
-        .total-row {
-            background: #1e1e2d !important;
-            font-weight: bold;
-            border-top: 2px solid #4f46e5;
-        }
-        .total-row td {
-            border-top: 2px solid #4f46e5 !important;
-            padding: 14px 12px;
-        }
-        .rub-row {
-            background: #161624 !important;
-            font-weight: bold;
-        }
-        .rub-row td {
-            padding: 14px 12px;
-            color: #a855f7;
-            font-size: 13px;
-        }
+        body { background: #151521; color: #fff; font-family: sans-serif; padding: 25px; margin: 0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: #1e1e2d; border: 1px solid #323248; border-radius: 8px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .toolbar { display: flex; align-items: flex-end; gap: 15px; margin-bottom: 20px; background: #1a1a24; padding: 15px; border-radius: 6px; border: 1px solid #2b2b40; }
+        .t-label { font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px; }
+        .t-input { height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; }
+        .btn-apply { height: 38px; padding: 0 20px; background: #4f46e5; border: none; color: #fff; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.15s; }
+        .btn-apply:hover { background: #4338ca; }
+        .btn-reset { height: 36px; line-height: 36px; padding: 0 15px; background: #242434; border: 1px solid #323248; color: #92929f; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: bold; text-align: center; }
+        .btn-reset:hover { color: #fff; background: #2b2b3d; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #242434; padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; border-bottom: 2px solid #323248; }
+        td { padding: 14px 10px; border-bottom: 1px solid #2b2b40; font-size: 14px; text-align: center; background: #1e1e2d; }
+        .leader-tr { background: #1a2e26 !important; } /* Подсветка лидера */
     </style>
 </head>
-<body>
 
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+<body style="display:flex;">
+     <aside>
+    <?php include 'sidebar.php'; ?>
    
-        <aside>
-        <?php include 'sidebar.php'; ?>
-        </aside>
+    </aside>   
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: bold; letter-spacing: -0.5px;">📊 Сводная матрица коммерческих отгрузок Santeks</h1>
+        <a href="index.php" style="color: #818cf8; text-decoration: none; font-weight: bold; font-size: 14px;">← Вернуться в CRM</a>
+    </div>
 
-    <!-- ТАБЛИЦА С ДАННЫМИ -->
-    <div class="matrix-container">
-        <table class="matrix-table">
+    <!-- ТУЛБАР ФИЛЬТРАЦИИ ПЕРИОДА -->
+<form method="GET" action="" class="toolbar" style="display: flex; align-items: flex-end; gap: 15px; margin-bottom: 20px; background: #1a1a24; padding: 15px; border-radius: 6px; border: 1px solid #2b2b40;">
+        <div>
+            <label class="t-label">Период ТТН с:</label>
+            <input type="date" name="date_from" value="<?= htmlspecialchars($dateFrom) ?>" class="t-input">
+        </div>
+        <div>
+            <label class="t-label">по:</label>
+            <input type="date" name="date_to" value="<?= htmlspecialchars($dateTo) ?>" class="t-input">
+        </div>
+        <button type="submit" class="btn-apply">🔍 Сформировать матрицу</button>
+       <a href="?" class="btn-reset">Сбросить период</a>
+
+    </form>
+
+    <!-- ТАБЛИЦА МАТРИЦЫ -->
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <table>
             <thead>
                 <tr>
-                    <th rowspan="2" style="width: 180px;">Вид продукции</th>
-                    <?php foreach ($managersList as $m): ?>
-                        <th colspan="2" style="text-align: center; color: #fff; font-size: 12px; background: #202030;">
-                            <i class="fa-solid fa-user-tie" style="color: #4f46e5; margin-right: 5px;"></i> 
-                            <?= htmlspecialchars($m['name']) ?>
-                        </th>
-                    <?php endforeach; ?>
-                    <th colspan="2" style="text-align: center; background: #26263a; color: #f6ad55; font-size: 12px;">
-                        <i class="fa-solid fa-layer-group" style="margin-right: 5px;"></i> ОБЩИЕ ИТОГИ
-                    </th>
-                </tr>
-                <tr>
-                    <?php foreach ($managersList as $m): ?>
-                        <th style="text-align: center; width: 70px;">КОЛ-ВО</th>
-                        <th style="text-align: right; width: 140px;">СУММА (BYN)</th>
-                    <?php endforeach; ?>
-                    <th style="text-align: center; width: 70px; background: #1e1e2d; color: #f6ad55;">КОЛ-ВО</th>
-                    <th style="text-align: right; width: 150px; background: #1e1e2d; color: #f6ad55;">СУММА (BYN)</th>
+                    <th>Место</th>
+                    <th style="text-align: left;">Менеджер отдела продаж</th>
+                    <th>Всего клиентов</th>
+                    <th>Активных договоров</th>
+                    <th>Кол-во ТТН за период</th>
+                    <th style="text-align: right; color: #10b981;">Сумма отгрузок (BYN)</th>
+                    <th style="text-align: right; color: #f59e0b;">Пересчёт (RUB)</th>
                 </tr>
             </thead>
             <tbody>
-                <?php
-                $colTotals = [];
-                $grandTotalCount = 0;
-                $grandTotalSum = 0;
-
-                foreach ($productTypes as $prod):
-                    $rowTotalCount = 0;
-                    $rowTotalSum = 0;
-                ?>
-                <tr>
-                    <!-- Название категории -->
-                    <td class="prod-title">
-                        <?= $prod ?>
-                    </td>
-                    
-                    <?php foreach ($managersList as $m): 
-                        // Считаем отгруженные ТТН менеджера по конкретному типу продукции
-                        $dataStmt = $pdo->prepare("
-                            SELECT COUNT(t.id) as ttn_count, COALESCE(SUM(t.amount), 0) as ttn_sum 
-                            FROM project_ttns t
-                            INNER JOIN projects p ON t.project_id = p.id
-                            INNER JOIN clients c ON p.client_id = c.id
-                            WHERE c.manager_id = ? AND c.product_type = ?
-                        ");
-                        $dataStmt->execute([$m['id'], $prod]);
-                        $res = $dataStmt->fetch();
-
-                        $cnt = (int)$res['ttn_count'];
-                        $sum = (float)$res['ttn_sum'];
-
-                        $rowTotalCount += $cnt;
-                        $rowTotalSum += $sum;
-
-                        $colTotals[$m['id']]['count'] = ($colTotals[$m['id']]['count'] ?? 0) + $cnt;
-                        $colTotals[$m['id']]['sum'] = ($colTotals[$m['id']]['sum'] ?? 0) + $sum;
-                    ?>
-                        <!-- Ячейки менеджера -->
-                        <td class="cell-count">
-                            <?= $cnt > 0 ? $cnt : '<span class="cell-empty">—</span>' ?>
-                        </td>
-                        <td class="cell-amount">
-                            <?= $sum > 0 ? number_format($sum, 2, '.', ' ') : '<span class="cell-empty">0.00</span>' ?>
-                        </td>
-                    <?php endforeach; ?>
-
-                    <!-- СТОЛБЕЦ ОБЩИХ ИТОГОВ СТРОКИ -->
-                    <td class="cell-count" style="background: #1e1e2d; font-weight: bold; color: #fff;">
-                        <?= $rowTotalCount ?>
-                    </td>
-                    <td class="cell-amount" style="background: #1e1e2d; font-weight: bold; color: #f6ad55;">
-                        <?= number_format($rowTotalSum, 2, '.', ' ') ?>
-                    </td>
-                </tr>
                 <?php 
-                    $grandTotalCount += $rowTotalCount;
-                    $grandTotalSum += $rowTotalSum;
-                endforeach; 
+                if (!empty($matrix)): 
+                    $place = 1;
+                    foreach ($matrix as $m): 
+                        $sumByn = (float)$m['total_amount_period'];
+                        $sumRub = $sumByn * 28.5; // Твой внутренний мультивалютный коэффициент
+                        
+                        // Первое место подсвечиваем лёгким зелёным оттенком
+                        $isLeader = ($place === 1 && $sumByn > 0);
                 ?>
+                    <tr class="<?= $isLeader ? 'leader-tr' : '' ?>">
+                        <td style="font-weight: bold; color: <?= $place === 1 ? '#10b981' : '#64748b' ?>;">
+                            <?= $place === 1 ? '🥇 1' : $place ?>
+                        </td>
+                        <td style="text-align: left; font-weight: bold; color: #fff;">
+                            <?= htmlspecialchars($m['manager_name']) ?>
+                        </td>
+                        <td style="color: #92929f;"><?= (int)$m['active_clients_count'] ?></td>
+                        <td style="color: #92929f;"><?= (int)$m['active_contracts_count'] ?></td>
+                        <td style="font-weight: 500; color: #e2e8f0;"><?= (int)$m['ttn_count_period'] ?></td>
+                        <td style="text-align: right; font-weight: bold; color: #10b981; font-size: 15px;">
+                            <?= number_format($sumByn, 2, '.', ' ') ?>
+                        </td>
+                        <td style="text-align: right; font-weight: bold; color: #f59e0b;">
+                            <?= number_format($sumRub, 2, '.', ' ') ?>
+                        </td>
+                    </tr>
+                <?php 
+                        $place++;
+                    endforeach; 
+                else: 
+                ?>
+                    <tr><td colspan="7" style="padding: 30px; color: #64748b;">Данные для построения отчета отсутствуют.</td></tr>
+                <?php endif; ?>
             </tbody>
-            
-            <tfoot>
-                <!-- СТРОКА: ИТОГО (BYN) -->
-                <tr class="total-row">
-                    <td style="color: #fff; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-wallet" style="margin-right: 5px; color:#4f46e5;"></i> Итого (BYN):
-                    </td>
-                    <?php foreach ($managersList as $m): ?>
-                        <td style="text-align: center; color: #fff; font-size: 14px;">
-                            <?= (int)($colTotals[$m['id']]['count'] ?? 0) ?>
-                        </td>
-                        <td style="text-align: right; color: #10b981; font-size: 14px;">
-                            <?= number_format((float)($colTotals[$m['id']]['sum'] ?? 0), 2, '.', ' ') ?>
-                        </td>
-                    <?php endforeach; ?>
-                    <!-- ГЛОБАЛЬНЫЙ ИТОГ -->
-                    <td style="text-align: center; background: #242434; color: #fff; font-size: 14px;">
-                        <?= $grandTotalCount ?>
-                    </td>
-                    <td style="text-align: right; background: #242434; color: #f6ad55; font-size: 15px;">
-                        <?= number_format($grandTotalSum, 2, '.', ' ') ?>
-                    </td>
-                </tr>
-                
-                <!-- СТРОКА: КОНВЕРТАЦИЯ В РОССИЙСКИЕ РУБЛИ -->
-                <tr class="rub-row">
-                    <td style="color: #92929f; font-size: 11px; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-money-bill-trend-up" style="margin-right: 5px; color:#a855f7;"></i> В пересчете на RUB:
-                    </td>
-                    <?php foreach ($managersList as $m): 
-                        $mByn = (float)($colTotals[$m['id']]['sum'] ?? 0);
-                        $mRub = $rate > 0 ? ($mByn / $rate) : 0;
-                    ?>
-                        <td colspan="2" style="text-align: right; color: #a855f7; font-size: 13px; padding-right: 12px;">
-                            <?= number_format($mRub, 2, '.', ' ') ?> <span style="font-size:10px; color:#64748b; font-weight:normal;">RUB</span>
-                        </td>
-                    <?php endforeach; ?>
-                    <!-- ОБЩИЙ РУБЛЕВЫЙ ИТОГ ДЛЯ РУКОВОДИТЕЛЯ -->
-                    <td colspan="2" style="text-align: right; background: #242434; color: #a855f7; font-size: 14px; padding-right: 12px;">
-                        <?= number_format(($rate > 0 ? $grandTotalSum / $rate : 0), 2, '.', ' ') ?> <span style="font-size:10px; color:#64748b; font-weight:normal;">RUB</span>
-                    </td>
-                </tr>
-            </tfoot>
         </table>
     </div>
-
+</div>
 </body>
 </html>

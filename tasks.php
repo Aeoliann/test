@@ -1,353 +1,471 @@
 <?php
+// tasks.php — Монолитный модуль задач Santeks CRM с комментариями и формой постановки
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require 'db.php';
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.html"); 
+    header("Location: login.php");
     exit;
 }
 
-$userId  = (int)$_SESSION['user_id'];
-$u_role  = $_SESSION['role'] ?? 'manager';
+$userId = (int)$_SESSION['user_id'];
+$u_role = $_SESSION['role'] ?? 'manager'; 
+// =========================================================================
+// БЛОК 0.5: ИСПРАВЛЕНО НАМЕРТВО: Создание новой задачи строго по структуре СУБД
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_new_task') {
+    $task_text = trim($_POST['task_text'] ?? '');
+    $due_date  = !empty($_POST['due_date']) ? $_POST['due_date'] : date('Y-m-d', strtotime('+3 days'));
+    $assign_to = (int)($_POST['user_id'] ?? $userId); // Кому поручаем (user_id)
+    $manager_comment = trim($_POST['manager_comment'] ?? '');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action']) && $_POST['action'] === 'update_comment') {
-        header('Content-Type: application/json');
-        if (ob_get_length()) ob_clean();
+    if (!empty($task_text)) {
         try {
-            $t_id = (int)($_POST['id'] ?? 0);
-            $comment = trim($_POST['comment'] ?? '');
-            $pdo->prepare("UPDATE tasks SET manager_comment = ? WHERE id = ?")->execute([comment, $t_id]);
-            echo json_encode(["status" => "success"]); 
-            exit;
-        } catch (Exception $e) {
-            echo json_encode(["status" => "error", "message" => $e->getMessage()]); 
-            exit;
-        }
-    }
-    
-    if (isset($_POST['task_text'])) {
-        $task_text = trim($_POST['task_text']);
-        $assigned_to = ($u_role === 'admin' && isset($_POST['assigned_to'])) ? (int)$_POST['assigned_to'] : $userId;
-        $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : date('Y-m-d');
-
-        if (!empty($task_text)) {
-            $stmt = $pdo->prepare("INSERT INTO tasks (task_text, due_date, user_id, status, created_by) VALUES (?, ?, ?, 'pending', ?)");
-            $stmt->execute([$task_text, $due_date, $assigned_to, $userId]);
-            header("Location: tasks.php"); 
-            exit;
-        }
-    }
-}
-
-
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Первым делом читаем сырой JSON поток, если JavaScript шлёт fetch
-    $rawInput = json_decode(file_get_contents('php://input'), true) ?: [];
-    
-    $action = $_POST['action'] ?? ($rawInput['action'] ?? '');
-    $t_id   = (int)($_POST['id'] ?? ($rawInput['id'] ?? 0));
-    $report = trim($_POST['report'] ?? ($rawInput['report'] ?? ''));
-
-    // 1. ПОДПРОГРАММА: Асинхронное сохранение отчета менеджера по задаче
-    if ($action === 'update_task_report') {
-        header('Content-Type: application/json');
-        if (ob_get_length()) ob_clean();
-        try {
-            if ($t_id <= 0) {
-                throw new Exception("Критическая ошибка: Некорректный ID задачи!");
-            }
+            // ЖЕСТКИЙ ФИКС: Пишем строго в те 6 колонок, которые физически существуют в твоей таблице!
+            $stmt = $pdo->prepare("INSERT INTO tasks (task_text, due_date, user_id, status, manager_comment) VALUES (?, ?, ?, 'pending', ?)");
+            $stmt->execute([$task_text, $due_date, $assign_to, $manager_comment]);
             
-            // Жестко фиксируем текст отчета в базе данных Windows XAMPP
-            $stmt = $pdo->prepare("UPDATE tasks SET manager_comment = ? WHERE id = ?");
-            $stmt->execute([$report, $t_id]);
-            
-            echo json_encode(["status" => "success"]); 
-            exit;
-        } catch (Exception $e) {
-            echo json_encode(["status" => "error", "message" => $e->getMessage()]); 
-            exit;
-        }
-    }
-
-    // 2. ПОДПРОГРАММА: Классическая отправка новой задачи из формы (для Админа)
-    if (isset($_POST['task_text'])) {
-        if ($u_role !== 'admin') {
-            die("Критическая ошибка безопасности: У вашей роли нет прав на создание задач!");
-        }
-        
-        $task_text   = trim($_POST['task_text']);
-        $assigned_to = isset($_POST['assigned_to']) ? (int)$_POST['assigned_to'] : $userId;
-        $due_date    = !empty($_POST['due_date']) ? $_POST['due_date'] : date('Y-m-d');
-        
-        if (!empty($task_text)) {
-            $stmt = $pdo->prepare("INSERT INTO tasks (task_text, assigned_to, due_date, created_by, status) VALUES (?, ?, ?, ?, 'pending')");
-            $stmt->execute([$task_text, $assigned_to, $due_date, $userId]);
+            // Чистый редирект для обновления экрана без зависаний
             header("Location: tasks.php");
             exit;
+        } catch (Exception $e) {
+            die("Критический сбой СУБД при создании задачи: " . $e->getMessage());
         }
     }
 }
 
 // =========================================================================
-// ИСПРАВЛЕНО: Безопасная смена статуса задачи с мгновенной проверкой отчета
+// БЛОК 1: ИСПРАВЛЕНО НАМЕРТВО: Ролевой контроль закрытия и отправки на доработку
 // =========================================================================
-if (isset($_GET['toggle_id'])) {
-    $t_id = (int)$_GET['toggle_id'];
-    
-    // Вытягиваем текущий статус и отчет напрямую из базы MariaDB
-    $stmt_check = $pdo->prepare("SELECT status, manager_comment FROM tasks WHERE id = ?");
-    $stmt_check->execute([$t_id]);
-    $task_data = $stmt_check->fetch();
-    
-    if ($task_data) {
-        $current_status = $task_data['status'];
-        $current_comment = trim($task_data['manager_comment'] ?? '');
-        
-        // Блокируем ТОЛЬКО если задача была в ожидании, а отчет РЕАЛЬНО абсолютно пустой
-        if ($current_status === 'pending' && empty($current_comment)) {
-            die("<script>alert('⚠️ Ошибка CRM: Нельзя перевести задачу в статус Выполнено без заполнения текстового отчета по проделанной работе!'); window.location.href='tasks.php';</script>");
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_task_status') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
+
+    $t_id = (int)($_POST['task_id'] ?? 0);
+
+    if ($t_id > 0) {
+        try {
+            // Смотрим текущий статус строки напрямую в СУБД
+            $checkStmt = $pdo->prepare("SELECT status FROM tasks WHERE id = ?");
+            $checkStmt->execute([$t_id]);
+            $realStatus = $checkStmt->fetchColumn() ?: 'pending';
+
+            if ($realStatus === 'completed') {
+                // Если задача уже выполнена, вернуть её в работу может ТОЛЬКО АДМИН!
+                if ($u_role === 'admin') {
+                    $new_status  = 'pending'; // Отправляем на доработку
+                    $executed_at = null;      // Стираем дату выполнения
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'Ошибка доступа: Менеджерам запрещено откатывать выполненные задачи. Обратитесь к Администратору для отправки на доработку.']);
+                    exit;
+                }
+            } else {
+                // Если задача была в работе — переводим в выполненные и фиксируем дату
+                $new_status  = 'completed';
+                $executed_at = date('Y-m-d'); // 03.06.2026
+            }
+
+            $stmt = $pdo->prepare("UPDATE tasks SET status = ?, executed_at = ? WHERE id = ?");
+            $stmt->execute([$new_status, $executed_at, $t_id]);
+
+            echo json_encode(['status' => 'success']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+            exit;
         }
-        
-        // Меняем статус на противоположный
-        $new_status = ($current_status === 'pending') ? 'completed' : 'pending';
-        $pdo->prepare("UPDATE tasks SET status = ? WHERE id = ?")->execute([$new_status, $t_id]);
     }
-    header("Location: tasks.php"); 
+    exit;
+}// =========================================================================
+// БЛОК 1.5: Ролевая блокировка изменения комментария выполненных задач
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_task_comment') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
+
+    $t_id    = (int)($_POST['task_id'] ?? 0);
+    $comment = trim($_POST['manager_comment'] ?? '');
+
+    if ($t_id > 0) {
+        try {
+            $checkStmt = $pdo->prepare("SELECT status FROM tasks WHERE id = ?");
+            $checkStmt->execute([$t_id]);
+            if ($checkStmt->fetchColumn() === 'completed' && $u_role !== 'admin') {
+                echo json_encode(['status' => 'error', 'message' => 'Редактирование отчета заблокировано! Изменять комментарий выполненного поручения может только Администратор.']);
+                exit;
+            }
+
+            $stmt = $pdo->prepare("UPDATE tasks SET manager_comment = ? WHERE id = ?");
+            $stmt->execute([$comment, $t_id]);
+            echo json_encode(['status' => 'success']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+            exit;
+        }
+    }
     exit;
 }
 
 
-if (isset($_GET['delete_id'])) {
-    if ($u_role !== 'admin') {
-        die("Ошибка безопасности!");
+// =========================================================================
+// БЛОК 2: АСИНХРОННЫЙ ПРИЕМ ДАННЫХ СМЕНЫ СТАТУСА (UPDATE)
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_task_status') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
+
+    $t_id = (int)($_POST['task_id'] ?? 0);
+    if ($t_id > 0) {
+        try {
+            $checkStmt = $pdo->prepare("SELECT status FROM tasks WHERE id = ?");
+            $checkStmt->execute([$t_id]);
+            $realStatus = $checkStmt->fetchColumn() ?: 'pending';
+
+            if ($realStatus === 'completed') {
+                $new_status  = 'pending';
+                $executed_at = null;
+            } else {
+                $new_status  = 'completed';
+                $executed_at = date('Y-m-d'); // 03.06.2026
+            }
+
+            $stmt = $pdo->prepare("UPDATE tasks SET status = ?, executed_at = ? WHERE id = ?");
+            $stmt->execute([$new_status, $executed_at, $t_id]);
+
+            echo json_encode(['status' => 'success']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+            exit;
+        }
     }
-    $pdo->prepare("DELETE FROM tasks WHERE id = ?")->execute([(int)$_GET['delete_id']]);
-    header("Location: tasks.php"); 
     exit;
 }
 
-$tasks = [];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_task_comment') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
+
+    $t_id    = (int)($_POST['task_id'] ?? 0);
+    $comment = trim($_POST['manager_comment'] ?? '');
+
+    if ($t_id > 0) {
+        try {
+            $stmt = $pdo->prepare("UPDATE tasks SET manager_comment = ? WHERE id = ?");
+            $stmt->execute([$comment, $t_id]);
+            echo json_encode(['status' => 'success']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+            exit;
+        }
+    }
+    exit;
+}
+
+// =========================================================================
+// БЛОК 3: ВЫГРУЗКА ДАННЫХ ДЛЯ ТАБЛИЦЫ И ФОРМЫ СПИСКА МЕНЕДЖЕРОВ
+// =========================================================================
 try {
+    // Вытягиваем всех живых менеджеров/админов для выпадающего списка формы
+    $uStmt = $pdo->query("SELECT id, login FROM users ORDER BY login ASC");
+    $all_users = $uStmt->fetchAll() ?: [];
+
+    // Выгружаем задачи с джоином ответственного исполнителя
     if ($u_role === 'admin') {
-        $sql = "SELECT t.*, u1.login as executor_name, u2.login as creator_name 
-                FROM tasks t 
-                LEFT JOIN users u1 ON t.user_id = u1.id 
-                LEFT JOIN users u2 ON t.created_by = u2.id 
-                ORDER BY t.id DESC";
-        $tasks = $pdo->query($sql)->fetchAll();
-        $managers = $pdo->query("SELECT id, login FROM users WHERE role = 'manager'")->fetchAll();
+        $sql = "SELECT t.*, u.login AS manager_name FROM tasks t LEFT JOIN users u ON t.user_id = u.id ORDER BY t.id DESC";
+        $stmt = $pdo->query($sql);
     } else {
-        $stmt = $pdo->prepare("SELECT t.*, u.login as creator_name 
-                               FROM tasks t 
-                               LEFT JOIN users u ON t.created_by = u.id 
-                               WHERE t.user_id = ? ORDER BY t.id DESC");
+        $sql = "SELECT t.*, u.login AS manager_name FROM tasks t LEFT JOIN users u ON t.user_id = u.id WHERE t.user_id = ? ORDER BY t.id DESC";
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([$userId]);
-        $tasks = $stmt->fetchAll();
     }
-} catch (Exception $e) { }
+    $tasks = $stmt->fetchAll() ?: [];
+} catch (Exception $e) {
+    die("Критический сбой СУБД: " . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Задачи — Santeks CRM</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Поручения и задачи — Santeks</title>
     <style>
-        body { background: #151521; color: #fff; font-family: sans-serif; margin: 0; padding: 0; }
-        .wrapper { display: flex; min-height: 100vh; }
-        .main-content { flex: 1; padding: 30px; background: #151521; box-sizing: border-box; }
-        .task-card { background: #1e1e2d; border-radius: 8px; border: 1px solid #323248; padding: 20px; margin-bottom: 25px; }
-        .task-input { padding: 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 14px; box-sizing: border-box; }
-        .task-date { padding: 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 14px; color-scheme: dark; box-sizing: border-box; }
-        .task-select { padding: 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 14px; box-sizing: border-box; }
-        .btn-add { background: #10b981; color: #fff; border: none; padding: 0 24px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.15s; }
-        .btn-add:hover { background: #059669; }
-        .tasks-table { width: 100%; border-collapse: collapse; text-align: left; background: #1e1e2d; border-radius: 8px; overflow: hidden; border: 1px solid #323248; }
-        .tasks-table th { background: #242434; padding: 14px 12px; color: #92929f; font-size: 11px; text-transform: uppercase; font-weight: bold; border-bottom: 1px solid #323248; }
-        .tasks-table td { padding: 14px 12px !important; border-bottom: 1px solid #2b2b40 !important; font-size: 14px; color: #fff !important; background-color: #1e1e2d !important; vertical-align: middle; }
-        .status-badge { padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; text-decoration: none; display: inline-block; }
-        .status-pending { background: #3d2d1d; color: #f59e0b; }
-        .status-completed { background: #1a2e26; color: #10b981; text-decoration: line-through; }
-        .comment-input { width: 100%; padding: 8px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 4px; outline: none; font-size: 13px; box-sizing: border-box; }
+        body { background: #151521; color: #fff; font-family: sans-serif; padding: 0; margin: 0; display: flex; min-height: 100vh; }
+        aside { width: 240px; background: #1e1e2d; border-right: 1px solid #323248; flex-shrink: 0; }
+        main { flex: 1; min-width: 0; padding: 40px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: #1e1e2d; border: 1px solid #323248; border-radius: 8px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); box-sizing: border-box; width: 100%; }
+        .form-inline { display: flex; align-items: flex-end; gap: 15px; flex-wrap: wrap; }
+        .f-group { display: flex; flex-direction: column; gap: 4px; }
+        .f-label { font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; }
+        .f-input { height: 40px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin: 0; }
+        th { background: #242434; padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; border-bottom: 2px solid #323248; white-space: nowrap; }
+        td { padding: 12px 10px; border-bottom: 1px solid #2b2b40; font-size: 13px; text-align: center; background: #1e1e2d; color: #fff; }
+        .btn-status { border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; color: #fff; text-transform: uppercase; }
+        .status-pending { background: #f59e0b; }
+        .status-completed { background: #10b981; }
     </style>
 </head>
 <body>
 
-    <div class="wrapper">
-        <div style="flex-shrink: 0; width: 260px;"><?php include 'sidebar.php'; ?></div>
+    <!-- МЕНЮ SIDEBAR -->
+    <aside>
+        <?php include 'sidebar.php'; ?>
+    </aside>
 
-        <div class="main-content">
-            <h1 style="margin-top: 0; font-size: 24px; margin-bottom: 25px;">📝 Список внутренних задач и поручений</h1>
-            <?php if ($u_role === 'admin'): ?>
-            <div class="task-card">
-                <form action="tasks.php" method="POST" style="margin: 0; padding: 0;">
-                    <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
-                        <div style="display: flex; flex-direction: column; gap: 4px; flex: 2; min-width: 300px;">
-                            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Что нужно сделать:</label>
-                            <input type="text" name="task_text" required placeholder="Напр: Созвониться по поводу отгрузки..." class="task-input" style="width: 100%;">
-                        </div>
+    <!-- ОСНОВНОЙ КОНТЕНТ -->
+    <main>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #323248; padding-bottom: 15px;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: bold; letter-spacing: -0.5px;">📋 Поручения и текущие задачи</h1>
+            <span style="color: #64748b; font-size: 14px;">Авторизован: <strong style="color:#fff;"><?= htmlspecialchars($_SESSION['login'] ?? '') ?></strong></span>
+        </div>
+<?php if ($u_role === 'admin'): ?>
+        <!-- ГОРИЗОНТАЛЬНАЯ ФОРМА ПОСТАНОВКИ ЗАДАЧ -->
+        <div class="card">
+            <h3 style="margin: 0 0 15px 0; font-size: 14px; text-transform: uppercase; color: #818cf8; letter-spacing: 0.5px;">Поставить новое поручение:</h3>
+            <form method="POST" action="tasks.php" class="form-inline">
+                <input type="hidden" name="action" value="create_new_task">
+                
+                <div class="f-group" style="flex: 2; min-width: 250px;">
+                    <label class="f-label">Что нужно сделать:</label>
+                    <input type="text" name="task_text" required placeholder="Введите текст задачи..." class="f-input" style="width: 100%;">
+                </div>
 
-                        <div style="display: flex; flex-direction: column; gap: 4px; width: 160px;">
-                            <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Срок (Дедлайн):</label>
-                            <input type="date" name="due_date" value="<?= date('Y-m-d') ?>" min="<?= date('Y-m-d') ?>" class="task-date" style="width: 100%;">
-                        </div>
+                <div class="f-group" style="flex: 1; min-width: 180px;">
+                    <label class="f-label">Комментарий / Примечание:</label>
+                    <input type="text" name="manager_comment" placeholder="Доп. информация..." class="f-input" style="width: 100%;">
+                </div>
 
-                        <?php if ($u_role === 'admin'): ?>
-                            <div style="display: flex; flex-direction: column; gap: 4px; width: 180px;">
-                                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Исполнитель:</label>
-                                <select name="assigned_to" class="task-select" style="width: 100%;">
-                                    <?php foreach ($managers as $m): ?>
-                                        <option value="<?= $m['id'] ?>">👤 <?= htmlspecialchars($m['login']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <button type="submit" class="btn-add" style="height: 45px;">🚀 Поставить задачу</button>
+                <div class="f-group" style="width: 150px;">
+                    <label class="f-label">Срок до:</label>
+                    <input type="date" name="due_date" value="<?= date('Y-m-d', strtotime('+3 days')) ?>" class="f-input" style="width: 100%;">
+                </div>
+
+                <?php if ($u_role === 'admin'): ?>
+                    <div class="f-group" style="width: 160px;">
+                        <label class="f-label">Исполнитель:</label>
+                        <select name="user_id" class="f-input" style="width: 100%; cursor: pointer;">
+                            <?php foreach ($all_users as $u): ?>
+                                <option value="<?= (int)$u['id'] ?>" <?= $u['id'] == $userId ? 'selected' : '' ?>>
+                                    👤 <?= htmlspecialchars($u['login']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
-                </form>
-            </div>
-            <?php endif;?>
-            <table class="tasks-table">
-                <thead>
-                    <tr>
-                        <th style="width: 120px;">Статус</th>
-                        <th>Текст поручения</th>
-                        <th style="width: 140px; color: #ef4444 !important;">Срок исполнения</th>
-                        <th style="width: 280px;">Комментарий исполнителя (Отчёт)</th>
-                        <th style="width: 120px;">Постановщик</th>
-                        <?php if ($u_role === 'admin'): ?><th style="width: 120px;">Исполнитель</th><?php endif; ?>
-                        <th style="width: 130px;">Дата создания</th>
-                        <th style="width: 50px; text-align: center;">🗑</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (count($tasks) > 0): ?>
-                        <?php foreach ($tasks as $t): 
-                            $isComp = ($t['status'] === 'completed'); 
-                            $isOverdue = (!$isComp && !empty($t['due_date']) && $t['due_date'] < date('Y-m-d'));
-                        ?>
+                <?php endif; ?>
+
+                <button type="submit" style="height: 40px; padding: 0 20px; background: #4f46e5; border: none; color: #fff; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.15s;" onmouseover="this.style.background='#4338ca';" onmouseout="this.style.background='#4f46e5';">
+                    ➕ Поставить задачу
+                </button>
+                 <?php endif; ?>
+            </form>
+        </div>
+
+        <!-- ТАБЛИЦА С ВЕРТИКАЛЬНЫМ И ГОРИЗОНТАЛЬНЫМ СКРОЛЛОМ -->
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <div style="max-height: 600px; overflow-y: auto; overflow-x: auto; width: 100%;">
+                <table style="width: 100%; min-width: 1200px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">П/П</th>
+                            <th style="text-align: left; min-width: 300px;">Текст поручения</th>
+                            <th style="text-align: left; min-width: 250px;">Комментарий менеджера</th> <!-- НАШ СТОЛБЕЦ -->
+                            <th style="width: 130px;">Срок исполнения</th>
+                            <th style="width: 140px;">Ответственный</th>
+                            <th style="width: 120px;">Статус</th>
+                            <th style="width: 140px; color: #10b981;">Дата выполнения</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($tasks)): $pp = 1; foreach ($tasks as $row): ?>
                             <tr>
-                                <td>
-                                    <a href="tasks.php?toggle_id=<?= $t['id'] ?>" 
-                                       onclick="return checkTaskReportBeforeClose(<?= $t['id'] ?>, this);" 
-                                       class="status-badge <?= $isComp ? 'status-completed' : 'status-pending' ?>">
-                                        <?= $isComp ? '✓ Выполнено' : '⏳ В ожидании' ?>
-                                    </a>
-                                </td>
-                                <td style="color: <?= $isComp ? '#64748b' : '#fff' ?> !important; text-decoration: <?= $isComp ? 'line-through' : 'none' ?>;">
-                                    <?= htmlspecialchars($t['task_text']) ?>
+                                <td style="color: #64748b; font-weight: bold;"><?= $pp++ ?></td>
+<td style="text-align: left; line-height: 1.4; color: #fff; max-width: 400px;">
+                                    <?= htmlspecialchars($row['task_text'] ?? '') ?>
                                 </td>
                                 
-                                <td style="font-weight: bold; color: <?= $isOverdue ? '#ef4444' : '#f59e0b' ?> !important;">
-                                    📅 <?= !empty($t['due_date']) ? date('d.m.Y', strtotime($t['due_date'])) : '—' ?>
-                                    <?= $isOverdue ? ' <span style="font-size:10px; background:#3d1d1d; padding:2px 4px; border-radius:3px; color:#ef4444;">🔥 СГОРЕЛ</span>' : '' ?>
-                                </td>
-
-                               <td style="padding: 12px; vertical-align: middle;">
-    <!-- Текстовый вид (виден по умолчанию) -->
-    <div id="report_view_<?= (int)$t['id'] ?>" 
-         onclick="switchToEditReport(<?= (int)$t['id'] ?>)"
-         style="cursor: pointer; color: #10b981; font-size: 13px; font-weight: 500; min-height: 20px; transition: color 0.15s;"
-         title="Кликните, чтобы написать отчет по выполнению задачи"
-         onmouseover="this.style.color='#fff';"
-         onmouseout="this.style.color='#10b981';">
-        <?= !empty($t['manager_comment']) ? '💬 ' . htmlspecialchars($t['manager_comment']) : '<span style="color:#64748b;">Написать отчет...</span>' ?>
+                                <!-- ВЫВОД КОММЕНТАРИЯ МЕНЕДЖЕРА -->
+    <?php 
+$isDone = ($row['status'] === 'completed'); 
+// Менеджер не может редактировать закрытое, а Админ — может всегда!
+$canEditComment = !$isDone || ($u_role === 'admin');
+?>
+<td style="text-align: left; line-height: 1.4; padding: 8px; background: <?= $canEditComment ? '#1a1a24' : '#151521' ?>; border: 1px <?= $canEditComment ? 'dashed #323248' : 'solid #2b2b40' ?>; border-radius: 6px; min-width: 250px;">
+    
+    <div id="comment_edit_<?= (int)$row['id'] ?>"
+         contenteditable="<?= $canEditComment ? 'true' : 'false' ?>"
+         style="color: <?= $canEditComment ? '#92929f' : '#64748b' ?>; outline: none; cursor: <?= $canEditComment ? 'text' : 'not-allowed' ?>; min-height: 20px; box-sizing: border-box;"
+         placeholder="Добавить комментарий..."
+         onfocus="document.getElementById('comment_btn_<?= (int)$row['id'] ?>').style.display = 'inline-block';">
+        <?= htmlspecialchars($row['manager_comment'] ?? '') ?>
     </div>
 
-    <!-- Поле ввода (скрыто, появляется при клике) -->
-    <input type="text" 
-           id="report_input_<?= (int)$t['id'] ?>" 
-           value="<?= htmlspecialchars($t['manager_comment'] ?? '') ?>" 
-           placeholder="Что было сделано по задаче?..."
-           onblur="saveInlineReport(<?= (int)$t['id'] ?>, this.value)"
-           onkeydown="if(event.key === 'Enter') this.blur();"
-           style="display: none; width: 100%; height: 32px; padding: 0 8px; background: #151521; border: 1px solid #4f46e5; color: #fff; border-radius: 4px; outline: none; box-sizing: border-box; font-size: 13px;">
+    <?php if ($canEditComment): ?>
+    <div id="comment_btn_<?= (int)$row['id'] ?>" style="display: none; margin-top: 6px; text-align: right; width: 100%;">
+        <button type="button" onclick="saveInlineTaskComment(<?= (int)$row['id'] ?>); return false;" style="background: #10b981; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">💾 Сохранить</button>
+    </div>
+    <?php endif; ?>
 </td>
+
+                                <!-- СРОК ИСПОЛНЕНИЯ -->
+                                <td style="color: #f43f5e; font-weight: 500;">
+                                    <?= !empty($row['due_date']) ? date('d.m.Y', strtotime($row['due_date'])) : '—' ?>
+                                </td>
                                 
-                                <td style="color: #92929f !important;">✍ <?= htmlspecialchars($t['creator_name'] ?? 'Админ') ?></td>
-                                <?php if ($u_role === 'admin'): ?><td style="font-weight: bold; color: #a855f7 !important;">👤 <?= htmlspecialchars($t['executor_name'] ?? 'Админ') ?></td><?php endif; ?>
-                                <td style="color: #64748b !important; font-size: 13px;"><?= date('d.m.Y H:i', strtotime($t['created_at'])) ?></td>
+                                <!-- ОТВЕТСТВЕННЫЙ ИСПОЛНИТЕЛЬ -->
+                                <td style="color: #a1a1aa; font-weight: bold;">
+                                    <?= htmlspecialchars($row['manager_name'] ?? 'Не назначен') ?>
+                                </td>
                                 
-                                <td style="text-align: center;">
-                                    <?php if ($u_role === 'admin'): ?>
-                                        <a href="tasks.php?delete_id=<?= $t['id'] ?>" onclick="return confirm('Удалить?')" style="text-decoration: none; color: #ef4444;">❌</a>
+                                <!-- КНОПКА СМЕНЫ СТАТУСА (PENDING / COMPLETED) -->
+                               <td>
+    <?php 
+    // Кнопка заблокирована для менеджера, если задача выполнена, но Админ имеет доступ ВСЕГДА!
+    $isButtonDisabled = $isDone && ($u_role !== 'admin'); 
+    ?>
+    <button type="button" 
+            <?= $isButtonDisabled ? 'disabled' : '' ?>
+            class="btn-status <?= $isDone ? 'status-completed' : 'status-pending' ?>"
+            style="cursor: <?= $isButtonDisabled ? 'not-allowed' : 'pointer' ?>; opacity: <?= $isButtonDisabled ? '0.65' : '1' ?>;"
+            onclick="toggleTaskStatus(<?= (int)$row['id'] ?>, '<?= htmlspecialchars($row['status']) ?>')"
+            onmouseover="if(<?= $isDone ? 'true' : 'false' ?> && '<?= $u_role ?>' === 'admin') { this.style.background='#f43f5e'; this.innerText='На доработку ↩'; }"
+            onmouseout="if(<?= $isDone ? 'true' : 'false' ?>) { this.style.background='#10b981'; this.innerText='Выполнено'; }">
+        <?= $isDone ? 'Выполнено' : 'В работе' ?>
+    </button>
+</td>
+
+                                <!-- АВТОМАТИЧЕСКАЯ ДАТА ИСПОЛНЕНИЯ ИЗ БАЗЫ ДАННЫХ -->
+                                <td style="font-weight: bold; color: #10b981;">
+                                    <?php if (!empty($row['executed_at']) && $row['executed_at'] !== '0000-00-00'): ?>
+                                        <?= date('d.m.Y', strtotime($row['executed_at'])) ?>
                                     <?php else: ?>
-                                        <span style="color: #323248; font-size: 13px; user-select: none;">🔒</span>
+                                        <span style="color: #64748b;">—</span>
                                     <?php endif; ?>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr><td colspan="<?= $u_role === 'admin' ? 8 : 7 ?>" style="text-align: center; color: #64748b !important; padding: 40px !important;">Список внутренних задач пуст.</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                        <?php endforeach; else: ?>
+                            <tr><td colspan="7" style="padding: 30px; color: #64748b; text-align: center;">Список поручений пуст.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    </main>
 
-    <script>
-    async function saveTaskComment(taskId, commentValue) {
-        const fd = new FormData(); 
-        fd.append('action', 'update_comment'); 
-        fd.append('id', taskId); 
-        fd.append('comment', commentValue);
-        try { 
-            await fetch('tasks.php', { method: 'POST', body: fd }); 
-        } catch (err) { }
-    }
-    function checkTaskReportBeforeClose(taskId, element) {
-        if (element.classList.contains('status-completed')) return true; 
-        const commentInput = document.querySelector(`input[data-task-id="${taskId}"]`);
-        if (commentInput && commentInput.value.trim() === '') {
-            alert('⚠️ Напишите отчет перед закрытием задачи!');
-            commentInput.focus(); 
-            return false;
+<script>
+// ЖИВОЙ ДВИЖОК АСИНХРОННОЙ СМЕНЫ СТАТУСОВ И ФИКСАЦИИ ДАТ ПОД WINDOWS XAMPP
+// ИСПРАВЛЕНО НАМЕРТВО: Запрет закрытия задачи без заполненного комментария менеджера
+async function toggleTaskStatus(taskId, currentStatus) {
+    // 1. Находим ячейку комментария для этой конкретной задачи
+    const commentBlock = document.getElementById('comment_edit_' + taskId);
+    const commentText = commentBlock ? commentBlock.innerText.trim() : '';
+
+    // 2. Если задачу пытаются перевести в "Выполнено" (из статуса pending)
+    if (currentStatus === 'pending' || currentStatus === 'В работе') {
+        if (commentText === '' || commentText === '—') {
+            console.log("Блокировка: Попытка закрыть задачу ID " + taskId + " без отчета!");
+            
+            // Визуальный сигнал ошибки: красим границы и фон блока комментария в красный цвет
+            if (commentBlock) {
+                const parentTd = commentBlock.parentElement;
+                parentTd.style.transition = 'all 0.3s ease';
+                parentTd.style.border = '1px solid #f43f5e';
+                parentTd.style.background = 'rgba(244, 63, 94, 0.15)';
+                
+                // Фокусируем курсор менеджера на поле, чтобы он сразу начал писать
+                commentBlock.focus();
+                
+                // Всплывающее предупреждение
+                alert("⚠️ Внимание! Нельзя перевести поручение в статус 'Выполнено' без заполнения поля 'Комментарий менеджера'. Пожалуйста, напишите краткий отчет о выполнении.");
+                
+                // Через 3 секунды плавно возвращаем стандартный стиль, но оставляем фокус
+                setTimeout(() => {
+                    parentTd.style.border = '1px dashed #323248';
+                    parentTd.style.background = '#1a1a24';
+                }, 3000);
+            }
+            return; // МЕРТВАЯ БЛОКИРОВКА: Прерываем выполнение функции, статус не меняется!
         }
-        return true;
     }
 
-    function switchToEditReport(taskId) {
-    const viewDiv = document.getElementById('report_view_' + taskId);
-    const inputField = document.getElementById('report_input_' + taskId);
+    // 3. Если проверка пройдена (или задачу возвращают обратно в работу) — шлем стандартный POST
+    console.log("Проверка пройдена. Смена статуса для задачи ID:", taskId);
     
-    if (viewDiv && inputField) {
-        viewDiv.style.display = 'none';
-        inputField.style.display = 'block';
-        inputField.focus();
+    try {
+        const params = new URLSearchParams();
+        params.append('action', 'update_task_status');
+        params.append('task_id', parseInt(taskId, 10));
+        params.append('status', currentStatus);
+
+        const res = await fetch('tasks.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+        
+        const result = await res.json();
+        if (result.status === 'success') {
+            window.location.reload(); // Перезагружаем для отрисовки даты
+        } else {
+            alert("Ошибка СУБД: " + result.message);
+        }
+    } catch (err) {
+        console.error("Сбой сети:", err);
+        alert("Критическая ошибка отправки запроса.");
     }
 }
 
-// Функция 2: AJAX-отправка отчета в базу Windows XAMPP
-async function saveInlineReport(taskId, reportValue) {
-    const viewDiv = document.getElementById('report_view_' + taskId);
-    const inputField = document.getElementById('report_input_' + taskId);
-    const trimmedVal = reportValue.trim();
+async function saveInlineTaskComment(taskId) {
+    // Находим блок текста по его уникальному ID
+    const textBlock = document.getElementById('comment_edit_' + taskId);
+    const saveBtnBlock = document.getElementById('comment_btn_' + taskId);
+    
+    if (!textBlock) return;
+    const cleanText = textBlock.innerText.trim();
 
-    if (viewDiv && inputField) {
-        viewDiv.innerHTML = trimmedVal !== '' ? '💬 ' + trimmedVal : '<span style="color:#64748b;">Написать отчет...</span>';
-        inputField.style.display = 'none';
-        viewDiv.style.display = 'block';
-    }
+    console.log("Сохранение комментария по кнопке. ID:", taskId, "Текст:", cleanText);
 
     try {
-        await fetch('tasks.php', {
+        const params = new URLSearchParams();
+        params.append('action', 'update_task_comment');
+        params.append('task_id', parseInt(taskId, 10));
+        params.append('manager_comment', cleanText);
+
+        const res = await fetch('tasks.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'update_task_report',
-                id: parseInt(taskId, 10),
-                report: trimmedVal
-            })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
         });
+
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            console.log("Комментарий успешно зафиксирован в СУБД MariaDB!");
+            
+            // 1. Скрываем кнопку сохранения обратно, так как данные уже на сервере
+            if (saveBtnBlock) {
+                saveBtnBlock.style.display = 'none';
+            }
+            
+            // 2. Делаем красивую короткую подсветку блока зелёным цветом для индикации успеха
+            textBlock.style.transition = 'color 0.2s';
+            textBlock.style.color = '#10b981';
+            setTimeout(() => {
+                textBlock.style.color = '#92929f';
+            }, 800);
+
+        } else {
+            alert("Ошибка СУБД при сохранении: " + result.message);
+        }
     } catch (err) {
-        console.error("Ошибка связи при сохранении отчета:", err);
+        console.error("Сбой сети при отправке комментария:", err);
+        alert("Критический сбой сети. Проверьте соединение с Windows XAMPP.");
     }
 }
-    </script>
+</script>
 </body>
 </html>
