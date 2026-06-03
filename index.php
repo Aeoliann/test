@@ -256,47 +256,71 @@ $totalClients = isset($clients) ? count($clients) : 0;
 
 
 <?php
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_POST['action_type'] === 'create_client_with_contract') {
-    try {
-        // 1. Считываем данные для карточки клиента
-        $client_name    = trim($_POST['client_name'] ?? '');
-        $unp            = trim($_POST['unp'] ?? '');
-        $contact_person = trim($_POST['contact_person'] ?? '');
-        $phone          = trim($_POST['phone'] ?? '');
-        $email          = trim($_POST['email'] ?? '');
-        $source         = trim($_POST['source'] ?? 'Запрос');
-        $manager_id     = ($userRole === 'admin' && isset($_POST['assigned_manager_id'])) ? (int)$_POST['assigned_manager_id'] : $userId;
+// =========================================================================
+// ИСПРАВЛЕНО НАМЕРТВО: Именованный безопасный INSERT лида с жестким контролем product_type
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_new_client') {
+    $client_name    = trim($_POST['client_name'] ?? '');
+    $unp            = trim($_POST['unp'] ?? '');
+    $contact_person = trim($_POST['contact_person'] ?? '');
+    $phone          = trim($_POST['phone'] ?? '');
+    $email          = trim($_POST['email'] ?? '');
+    $status         = trim($_POST['status'] ?? 'Новый');
+    $source         = trim($_POST['source'] ?? '');
+    $manager_id     = (int)($_POST['manager_id'] ?? $userId);
+    
+    // Перехватываем выбранную продукцию (УОКТ, ЕКМ и т.д.)
+    $product_type   = trim($_POST['product_type'] ?? 'Сантехника');
 
-        // 2. Считываем данные для договора и синхронизируем тип продукции
-        $contract_number = trim($_POST['contract_number'] ?? '');
-        $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
-        $product_type    = trim($_POST['product_type'] ?? 'Сантехника'); 
-
-        if (empty($client_name) || empty($contract_number)) {
-            throw new Exception("Критическая ошибка: Имя клиента и номер договора обязательны для заполнения!");
+    if (!empty($client_name)) {
+        try {
+            // Используем именованные параметры :name вместо знаков вопроса, чтобы исключить путаницу мест!
+            $sql = "INSERT INTO clients (
+                        client_name, 
+                        unp, 
+                        contact_person, 
+                        phone, 
+                        email, 
+                        status, 
+                        source, 
+                        manager_id, 
+                        product_type
+                    ) VALUES (
+                        :client_name, 
+                        :unp, 
+                        :contact_person, 
+                        :phone, 
+                        :email, 
+                        :status, 
+                        :source, 
+                        :manager_id, 
+                        :product_type
+                    )";
+            
+            $stmt = $pdo->prepare($sql);
+            
+            // Жестко привязываем каждую переменную к конкретному имени колонки в СУБД
+            $stmt->execute([
+                ':client_name'    => $client_name,
+                ':unp'            => $unp,
+                ':contact_person' => $contact_person,
+                ':phone'          => $phone,
+                ':email'          => $email,
+                ':status'         => $status,
+                ':source'         => $source,
+                ':manager_id'     => $manager_id,
+                ':product_type'   => $product_type // Наш УОКТ прилетит строго сюда!
+            ]);
+            
+            header("Location: index.php");
+            exit;
+        } catch (Exception $e) {
+            // Если в СУБД имя колонки пишется как product_info — бэкенд честно выведет ошибку на экран
+            die("Критический сбой СУБД при добавлении клиента: " . $e->getMessage());
         }
-
-        // БЕЗОПАСНАЯ ТРАНЗАКЦИЯ MySQL: Записываем $product_type в оба поля карточки клиента для полной совместимости
-        $stmt_client = $pdo->prepare("INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, product_type, ct_type, manager_id, is_contract_signed, first_contact_date) VALUES (?, ?, ?, ?, ?, 'Текущий', ?, ?, ?, ?, 1, CURDATE())");
-        $stmt_client->execute([$client_name, $unp, $contact_person, $phone, $email, $source, $product_type, $product_type, $manager_id]);
-        
-        // Перехватываем автоинкрементный ID только что созданной фирмы
-        $new_client_id = (int)$pdo->lastInsertId();
-
-        if ($new_client_id > 0) {
-            // Намертво связываем этот же тип продукции с договором в projects
-            $stmt_project = $pdo->prepare("INSERT INTO projects (client_id, contract_number, contract_date, product_type) VALUES (?, ?, ?, ?)");
-            $stmt_project->execute([$new_client_id, $contract_number, $contract_date, $product_type]);
-        }
-
-        // Чисто обновляем страницу без зависаний JavaScript
-        header("Location: index.php");
-        exit;
-
-    } catch (Exception $e) {
-        die("Критический сбой СУБД при комплексном создании: " . $e->getMessage());
     }
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -381,19 +405,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
             </div>
 
             <div style="margin-bottom: 25px; display: flex; gap: 15px;">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Вид продукции</label>
-                    <select name="product_type" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">
-                        <option value="Сантехника">Сантехника</option>
-                        <option value="Посуда">Посуда</option>
-                        <option value="Резервуары">Резервуары</option>
-                        <option value="ЕКМ">ЕКМ</option>
-                        <option value="МПДУ">МПДУ</option>
-                        <option value="Эмалированные таблички">Эмалированные таблички</option>
-                        <option value="УОКТ">УОКТ</option>
-                        <option value="Прочее">Прочее</option>
-                    </select>
-                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px;">
+    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Тип продукции:</label>
+<!-- ИСПРАВЛЕНО: Четко задано имя product_type и прописаны точные коммерческие категории Santeks -->
+<div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 15px; text-align: left;">
+        <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Тип продукции:</label>
+        <select name="product_type" 
+                form="newClientForm" 
+                id="add_client_product_select"
+                style="width: 100%; height: 40px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px; box-sizing: border-box;">
+            <option value="Сантехника">Сантехника</option>
+            <option value="Посуда">Посуда</option>
+            <option value="Резервуары">Резервуары</option>
+            <option value="ЕКМ">ЕКМ</option>
+            <option value="МПДУ">МПДУ</option>
+            <option value="Эмалированные таблички">Эмалированные таблички</option>
+            <option value="УОКТ">УОКТ</option>
+            <option value="другое">другое</option>
+        </select>
+    </div>
+
            
             <!-- ПОДВАЛ МОДАЛКИ: КНОПКИ -->
             <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #323248; padding-top: 15px; background: transparent !important;">
@@ -757,9 +788,11 @@ th {
 </td>
 
             <!-- ИСПРАВЛЕНО: Выводим тип продукции привязанного договора вместо дефолтного значения -->
-<td style="color: #92929f !important; text-align: center;">
-    <?= htmlspecialchars($c['product_type'] ?? 'Сантехника') ?>
+<!-- ИСПРАВЛЕНО НАМЕРТВО: Проверяем все возможные имена колонок продукции из СУБД (product_type, product_info, prod), убирая жесткий дефолт -->
+<td style="color: #92929f !important; text-align: center; font-weight: 500;">
+    <?= htmlspecialchars($c['product_type'] ?? ($c['product_info'] ?? ($c['product'] ?? ($c['prod'] ?? 'Не указан')))) ?>
 </td>
+
 
             <td>
                 <!-- ИСПРАВЛЕНО: Менеджер больше не может снять ранее поставленную галку контракта -->
@@ -1109,14 +1142,25 @@ async function openProtectedEditModal(id) {
 
 }
 // Сохранение (обработка формы)
+// Сохранение (обработка формы)
 document.getElementById('clientForm').onsubmit = async function(e) {
     e.preventDefault();
     console.log("Отправка формы сохранения клиента...");
 
     try {
+        // Упаковываем все инпуты формы в объект FormData
+        const formData = new FormData(this);
+        
+        // ЖЕСТКИЙ ИНЖЕКТ: Находим наш селект на странице и принудительно заталкиваем его значение в пакет отправки!
+        const productSelect = document.querySelector('select[name="product_type"]') || document.getElementById('add_client_product_select');
+        if (productSelect) {
+            formData.append('product_type', productSelect.value);
+            console.log("В пакет FormData успешно добавлен тип продукции:", productSelect.value);
+        }
+
         const res = await fetch('save.php', {
             method: 'POST',
-            body: new FormData(this)
+            body: formData // Отправляем наш дополненный пакет данных
         });
         
         // Читаем сырой текст, если PHP выплюнет ошибку — мы увидим её текст
