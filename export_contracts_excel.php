@@ -1,5 +1,5 @@
 <?php
-// export_contracts_excel.php — Изолированный экспортер реестра контрактов и отгрузок ТТН в Excel
+// export_contracts_excel.php — Изолированный экспортер реестра контрактов Santeks CRM
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -12,18 +12,11 @@ if (!isset($_SESSION['user_id'])) {
 $userId = (int)$_SESSION['user_id'];
 $u_role = $_SESSION['role'] ?? 'manager';
 
-// Перехватываем строку живого поиска со страницы контрактов
 $searchQuery = isset($_GET['query']) ? trim($_GET['query']) : '';
 
 try {
     $conditions = [];
     $params = [];
-    
-    // Ограничение прав: менеджер выгружает только свои контракты (твое поле user_id)
-    if ($u_role !== 'admin') {
-        $conditions[] = "p.user_id = ?";
-        $params[] = $userId;
-    }
     
     // Фильтрация по поисковому слову (клиент, номер или продукция)
     if (!empty($searchQuery)) {
@@ -33,9 +26,15 @@ try {
         $params[] = "%$searchQuery%";
     }
     
+    // ЖЕСТКИЙ ФИКС: Менеджер видит только свои договора, привязываясь к РЕАЛЬНОМУ полю c.manager_id таблицы клиентов!
+    if ($u_role !== 'admin') {
+        $conditions[] = "c.manager_id = ?";
+        $params[] = $userId;
+    }
+    
     $whereSql = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";
     
-    // ИСПРАВЛЕНО НАМЕРТВО: Выравнивание JOIN и GROUP BY строго по структуре твоей базы!
+    // БРОНЕБОЙНЫЙ ЗАПРОС: Считаем суммы ТТН из таблицы project_ttns строго по твоим реальным колонкам!
     $sql = "SELECT 
                 p.id,
                 p.contract_number,
@@ -44,20 +43,13 @@ try {
                 c.client_name, 
                 c.unp, 
                 u.login AS manager_name,
-                COALESCE(SUM(t.amount), 0) AS total_shipped_amount
+                (SELECT COALESCE(SUM(t.amount), 0) 
+                 FROM project_ttns t 
+                 WHERE t.project_id = p.id) AS total_shipped_amount
             FROM projects p
             LEFT JOIN clients c ON p.client_id = c.id
-            LEFT JOIN users u ON p.user_id = u.id
-            LEFT JOIN project_ttns t ON p.id = t.project_id
+            LEFT JOIN users u ON c.manager_id = u.id
             $whereSql
-            GROUP BY 
-                p.id, 
-                p.contract_number, 
-                p.contract_date, 
-                p.product_type, 
-                c.client_name, 
-                c.unp, 
-                u.login
             ORDER BY p.id DESC";
             
     $stmt = $pdo->prepare($sql);
@@ -66,30 +58,23 @@ try {
 } catch (Exception $e) {
     die("Ошибка СУБД при экспорте контрактов: " . $e->getMessage());
 }
-    
 
-// Формируем имя файла и MIME-заголовки скачивания
+// Формируем MIME-заголовки скачивания
 $filename = "Santeks_Contracts_Report_" . date('Y-m-d_H-i') . ".xls";
 
 header("Content-Type: application/vnd.ms-excel; charset=utf-8");
 header("Content-Disposition: attachment; filename=\"$filename\"");
 header("Cache-Control: max-age=0");
-echo "\xEF\xBB\xBF"; // UTF-8 BOM для корректного отображения кириллицы в Excel
+echo "\xEF\xBB\xBF"; // UTF-8 BOM
 ?>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://w3.org">
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <style>
-        table { border-collapse: collapse; }
-        th { background-color: #242434; color: #ffffff; font-weight: bold; border: 1px solid #323248; text-align: center; height: 35px; }
-        td { border: 1px solid #2b2b40; text-align: left; height: 30px; }
-        .num-cell { text-align: center; }
-    </style>
 </head>
 <body>
     <table border="1">
         <thead>
-            <tr>
+            <tr style="background-color: #242434; color: #ffffff; font-weight: bold; text-align: center;">
                 <th>П/П</th>
                 <th>Наименование организации / Клиент</th>
                 <th>УНП</th>
@@ -104,18 +89,18 @@ echo "\xEF\xBB\xBF"; // UTF-8 BOM для корректного отображе
         <tbody>
             <?php if (!empty($rows)): $pp = 1; foreach ($rows as $r): 
                 $sumByn = (float)$r['total_shipped_amount'];
-                $sumRub = $sumByn * 28.5; // Наш внутренний мультивалютный коэффициент
+                $sumRub = $sumByn * 28.5;
             ?>
                 <tr>
-                    <td class="num-cell"><?= $pp++ ?></td>
+                    <td style="text-align:center;"><?= $pp++ ?></td>
                     <td><?= htmlspecialchars($r['client_name'] ?? '') ?></td>
-                    <td style="vnd.ms-excel.numberformat:@"><?= htmlspecialchars($r['unp'] ?? '') ?></td> <!-- Защита от усечения нулей в УНП -->
+                    <td style="vnd.ms-excel.numberformat:@"><?= htmlspecialchars($r['unp'] ?? '') ?></td>
                     <td><?= htmlspecialchars($r['contract_number'] ?? '') ?></td>
                     <td style="text-align:center;"><?= !empty($r['contract_date']) ? date('d.m.Y', strtotime($r['contract_date'])) : '—' ?></td>
                     <td><?= htmlspecialchars($r['product_type'] ?? '') ?></td>
                     <td style="text-align:right; font-weight:bold;"><?= number_format($sumByn, 2, '.', '') ?></td>
                     <td style="text-align:right; color:#f59e0b;"><?= number_format($sumRub, 2, '.', '') ?></td>
-                    <td><?= htmlspecialchars($r['manager_name'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($r['manager_name'] ?? 'Не назначен') ?></td>
                 </tr>
             <?php endforeach; else: ?>
                 <tr><td colspan="9" style="text-align: center;">Контракты не найдены.</td></tr>
