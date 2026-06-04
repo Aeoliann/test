@@ -1424,36 +1424,18 @@ document.addEventListener('click', function(e) {
 
 
 // 2. ЗАКРЫТИЕ МОДАЛКИ
-async function closeContractModal() {
-    const modal = document.getElementById('contractModal');
-    const clientId = document.getElementById('modal_client_id').value;
-    const projectId = modal.dataset.pid;
-
-    if (modal) modal.style.display = 'none';
-
-    // Если договор НЕ был заполнен и сохранен, а менеджер нажал "Отмена"
-    if (clientId) {
-        try {
-            console.log("Ошибочный клик. Удаляем пустой контракт и снимаем галку...");
-            
-            // 1. Отправляем запрос на удаление пустого черновика и снятие галки
-            const res = await fetch('cancel_contract.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ client_id: clientId, project_id: projectId })
-            });
-            
-            const result = await res.json();
-            if (result.status === 'success') {
-                // 2. Перенаправляем обратно на главную со снятой галкой
-                window.location.href = 'index.php';
-                return;
-            }
-        } catch (err) {
-            console.error("Ошибка при отмене контракта:", err);
-        }
+function closeContractModal() {
+    const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
+    if (modal) {
+        modal.style.display = 'none';
     }
-    window.location.href = 'contracts.php';
+
+    // ИСПРАВЛЕНО: Если закрытие произошло по кнопке Отмена, принудительно гасим галочку в таблице!
+    if (window.activeContractCheckbox) {
+        window.activeContractCheckbox.checked = false; // Галочка принудительно снимается
+        window.activeContractCheckbox = null;         // Очищаем оперативную память
+        console.log("Менеджер нажал 'Отмена'. Галочка контракта успешно погашена без записи в СУБД.");
+    }
 }
 // ИСПРАВЛЕНО: Функция считывает ID и выводит подробный лог в консоль F12
 function openTtnManagerFromButton(buttonElement) {
@@ -1641,32 +1623,30 @@ function checkReminders() {
 }
 
 // Запуск при загрузке
-document.addEventListener('DOMContentLoaded', () => {
-    const cForm = document.getElementById('contractForm');
-    
-    if (cForm) {
-        cForm.onsubmit = async function(e) {
-            e.preventDefault(); // Теперь это точно остановит перезагрузку
-            console.log("Форма найдена, отправляю данные...");
+document.addEventListener("DOMContentLoaded", () => {
+    // 1. Считываем параметры из URL-строки браузера
+    const urlParams = new URLSearchParams(window.location.search);
+    const autoClientId = urlParams.get('open_modal_for');
 
-            const fd = new FormData(this);
-            try {
-                const res = await fetch('save_new_contract.php', {
-                    method: 'POST',
-                    body: fd
-                });
-                const result = await res.json();
-                if (result.status === 'success') {
-                    location.href = 'contracts.php'; // Чистая перезагрузка без параметров в URL
-                } else {
-                    alert("Ошибка: " + result.message);
-                }
-            } catch (err) {
-                console.error("Ошибка:", err);
+    if (autoClientId) {
+        console.log("Пойман сквозной сигнал с главной! Автоматически раскрываем форму для клиента ID:", autoClientId);
+        
+        // Переиспользуем нашу родную, проверенную функцию открытия модалки, которую мы полировали на Шаге 79!
+        if (typeof openNewContractModal === 'function') {
+            openNewContractModal(autoClientId);
+        } else {
+            // Если функция называется иначе, дублируем её логику точечно:
+            const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
+            const clientIdInput = document.getElementById('contract_client_id_storage') || document.getElementById('modal_client_id');
+            if (clientIdInput) {
+                clientIdInput.value = parseInt(autoClientId, 10);
             }
-        };
-    } else {
-        console.error("КРИТИЧЕСКАЯ ОШИБКА: Форма с id='contractForm' не найдена в HTML!");
+            if (modal) modal.style.display = 'block';
+        }
+        
+        // Чистим URL-строку браузера от маркера, чтобы при обычном обновлении страницы (F5) форма не вылетала повторно
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
     }
 });
 

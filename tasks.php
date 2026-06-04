@@ -274,8 +274,9 @@ try {
         
         <!-- НАШ НОВЫЙ СТОЛБЕЦ В ШАПКЕ -->
         <th style="width: 140px; color: #818cf8;">Отправитель</th> 
-        
+         <?php if (isset($u_role) && $u_role === 'admin'): ?>
         <th style="width: 140px;">Ответственный</th>
+         <?php endif; ?>
         <th style="width: 120px;">Статус</th>
         <th style="width: 140px; color: #10b981;">Дата выполнения</th>
     </tr>
@@ -319,9 +320,9 @@ $canEditComment = !$isDone || ($u_role === 'admin');
             👑 <?= htmlspecialchars($row['created_by'] ?? 'Система') ?>
         </td>
                                 <!-- ОТВЕТСТВЕННЫЙ ИСПОЛНИТЕЛЬ -->
-                                <td style="color: #a1a1aa; font-weight: bold;">
-                                    <?= htmlspecialchars($row['manager_name'] ?? 'Не назначен') ?>
-                                </td>
+                                 <?php if (isset($u_role) && $u_role === 'admin'): ?>
+            <td style="color: #a1a1aa; font-weight: bold;"><?= htmlspecialchars($row['manager_name'] ?? 'Не назначен') ?></td>
+        <?php endif; ?> 
                                 
                                 <!-- КНОПКА СМЕНЫ СТАТУСА (PENDING / COMPLETED) -->
                                <td>

@@ -6,7 +6,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require 'db.php';
-
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 // 1. ПРОВЕРКА АВТОРИЗАЦИИ И СИНХРОНИЗАЦИЯ ИМЕН ПЕРЕМЕННЫХ
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.html");
@@ -356,12 +358,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     border-bottom: 1px solid #323248 !important; margin-left: 15px;">
 
        <button onclick="openAddModal()" class="btn-primary">+ Добавить клиента</button>
-                         <a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
-   style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s;"
+               <!-- ИСПРАВЛЕНО НАМЕРТВО: Кнопка сохраняет все PHP-фильтры вкладок и на лету подхватывает живой поиск из инпута -->
+<a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
+   id="excelExportButton"
+   onclick="
+        // На лету перехватываем строку быстрого поиска со страницы
+        const searchInput = document.getElementById('client_live_search') || document.getElementById('archive_live_search');
+        const q = searchInput ? searchInput.value.trim() : '';
+        // Дописываем параметр query в ссылку перед самим скачиванием
+        this.href = this.getAttribute('href') + '&query=' + encodeURIComponent(q);
+   "
+   style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s; border: none; cursor: pointer;"
    onmouseover="this.style.background='#059669';" 
    onmouseout="this.style.background='#10b981';">
     📊 СКАЧАТЬ ОТЧЕТ В EXCEL
 </a>
+
     <button type="button" onclick="openComplexModal();" style="background: #818cf8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#6366f1';" onmouseout="this.style.background='#818cf8';">
     💎 Добавить клиента и договор
 </button>
@@ -679,8 +691,62 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
                 document.addEventListener('mouseup', mouseUpHandler);
             });
         });
-    };
+    };  
+document.addEventListener("DOMContentLoaded", () => {
+    // Находим форму внутри твоего окна openComplexForm строго по тегу или классу, чтобы исключить конфликты ID
+    const complexForm = document.querySelector('#jointClientContractForm') 
+                      || document.querySelector('#jointForm') 
+                      || document.querySelector('#complexForm')
+                      || document.querySelector('#clientContractForm')
+                      || document.querySelector('form[id*="Complex"]');
 
+    if (complexForm) {
+        console.log("Пакетный движок успешно изолировал комплексную форму связки!");
+        
+        complexForm.onsubmit = async function(e) {
+            // МЕРТВО БЛОКИРУЕМ ЛЮБЫЕ ЛОЖНЫЕ ПЕРЕХОДЫ И РЕДИРЕКТЫ СТРАНИЦЫ
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log("Старт пакетной транзакции создания лида и контракта на save.php...");
+
+            try {
+                const formData = new FormData(this);
+
+                // Отправляем пакет строго на всеядный save.php через FormData
+                const res = await fetch('save.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const rawText = await res.text();
+                console.log("Сырой ответ сервера комплексной связки:", rawText);
+                
+                if (!rawText.trim().startsWith('{')) {
+                    alert("🚨 КРИТИЧЕСКИЙ СБОЙ ТРАНЗАКЦИИ СУБД!\nСервер вернул ошибку PHP вместо JSON:\n\n" + rawText);
+                    return;
+                }
+
+                const result = JSON.parse(rawText);
+                if (result.status === 'success') {
+                    console.log("Пакетная запись успешно зафиксирована во всех таблицах!");
+                    
+                    // Закрываем окно (подставь ID своей комплексной модалки, если он другой)
+                    const cModal = document.getElementById('complexModal') || document.getElementById('jointModal');
+                    if (cModal) cModal.style.display = 'none';
+                    
+                    window.location.reload(); // Чистый перезапуск экрана для обновления всех реестров
+                } else {
+                    alert("⚠️ Отказ СУБД при создании связки:\n" + result.message);
+                }
+            } catch (err) {
+                console.error("Сбой транспорта комплексной формы:", err);
+                alert("Критическая ошибка сети или синтаксиса JavaScript. Проверьте консоль F12.");
+            }
+            return false;
+        };
+    }
+});
     // Находим нашу главную таблицу и инициализируем на ней ручной сплиттер колонок
     const mainTable = document.querySelector('table');
     createResizableTable(mainTable);
@@ -795,16 +861,76 @@ th {
 </td>
 
 
-            <td>
-                <!-- ИСПРАВЛЕНО: Менеджер больше не может снять ранее поставленную галку контракта -->
-<input type="checkbox" 
-       class="contract-checkbox" 
-       data-client-id="<?= (int)$c['id'] ?>" 
-       <?= $c['is_contract_signed'] ? 'checked' : '' ?>
-       <?= ($c['status'] === 'Отказ') ? 'disabled title="Нельзя заключить контракт при отказе"' : '' ?>
-       <?= ($c['is_contract_signed'] && $userRole === 'manager') ? 'disabled title="Договор уже заключен! Снять галку может только Администратор."' : '' ?>>
+        <!-- ИСПРАВЛЕНО НАМЕРТВО: Галочка загорается, если у клиента физически есть договор в таблице проектов -->
+<td style="text-align: center; vertical-align: middle;">
+    <?php 
+    // Сканируем таблицу проектов: есть ли живой договор для текущего ID клиента?
+    $checkContractStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ?");
+    $checkContractStmt->execute([(int)$c['id']]);
+    $hasRealContract = ((int)$checkContractStmt->fetchColumn() > 0);
+    
+    // Всеядный бэкап-статус на всякий случай
+    $cStatus = !empty($c['status']) ? trim($c['status']) : '';
+    $isDoneStatus = ($cStatus === 'Договор' || $cStatus === 'Контракт' || $cStatus === 'Текущий');
+    ?>
+    <input type="checkbox" 
+           class="contract-checkbox"
+           <?= ($hasRealContract || $isDoneStatus) ? 'checked' : '' ?>
+           onchange="toggleContractStatus(<?= (int)$c['id'] ?>, this); return false;"
+           style="width: 18px; height: 18px; cursor: pointer; accent-color: #4f46e5; margin: 0 auto; display: block;">
+</td>
 
-            </td>
+            <script>
+                function toggleContractStatus(clientId, checkboxElement) {
+    console.log("Интерактивный вызов привязки договора для клиента ID:", clientId);
+
+    // 1. Если пользователь СНЯЛ галочку вручную
+    if (!checkboxElement.checked) {
+        if (!confirm("⚠️ Вы уверены, что хотите полностью удалить контракт этого клиента со всеми ТТН?")) {
+            checkboxElement.checked = true; // Возвращаем галочку на место
+            return;
+        }
+        // Сюда можно дописать твою старую логику AJAX удаления, если нужно
+        return;
+    }
+
+    // 2. Если пользователь ПОСТАВИЛ галочку
+    <a href="contracts.php"></a>
+    const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
+    const clientIdInput = document.getElementById('contract_client_id_storage') || document.getElementById('modal_client_id');
+
+    if (!modal) {
+        alert("Критическая ошибка интерфейса: Модальное окно договора не найдено на странице index.php!");
+        checkboxElement.checked = false; // Гасим галочку
+        return;
+    }
+
+    // Записываем ID клиента в скрытое поле формы договора
+    if (clientIdInput) {
+        clientIdInput.value = parseInt(clientId, 10);
+    }
+
+    // Сохраняем элемент чекбокса в глобальную память браузера window
+    window.activeContractCheckbox = checkboxElement;
+
+    // Плавно открываем форму добавления договора поверх экрана
+    modal.style.display = 'block';
+}
+
+// Принудительный сброс галочки при клике на Отмену
+function closeContractModal() {
+    const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
+    if (window.activeContractCheckbox) {
+        window.activeContractCheckbox.checked = false; // Галочка принудительно снимается
+        window.activeContractCheckbox = null;         // Очищаем память
+        console.log("Менеджер нажал 'Отмена'. Галочка контракта успешно погашена без записи в СУБД.");
+    }
+}
+            </script>
             <td>
       <!-- МАКСИМАЛЬНО ПРОСТАЯ И НАДЕЖНАЯ КНОПКА РЕДАКТИРОВАНИЯ -->
 <?php 
@@ -1146,101 +1272,7 @@ async function openProtectedEditModal(id) {
 
 
 }
-// Сохранение (обработка формы)
-document.getElementById('clientForm').onsubmit = async function(e) {
-    e.preventDefault();
-    console.log("Отправка формы сохранения клиента...");
 
-    try {
-        // 1. Создаем пакет данных из текущей формы (this)
-        const customFormData = new FormData(this);
-        
-        // 2. Инжектируем тип продукции, если селект есть на странице
-        const productSelect = document.querySelector('select[name="product_type"]') || document.getElementById('add_client_product_select');
-        if (productSelect) {
-            customFormData.set('product_type', productSelect.value);
-            console.log("В пакет успешно добавлен тип продукции:", productSelect.value);
-        }
-
-        // 3. ТОЧЕЧНЫЙ ФИКС: Инжектируем дату следующего контакта строго в созданный customFormData
-        const nextDateInput = document.querySelector('input[name="next_contact_date"]') || document.getElementById('add_client_next_date');
-        if (nextDateInput && nextDateInput.value) {
-            customFormData.set('next_contact_date', nextDateInput.value);
-            console.log("В пакет успешно добавлена дата следующего контакта:", nextDateInput.value);
-        }
-
-        // 4. Отправляем пакет на наш всеядный бэкенд save.php
-        const res = await fetch('save.php', {
-            method: 'POST',
-            body: customFormData
-        });
-        
-        const rawText = await res.text();
-        console.log("Сырой ответ от save.php:", rawText);
-        
-        const result = JSON.parse(rawText);
-
-        if (result.status === 'success') {
-            const modal = document.getElementById('clientModal');
-            if (modal) modal.style.display = 'none';
-            window.location.reload(); // Перезагружаем страницу для обновления экрана
-        } else {
-            alert("Отказ системы: " + result.message);
-        }
-    } catch (err) {
-        console.error("Критический сбой отправки формы:", err);
-        alert("Ошибка сети или синтаксиса при связи с сервером save.php. Проверьте консоль F12 (Вкладка Console).");
-    }
-};
-
-document.addEventListener('change', function(e) {
-    if (e.target && e.target.classList.contains('js-manager-select')) {
-        const managerId = parseInt(e.target.value) || 0;
-        console.log("Выбран менеджер с ID:", managerId);
-        
-        if (managerId > 0) {
-            // Принудительно отправляем админа по точному адресу
-            window.location.href = 'index.php?manager_filter=' + managerId;
-        } else {
-            // Если выбрали "Все менеджеры" — сбрасываем фильтр
-            window.location.href = 'index.php';
-        }
-    }
-});
-
-        const sourceVal = document.getElementById('source').value;
-        if (!sourceVal) { 
-             alert("Критическая ошибка: Поле 'Источник привлечения' является обязательным для заполнения!");
-        }
-        
-      document.addEventListener('click', function(e) {
-    const cell = e.target.closest('.js-comment-preview');
-    
-    // Проверяем, что клик пришелся именно на ячейку комментария
-    if (cell) {
-        // Защита: если кликнули по кнопке редактирования внутри этой строки, ничего не делаем
-        if (e.target.classList.contains('btn-edit') || e.target.closest('button')) {
-            return; // Тут return легален, так как мы внутри функции addeventlistener
-        }
-
-        e.preventDefault();
-        
-        const clientName = cell.getAttribute('data-client-name') || 'Клиент';
-        const fullComment = cell.innerText.trim();
-
-        const modal = document.getElementById('commentViewModal');
-        const labelName = document.getElementById('commentModalClientLabel');
-        const textContainer = document.getElementById('commentModalTextContainer');
-
-        if (modal && textContainer) {
-            if (labelName) labelName.innerText = clientName;
-            textContainer.innerText = (fullComment === '—' || fullComment === '') ? 'Комментарии отсутствуют.' : fullComment;
-            
-            // Показываем окно просмотра
-            modal.style.display = 'flex';
-        }
-    }
-});
 
 async function closeEditModal() { 
     const modal = document.getElementById('clientModal') || document.getElementById('EditModal');
@@ -1315,7 +1347,7 @@ function openAddModal() {
     }
     document.getElementById('clientModal').style.display = 'flex';
 }
-
+// 1. ОТКРЫТИЕ МОДАЛЬНОГО ОКНА РЕДАКТИРОВАНИЯ (ИСПРАВЛЕНО ТОЧЕЧНО)
 function openEditModal(id) {
     console.log("Запущена функция openEditModal для ID:", id);
     
@@ -1360,7 +1392,20 @@ function openEditModal(id) {
     fillField('next_contact_date', '.cell-next');
     fillField('status', '.cell-status');
     fillField('source', '.cell-source');
-    fillField('comment', '.cell-comment');
+
+    // ЖЕСТКИЙ ФИКС БАГА РЕДАКТИРОВАНИЯ: Если ячейки .cell-comment в таблице нет,
+    // мы изящно пытаемся забрать старый комментарий из кастомного атрибута data-comment строки tr
+    const commInput = document.getElementById('comment');
+    if (commInput) {
+        const tableCellComm = row.querySelector('.cell-comment');
+        if (tableCellComm && tableCellComm.innerText.trim() !== '') {
+            commInput.value = tableCellComm.innerText.trim();
+        } else if (row.getAttribute('data-comment')) {
+            commInput.value = row.getAttribute('data-comment').trim();
+        } else {
+            commInput.value = ''; // Если комментарий действительно пустой
+        }
+    }
 
     // Логика блокировки даты первого контакта для менеджера
     const dateInput = document.getElementById('first_contact_date');
@@ -1371,29 +1416,37 @@ function openEditModal(id) {
     // Отображаем окно
     modal.style.display = 'flex';
 }
-
-// 2. СОХРАНЕНИЕ (Универсальное)
+// ИСПРАВЛЕНО НАМЕРТВО: Бронебойный сборщик, который НИКОГДА не падает из-за отсутствующих ID инпутов
 document.getElementById('clientForm').onsubmit = async function(e) {
     e.preventDefault();
+    console.log("Сбор данных формы для отправки на save.php...");
     
-    // Создаем пустой объект FormData
-    const fd = new FormData();
+    // БРОНЕБОЙНЫЙ ПОДХОД: Нативно собираем вообще ВСЕ инпуты, которые лежат внутри формы, одной строкой!
+    const fd = new FormData(this);
     
-    // Прямой сбор данных по ID (как они прописаны в HTML)
-    fd.append('id', document.getElementById('client_id').value);
-    fd.append('client_name', document.getElementById('client_name').value);
-    fd.append('unp', document.getElementById('unp').value);
-    fd.append('contact_person', document.getElementById('contact_person').value);
-    fd.append('phone', document.getElementById('phone').value);
-    fd.append('product_type', document.getElementById('product_type').value);
-    fd.append('source', document.getElementById('source').value);
-    fd.append('first_contact_date', document.getElementById('first_contact_date').value);
-    fd.append('next_contact_date', document.getElementById('next_contact_date').value);
-    fd.append('status', document.getElementById('status').value);
-    fd.append('email', document.getElementById('email').value);
-    // Комментарий (необязательный, проверяем наличие элемента)
-    const comm = document.getElementById('comment');
-    if (comm) fd.append('comment', comm.value);
+    // Подстраховка: Безопасная инжекция полей по ID (если элемента нет в HTML — JS не упадет!)
+    const safeAppend = (key, elementId) => {
+        const el = document.getElementById(elementId);
+        if (el) {
+            fd.set(key, el.value); // Гарантированно перезаписываем точным значением
+        } else {
+            console.log("Диагностика: Элемент id='" + elementId + "' отсутствует в разметке HTML формы.");
+        }
+    };
+
+    // Поочередно синхронизируем данные из полей с подстраховкой от null
+    safeAppend('id', 'client_id');
+    safeAppend('client_name', 'client_name');
+    safeAppend('unp', 'unp');
+    safeAppend('contact_person', 'contact_person');
+    safeAppend('phone', 'phone');
+    safeAppend('product_type', 'product_type');
+    safeAppend('source', 'source');
+    safeAppend('first_contact_date', 'first_contact_date');
+    safeAppend('next_contact_date', 'next_contact_date');
+    safeAppend('status', 'status');
+    safeAppend('email', 'email');
+    safeAppend('comment', 'comment');
 
     try {
         const res = await fetch('save.php', { 
@@ -1401,20 +1454,49 @@ document.getElementById('clientForm').onsubmit = async function(e) {
             body: fd 
         });
         
-        const result = await res.json();
+        const rawText = await res.text();
+        console.log("Сырой текст ответа от save.php:", rawText);
+        
+        if (!rawText.trim().startsWith('{')) {
+            alert("🚨 КРИТИЧЕСКИЙ СБОЙ БЭКЕНДА!\nСервер вернул ошибку PHP вместо JSON:\n\n" + rawText);
+            return;
+        }
+        
+        const result = JSON.parse(rawText);
         if (result.status === 'success') {
-            location.reload();
+            window.location.reload(); // Чистый перезапуск экрана
         } else {
-            // Если PHP не увидел название, он напишет это здесь
-            alert("Ошибка сервера: " + result.message);
+            alert("⚠️ Отказ СУБД: " + result.message);
         }
     } catch (err) {
-        console.error("Критическая ошибка:", err);
-        alert("Не удалось сохранить. Проверьте консоль F12.");
+        console.error("Критическая ошибка JS:", err);
+        alert("🚨 Системный сбой JavaScript! Проверьте консоль F12.");
     }
 };
 
 // Ждем загрузки страницы
+// ИСПРАВЛЕНО НАМЕРТВО: Клик по Галочке открывает форму договора. Отмена — гасит Галочку.
+// ИСПРАВЛЕНО НАМЕРТВО: Клик по Галочке перекидывает менеджера на contracts.php с автооткрытием формы!
+function toggleContractStatus(clientId, checkboxElement) {
+    console.log("Запуск сквозного перехода для создания договора. Клиент ID:", clientId);
+
+    // 1. Если пользователь СНЯЛ галочку вручную — оставляем стандартное подтверждение
+    if (!checkboxElement.checked) {
+        if (!confirm("⚠️ Вы уверены, что хотите полностью расторгнуть контракт этого клиента?")) {
+            checkboxElement.checked = true;
+            return;
+        }
+        // Сюда пойдёт твой fetch-запрос на сброс статуса (если он был)
+        return;
+    }
+
+    // 2. Если пользователь ПОСТАВИЛ галочку:
+    // Мы ПРИНУДИТЕЛЬНО гасим её на секунду на экране index.php (так как запись произойдёт только после сохранения формы!)
+    checkboxElement.checked = false;
+
+    // МГНОВЕННЫЙ РЕДИРЕКТ: Перебрасываем Firefox на contracts.php и передаем в URL маркер автооткрытия 'open_modal_for'
+    window.location.href = 'contracts.php?open_modal_for=' + parseInt(clientId, 10);
+}
 
 
 </script>
