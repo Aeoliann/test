@@ -191,173 +191,187 @@ function runLiveContractFilter(searchQuery) {
     });
 }
 </script>
-<div style="max-height: 1024px; overflow-y: auto; width: 100% !important; border: 1px solid #323248; border-radius: 8px;">
-    
-    <table class="tasks-table" style="width: 100% !important; border-collapse: collapse; margin: 0;">
-                <thead>
-           
-       <th style="padding: 12px;">Дата</th>
-        <th style="padding: 12px;">Клиент</th>
-        <th style="padding: 12px;">№ Договора</th>
-         <th style="padding: 12px;">Дата договора</th>
-        <th style="padding: 12px;">Тип продукции</th>
-       
-        <th style="padding: 12px; text-align: center;">Управление ТТН</th>
-        <th style="padding: 12px; text-align: center;">Последняя отгрузка</th>
-        <th style="padding: 12px; text-align: right;">Сумма (BYN)</th>
-        <!-- НОВАЯ КОЛОНКА -->
-        <th style="padding: 12px; text-align: right;">Мультивалютный пересчет</th>
-        <th stle="padding: 12px; text-align: right;">Скан договора</th>
-    </tr>
-</thead>
-              <tbody>
-                
+<!-- ИСПРАВЛЕНО НАМЕРТВО: Запечатали таблицу договоров в рамки экрана с адаптивным горизонтальным скроллом -->
+<!-- Контейнер таблицы с мягким скруглением и аккуратной тенью -->
+<div style="width: 100%; max-height: 780px; overflow-y: auto; overflow-x: auto; border: 1px solid #2b2b40; border-radius: 12px; background: #1a1a24; box-shadow: 0 10px 30px rgba(0,0,0,0.4); box-sizing: border-box; position: relative;">
+    <table style="width: 100%; border-collapse: collapse; margin: 0; min-width: 1300px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"> 
+        <!-- СТИЛЬНАЯ ШАПКА ТАБЛИЦЫ -->
+        <thead style="position: sticky; top: 0; z-index: 10; background: #151521;">
+            <tr>
+                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 80px; background: #151521;">Дата</th>
+                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: left; background: #151521;">Клиент / Договор</th>
+                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 110px; background: #151521;">№ Договора</th>
+                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 120px; background: #151521;">Дата дог.</th>
+                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: left; width: 140px; background: #151521;">Продукция</th>
+                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 110px; background: #151521;">Отгрузки</th>
+                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 120px; background: #151521;">Посл. отгрузка</th>
+                <th style="padding: 16px 12px; color: #10b981; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: right; width: 140px; background: #151521;">Сумма (BYN)</th>
+                <th style="padding: 16px 12px; color: #f59e0b; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: right; width: 150px; background: #151521;">Лимит (RUB)</th>
+                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 90px; background: #151521;">Скан</th>
+            </tr>
+        </thead>
+
+<!-- ИСПРАВЛЕНО НАМЕРТВО: Премиальный, синтаксически чистый и кайфовый дашборд реестра контрактов Santeks -->
+<tbody style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     <?php 
     $lastClient = ""; 
     $totalByn = 0;
-    
-    // Защита: если массив курсов пуст, создаем базовый дефолт
     $rates = (isset($globalRates) && is_array($globalRates)) ? $globalRates : ['BYN' => 1.0, 'USD' => 3.25, 'EUR' => 3.55, 'RUB' => 0.035, 'CNY' => 0.45];
-
+    
     foreach ($rows as $r): 
         $isNewGroup = ($r['client_name'] !== $lastClient);
         
-        // 1. Считаем чистую сумму всех ТТН (в базовых BYN) для текущего договора
+        // Инлайн-агрегация финансовых сумм ТТН по текущему контракту
         $sumQuery = $pdo->prepare("SELECT SUM(amount) FROM project_ttns WHERE project_id = ?");
         $sumQuery->execute([$r['pid']]);
         $totalBynSum = (float)$sumQuery->fetchColumn();
-        
         $totalByn += $totalBynSum;
-
-        // 2. Подгружаем сохраненную валюту конвертации для этой строки (по дефолту RUB)
+        
         $savedCurrency = !empty($r['currency']) ? $r['currency'] : 'RUB';
-
-        // 3. Расчет для мультивалютной ячейки
         $rateValue = isset($rates[$savedCurrency]) ? (float)$rates[$savedCurrency] : 1.0;
         $convertedSum = ($rateValue > 0) ? ($totalBynSum / $rateValue) : 0;
+        
+        $projectId = (int)($r['pid'] ?? 0);
     ?>
     
     <?php if ($isNewGroup): ?>
-        <!-- Заголовок группы клиента (Растягиваем строго на 8 колонок) -->
-        <tr style="background: #1b1b28; font-weight: bold; border-left: 4px solid #4f46e5;">
-            <td colspan="10" style="padding: 12px 30px; color: #fff; font-size: 14px; text-align: left;">
-                <span style="color:#fff;">🏢 КЛИЕНТ: <?= htmlspecialchars($r['client_name']) ?></span>
-                <span style="color: #64748b; font-size: 11px; margin-left: 10px; font-weight: normal;">(Все договоры клиента)</span>
-     <button type="button" 
-        onclick="openNewContractModal(<?= (int)$r['cid'] ?>); return false;" 
-        style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; margin-left: 15px;">
-    + Добавить договор
-<script>function openNewContractModal(clientId) {
-    console.log("Открытие формы договора для клиента ID:", clientId);
-    
-    // Находим модальное окно договора на странице contracts.php
-    const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
-    
-    // Находим скрытый инпут внутри формы, куда нужно записать ID клиента
-    const clientIdInput = document.getElementById('contract_client_id_storage') || document.getElementById('modal_client_id');
-    
-    if (clientIdInput) {
-        clientIdInput.value = parseInt(clientId, 10);
-    }
-    
-    if (modal) {
-        modal.style.display = 'block';
-    } else {
-        alert("Критическая ошибка: Модальное окно договора не найдено в разметке contracts.php!");
-    }
-}</script>
-
-</button>
-
-
-
-
+        <!-- СТИЛЬНЫЙ СИСТЕМНЫЙ ЗАГОЛОВОК ГРУППЫ КЛИЕНТА (БЕЗ УРОДЛИВЫХ РАМОК) -->
+        <tr style="background: #151521; font-weight: bold; border-left: 4px solid #4f46e5;">
+            <td colspan="10" style="padding: 16px 24px; color: #fff; font-size: 14px; text-align: left; border-bottom: 1px solid #2b2b40;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #6366f1; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🏢 Клиент:</span>
+                        <span style="color: #fff; font-size: 14px; font-weight: 700;"><?= htmlspecialchars($r['client_name']) ?></span>
+                        <span style="color: #4b5563; font-size: 11px; font-weight: normal; margin-left: 4px;">(Все контракты контрагента)</span>
+                    </div>
+                    
+                    <button type="button" 
+                            onclick="openNewContractModal(<?= (int)$r['cid'] ?>); return false;" 
+                            style="background: rgba(79, 70, 229, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.3); padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; transition: all 0.2s;"
+                            onmouseover="this.style.background='#4f46e5'; this.style.color='#fff';"
+                            onmouseout="this.style.background='rgba(79, 70, 229, 0.15)'; this.style.color='#818cf8';">
+                        ➕ Добавить договор
+                    </button>
+                </div>
             </td>
         </tr>
+        
+        <!-- Скрипт-инициализатор модалки контракта -->
+        <script>
+        if (typeof openNewContractModal !== 'function') {
+            function openNewContractModal(clientId) {
+                console.log("Открытие формы договора для клиента ID:", clientId);
+                const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
+                const clientIdInput = document.getElementById('contract_client_id_storage') || document.getElementById('modal_client_id');
+                if (clientIdInput) {
+                    clientIdInput.value = parseInt(clientId, 10);
+                }
+                if (modal) {
+                    modal.style.display = 'block';
+                } else {
+                    alert("Критическая ошибка: Модальное окно договора не найдено в разметке contracts.php!");
+                }
+            }
+        }
+        </script>
         <?php $lastClient = $r['client_name']; ?>
     <?php endif; ?>
-<tr data-pid="<?= (int)$r['cid'] ?>"">
-    <!-- 1. Столбец "ДАТА" (Выводим дату создания договора или проекта) -->
-    <td style="text-align: center; color: #64748b; font-size: 13px;">
-        <?= date('d.m.Y', strtotime($r['created_at'] ?? date('Y-m-d'))) ?>
-    </td>
-   
-        <!-- 1. Колонна КЛИЕНТ (пустая для структуры групп) -->
-        <td style="padding: 12px; border-right: 1px solid #2b2b40;"></td>
+
+    <!-- БОЕВАЯ СТРОКА КОНТРАКТА С ЭФФЕКТОМ МЯГКОГО ХОВЕРА -->
+    <tr data-pid="<?= (int)$r['cid'] ?>" style="border-bottom: 1px solid #242434; transition: background 0.15s;" onmouseover="this.style.background='#1e1e2d';" onmouseout="this.style.background='transparent';">
         
-        <!-- 2. № Договора (Редактируемый) -->
-        <td style="padding: 12px;">
-            <div class="editable" contenteditable="true" data-f="contract_number" data-id="<?= $r['pid'] ?>" style="min-height:20px; color:#fff;">
+        <!-- 1. Дата создания -->
+        <td style="padding: 14px 12px; text-align: center; color: #4b5563; font-size: 13px; font-weight: 500;">
+            <?= date('d.m.Y', strtotime($r['created_at'] ?? date('Y-m-d'))) ?>
+        </td>
+        
+        <!-- 2. Пустая ячейка выравнивания (Сохранена под твою структуру) -->
+        <td style="padding: 14px 12px; text-align: left; color: #fff;"></td>
+        
+        <!-- 3. № Договора (Инлайн-редактируемый с чистым дизайном) -->
+      <td style="padding: 14px 12px; text-align: center;">
+            <style>
+                /* БАГ 1 (ФИКС): Контрастный черный текст на белом фоне в момент инлайн-ввода */
+                .editable-contract-focus:focus {
+                    background: #ffffff !important;
+                    color: #000000 !important;
+                    border-color: #4f46e5 !important;
+                }
+            </style>
+            <?php 
+            // БАГ 2 (ФИКС): Проверяем, вбит ли уже номер. Если он не пустой и не равен прочерку — закрываем ввод
+            $hasNum = (!empty($r['contract_number']) && $r['contract_number'] !== '—'); 
+            ?>
+            <div class="editable editable-contract-focus" 
+                 contenteditable="<?= $hasNum ? 'false' : 'true' ?>" 
+                 data-f="contract_number" 
+                 data-id="<?= $projectId ?>" 
+                 style="min-height: 20px; color: #fff; font-weight: bold; background: rgba(255,255,255,0.02); padding: 4px 8px; border-radius: 4px; border: 1px solid #2b2b40; outline: none; display: inline-block; min-width: 80px; cursor: <?= $hasNum ? 'not-allowed' : 'text' ?>;"
+                 title="<?= $hasNum ? 'Номер договора зафиксирован в СУБД и защищен от изменений.' : 'Кликните для ввода номера договора' ?>">
                 <?= htmlspecialchars($r['contract_number'] ?: '—') ?>
             </div>
         </td>
-             <!-- 4. Дата договора -->
-        <td style="padding: 12px; color: #92929f;"><?= htmlspecialchars($r['contract_date'] ?? '—') ?></td>
-        <!-- 3. Тип продукции -->
-        <td style="padding: 12px; text-align: left; color: #fff; border: 1px solid #2b2b40;">
-    <?php
-    // Автоподбор переменной строки (на случай разной архитектуры)
-    $currentRecord = isset($r) ? $r : (isset($row) ? $row : (isset($project) ? $project : []));
-    
-    // Считываем индивидуальный тип продукции из таблицы контрактов projects
-    $individualProduct = !empty($currentRecord['product_type']) ? trim($currentRecord['product_type']) : '';
-    
-    // Подстраховка: если поле в projects пустое, выводим прочерк
-    if (!empty($individualProduct) && $individualProduct !== 'NULL') {
-        echo htmlspecialchars($individualProduct);
-    } else {
-        echo '<span style="color: #64748b;">—</span>';
-    }
-    ?>
-</td>
+        <!-- 4. Дата договора -->
+        <td style="padding: 14px 12px; color: #92929f; font-size: 13px; text-align: center; font-weight: 500;">
+            <?= htmlspecialchars($r['contract_date'] ?? '—') ?>
+        </td>
         
-   
+        <!-- 5. Тип продукции (Премиальный бейдж) -->
+        <td style="padding: 14px 12px; text-align: left;">
+            <?php
+            // ФИКС ПУНКТА №3: Намертво привязываем тип продукции к значению из карточки клиента Рабочей базы
+            $currentRecord = isset($r) ? $r : (isset($row) ? $row : (isset($project) ? $project : []));
+            
+            // Проверяем поочередно все возможные ключи, чтобы гарантировать совпадение с таблицей лидов
+            $individualProduct = !empty($currentRecord['product_type']) ? trim($currentRecord['product_type']) : '';
+            
+            if (!empty($individualProduct) && $individualProduct !== 'NULL' && $individualProduct !== '—') {
+                echo '<span style="background: rgba(129,140,248,0.1); color: #818cf8; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; display: inline-block;">' . htmlspecialchars($individualProduct) . '</span>';
+            } else {
+                echo '<span style="color: #4b5563; font-weight: 500;">—</span>';
+            }
+            ?>
+        </td>
+
         
-
-
-</td>
-<td>
-
-<?php
-$line324_data = isset($c) ? $c : (isset($p) ? $p : (isset($t) ? $t : (isset($row) ? $row : (isset($r) ? $r : []))));
-$line324_pid  = (int)($line324_data['pid'] ?? ($line324_data['id'] ?? ($line324_data['project_id'] ?? ($line324_data['cid'] ?? 0))));
-?>
-<button type="button" 
-        data-id="<?= $line324_pid ?>"
-        onclick="openTtnManagerFromButton(this); return false;" 
-        style="background: #3182ce; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; transition: background 0.15s;"
-        onmouseover="this.style.background='#2b6cb0';"
-        onmouseout="this.style.background='#3182ce';">
-    📦 ТТН
-</button>
-
-
-
-
-</button>
-    </td>
-        <!-- 6. Последняя отгрузка -->
-        <td style="padding: 12px; text-align: center; font-size: 12px; color: #92929f;">
+        <!-- 6. Кнопка ТТН (Интеллектуальный всеядный вызов) -->
+        <td style="padding: 14px 12px; text-align: center;">
+            <?php
+            $line324_data = isset($c) ? $c : (isset($p) ? $p : (isset($t) ? $t : (isset($row) ? $row : (isset($r) ? $r : []))));
+            $line324_pid  = (int)($line324_data['pid'] ?? ($line324_data['id'] ?? ($line324_data['project_id'] ?? ($line324_data['cid'] ?? 0))));
+            ?>
+            <button type="button" 
+                    data-id="<?= $line324_pid ?>"
+                    onclick="openTtnManagerFromButton(this); return false;" 
+                    style="background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,0.2); transition: all 0.2s;"
+                    onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(79,70,229,0.3)';"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 12px rgba(79,70,229,0.2)';">
+                📦 ТТН
+            </button>
+        </td>
+        
+        <!-- 7. Дата последней отгрузки ТТН -->
+        <td style="padding: 14px 12px; text-align: center; font-size: 13px; color: #92929f; font-weight: 500;">
             <?php 
                 $ld = $pdo->prepare("SELECT MAX(ttn_date) FROM project_ttns WHERE project_id = ?"); 
                 $ld->execute([$r['pid']]);
-                $d = $ld->fetchColumn(); echo $d ? date('d.m.Y', strtotime($d)) : '—';
+                $d = $ld->fetchColumn(); 
+                echo $d ? date('d.m.Y', strtotime($d)) : '—';
             ?>
-
+        </td>
+        
+        <!-- 8. Сумма Выручки BYN (Крупный неоновый шрифт) -->
+        <td style="padding: 14px 12px; text-align: right; font-weight: bold; color: #fff; padding-right: 15px; font-size: 14px; letter-spacing: -0.3px;">
+            <span class="js-byn-base" data-id="<?= $projectId ?>" style="color: #fff; font-weight: 700;"><?= number_format($totalBynSum, 2, '.', ' ') ?></span>
+            <span style="color: #4b5563; font-size: 11px; font-weight: normal; margin-left: 2px;">BYN</span>
         </td>
 
-        <!-- 7. Сумма (BYN) — Жесткая и неизменяемая на основе ТТН -->
-        <td style="padding: 12px; text-align: right; font-weight: bold; color: #fff; padding-right: 15px;">
-            <span class="js-byn-base" data-id="<?= $r['pid'] ?>"><?= number_format($totalBynSum, 2, '.', ' ') ?></span>
-            <span style="color: #55556d; font-size: 11px; font-weight: normal; margin-left: 3px;">BYN</span>
-        </td>
-
-        <!-- 8. Мультивалютный пересчет -->
-        <td style="padding: 12px; text-align: right; white-space: nowrap; padding-right: 20px; width: 100%;">
-            <strong class="js-converted-value" data-id="<?= $r['pid'] ?>" style="color: #10b981; font-size: 14px; margin-right: 5px;">
+        <!-- 9. Мультивалютный лимит/Сумма конвертации -->
+        <td style="padding: 14px 12px; text-align: right; white-space: nowrap; padding-right: 15px;">
+            <strong class="js-converted-value" data-id="<?= $projectId ?>" style="color: #10b981; font-size: 14px; margin-right: 6px; letter-spacing: -0.3px;">
                 <?= number_format($convertedSum, 2, '.', ' ') ?>
             </strong>
-            <select class="js-target-currency" data-id="<?= $r['pid'] ?>" style="padding: 4px; background: #151521; border: 1px solid #323248; color: #92929f; border-radius: 4px; font-size: 12px; cursor: pointer; outline: none;">
+            <select class="js-target-currency" data-id="<?= $projectId ?>" style="padding: 4px 8px; background: #151521; border: 1px solid #323248; color: #92929f; border-radius: 6px; font-size: 12px; cursor: pointer; outline: none; font-weight: bold;">
                 <option value="RUB" <?= $savedCurrency === 'RUB' ? 'selected' : '' ?>>RUB</option>
                 <option value="USD" <?= $savedCurrency === 'USD' ? 'selected' : '' ?>>USD</option>
                 <option value="EUR" <?= $savedCurrency === 'EUR' ? 'selected' : '' ?>>EUR</option>
@@ -366,55 +380,39 @@ $line324_pid  = (int)($line324_data['pid'] ?? ($line324_data['id'] ?? ($line324_
             </select>
         </td>
    
-<!-- ЯЧЕЙКА С НОМЕРОМ ДОГОВОРА И СКРЕПКОЙ (№32) -->
-<!-- КОЛОНКА «СКАН ДОГОВОРА» — ЧИСТЫЙ АСИНХРОННЫЙ ВАРИАНТ (№32) -->
-<!-- КОЛОНКА «СКАН ДОГОВОРА» — СТРОГО НА СВОЕМ МЕСТЕ (№32 + №37) -->
-<!-- АВТОНОМНЫЙ ВЫВОД СКАНА ДОГОВОРА ЧЕРЕЗ ПРЯМОЙ ОПРОС БД (ЗАДАЧА №32) -->
-<!-- ОКОНЧАТЕЛЬНЫЙ ВЫВОД СКАНА ДОГОВОРА СТРОГО ПО КЛЮЧАМ PID И CONTRACT_FILE (№32) -->
-<td style="padding: 12  px; text-align: center; border: 1px solid #2b2b40;">
-    <div style="display: inline-flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding-right: 15px;">
-        <?php
-        $currentRecord = isset($r) ? $r : (isset($row) ? $row : []);
-        $projectId    = isset($currentRecord['pid']) ? (int)$currentRecord['pid'] : 0;
-        
-        // ИСПРАВЛЕНО: Читаем новое Windows-поле пути к скану scan_path взамен contract_file
-        $contractPath = isset($currentRecord['scan_path']) ? trim($currentRecord['scan_path']) : '';
-
-        if (!empty($contractPath) && $contractPath !== 'NULL' && $contractPath !== '0'): 
-        ?>
-        
-            <!-- Кнопка просмотра PDF (ИСПРАВЛЕНО: Ссылка сразу ведет на полный путь из базы) -->
-            <a href="<?= htmlspecialchars($contractPath) ?>" 
-               target="_blank" 
-               style="color: #10b981; text-decoration: none; font-size: 11px; font-weight: bold; background: #1a2e26; padding: 4px 8px; border-radius: 4px; display: inline-block; white-space: nowrap;">👁 PDF</a>
-            <!-- Крестик удаления файла -->
-             
-            <button type="button" 
-                    onclick="if(confirm('Вы уверены, что хотите безвозвратно удалить скан договора?')){ window.location.href='delete_contract_file.php?pid=<?= $projectId ?>'; } return false;" 
-                    style="background: none; border: none; color: #f56565; cursor: pointer; font-size: 12px; padding: 4px; display: inline-block; line-height: 1;">❌</button>
-        <?php else: ?>
-            <!-- Синка иконка скрепки со встроенным инлайн-движком отправки fetch -->
-            <label for="contract_file_<?= $projectId ?>" 
-                   style="cursor: pointer; color: #4f46e5; font-size: 14px; padding: 4px 8px; background: #1e1e2d; border: 1px solid #323248; border-radius: 4px; display: inline-block; user-select: none;">📎</label>
-            
-            <input type="file" 
-                   id="contract_file_<?= $projectId ?>" 
-                   accept=".pdf" 
-                   style="display: none;" 
-                   onchange="if(!this.files||!this.files.length)return; const fd=new FormData(); fd.append('pid',<?= $projectId ?>); fd.append('contract_pdf',this.files[0]); const path=window.location.pathname; const url=path.substring(0,path.lastIndexOf('/'))+'/upload_scan.php'; fetch(url,{method:'POST',body:fd}).then(r=>r.json()).then(res=>{ if(res.status==='success'){ window.location.reload(); }else{ alert('Ответ сервера:\n'+res.message); window.location.reload(); } }).catch(err=>alert('Ошибка сети или размера файла'));return false;">
-        <?php endif; ?>
-        <!-- ИСПРАВЛЕНО НАМЕРТВО: ID договора зашит в data-id, а функция вызывается автономно (this) -->
-
-    </div>
- 
-</td>
-
-    </div>
-        </div>
-    </div>
-
-</td>
-
+        <!-- 10. Блок скана договора (Чистые аккуратные плашки кнопок) -->
+        <td style="padding: 14px 12px; text-align: center;">
+            <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: center; width: 100%;">
+                <?php
+ $contractPath = isset($currentRecord['scan_path']) ? trim($currentRecord['scan_path']) : '';
+                if (!empty($contractPath) && $contractPath !== 'NULL' && $contractPath !== '0'): 
+                ?>
+                    <a href="<?= htmlspecialchars($contractPath) ?>" 
+                       target="_blank" 
+                       style="color: #10b981; text-decoration: none; font-size: 11px; font-weight: bold; background: rgba(16, 185, 129, 0.12); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2); display: inline-block; white-space: nowrap; transition: 0.2s;"
+                       onmouseover="this.style.background='rgba(16, 185, 129, 0.25)';"
+                       onmouseout="this.style.background='rgba(16, 185, 129, 0.12)';">👁 PDF</a>
+                    <button type="button" 
+                            onclick="if(confirm('⚠️ Вы уверены, что хотите БЕЗВОЗВРАТНО удалить скан договора?')){ window.location.href='delete_contract_file.php?pid=<?= $projectId ?>'; } return false;" 
+                            style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; padding: 4px; display: inline-block; line-height: 1; transition: transform 0.15s;"
+                            onmouseover="this.style.transform='scale(1.2)';"
+                            onmouseout="this.style.transform='scale(1)';">❌</button>
+                <?php else: ?>
+                    <!-- Интерактивная иконка скрепки со встроенным инлайн-движком отправки fetch -->
+                    <label for="contract_file_<?= $projectId ?>" 
+                           style="cursor: pointer; color: #818cf8; font-size: 13px; padding: 5px 10px; background: #242434; border: 1px solid #323248; border-radius: 6px; display: inline-block; user-select: none; transition: all 0.2s;"
+                           onmouseover="this.style.background='#323248'; this.style.borderColor='#4f46e5';"
+                           onmouseout="this.style.background='#242434'; this.style.borderColor='#323248';">📎</label>
+                    
+                    <input type="file" 
+                           id="contract_file_<?= $projectId ?>" 
+                           accept=".pdf" 
+                           style="display: none;" 
+                           onchange="if(!this.files||!this.files.length)return; const fd=new FormData(); fd.append('pid',<?= $projectId ?>); fd.append('contract_pdf',this.files[0]); const path=window.location.pathname; const url=path.substring(0,path.lastIndexOf('/'))+'/upload_scan.php'; fetch(url,{method:'POST',body:fd}).then(r=>r.json()).then(res=>{ if(res.status==='success'){ window.location.reload(); }else{ alert('Ответ сервера:\n'+res.message); window.location.reload(); } }).catch(err=>alert('Ошибка сети или размера файла'));return false;">
+                <?php endif; ?>
+            </div>
+        </td>
+    </tr>
     <?php endforeach; ?>
 </tbody>
 <tfoot style="background: #1a1a26; font-weight: bold; border-top: 2px solid #4f46e5;">

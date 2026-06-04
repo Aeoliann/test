@@ -18,16 +18,18 @@ $u_role = $_SESSION['role'] ?? 'manager';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_new_task') {
     $task_text = trim($_POST['task_text'] ?? '');
     $due_date  = !empty($_POST['due_date']) ? $_POST['due_date'] : date('Y-m-d', strtotime('+3 days'));
-    $assign_to = (int)($_POST['user_id'] ?? $userId); // Кому поручаем (user_id)
+    $assign_to = (int)($_POST['user_id'] ?? $userId); // Кому поручаем
     $manager_comment = trim($_POST['manager_comment'] ?? '');
+    
+    // Перехватываем текстовый логин текущего пользователя (например, 'admin')
+    $current_user_login = $_SESSION['login'] ?? 'Система';
 
     if (!empty($task_text)) {
         try {
-            // ЖЕСТКИЙ ФИКС: Пишем строго в те 6 колонок, которые физически существуют в твоей таблице!
-            $stmt = $pdo->prepare("INSERT INTO tasks (task_text, due_date, user_id, status, manager_comment) VALUES (?, ?, ?, 'pending', ?)");
-            $stmt->execute([$task_text, $due_date, $assign_to, $manager_comment]);
+            // Записываем текстовый логин напрямую в колонку created_by
+            $stmt = $pdo->prepare("INSERT INTO tasks (task_text, created_by, due_date, user_id, status, manager_comment) VALUES (?, ?, ?, ?, 'pending', ?)");
+            $stmt->execute([$task_text, $current_user_login, $due_date, $assign_to, $manager_comment]);
             
-            // Чистый редирект для обновления экрана без зависаний
             header("Location: tasks.php");
             exit;
         } catch (Exception $e) {
@@ -113,36 +115,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // =========================================================================
 // БЛОК 2: АСИНХРОННЫЙ ПРИЕМ ДАННЫХ СМЕНЫ СТАТУСА (UPDATE)
 // =========================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_task_status') {
-    header('Content-Type: application/json');
-    if (ob_get_length()) ob_clean();
+try {
+    // Вытягиваем всех живых менеджеров/админов для выпадающего списка формы
+    $uStmt = $pdo->query("SELECT id, login FROM users ORDER BY login ASC");
+    $all_users = $uStmt->fetchAll() ?: [];
 
-    $t_id = (int)($_POST['task_id'] ?? 0);
-    if ($t_id > 0) {
-        try {
-            $checkStmt = $pdo->prepare("SELECT status FROM tasks WHERE id = ?");
-            $checkStmt->execute([$t_id]);
-            $realStatus = $checkStmt->fetchColumn() ?: 'pending';
-
-            if ($realStatus === 'completed') {
-                $new_status  = 'pending';
-                $executed_at = null;
-            } else {
-                $new_status  = 'completed';
-                $executed_at = date('Y-m-d'); // 03.06.2026
-            }
-
-            $stmt = $pdo->prepare("UPDATE tasks SET status = ?, executed_at = ? WHERE id = ?");
-            $stmt->execute([$new_status, $executed_at, $t_id]);
-
-            echo json_encode(['status' => 'success']);
-            exit;
-        } catch (Exception $e) {
-            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-            exit;
-        }
+    // Выгружаем задачи (t.created_by теперь сразу содержит готовый текстовый логин)
+    if ($u_role === 'admin') {
+        $sql = "SELECT t.*, u.login AS manager_name 
+                FROM tasks t 
+                LEFT JOIN users u ON t.user_id = u.id 
+                ORDER BY t.id DESC";
+        $stmt = $pdo->query($sql);
+    } else {
+        $sql = "SELECT t.*, u.login AS manager_name 
+                FROM tasks t 
+                LEFT JOIN users u ON t.user_id = u.id 
+                WHERE t.user_id = ? 
+                ORDER BY t.id DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId]);
     }
-    exit;
+    $tasks = $stmt->fetchAll() ?: [];
+} catch (Exception $e) {
+    die("Критический сбой СУБД при выгрузке списка задач: " . $e->getMessage());
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_task_comment') {
@@ -269,17 +265,21 @@ try {
         <div class="card" style="padding: 0; overflow: hidden;">
             <div style="max-height: 600px; overflow-y: auto; overflow-x: auto; width: 100%;">
                 <table style="width: 100%; min-width: 1200px;">
-                    <thead>
-                        <tr>
-                            <th style="width: 50px;">П/П</th>
-                            <th style="text-align: left; min-width: 300px;">Текст поручения</th>
-                            <th style="text-align: left; min-width: 250px;">Комментарий менеджера</th> <!-- НАШ СТОЛБЕЦ -->
-                            <th style="width: 130px;">Срок исполнения</th>
-                            <th style="width: 140px;">Ответственный</th>
-                            <th style="width: 120px;">Статус</th>
-                            <th style="width: 140px; color: #10b981;">Дата выполнения</th>
-                        </tr>
-                    </thead>
+                   <thead>
+    <tr>
+        <th style="width: 50px;">П/П</th>
+        <th style="text-align: left; min-width: 300px;">Текст поручения</th>
+        <th style="text-align: left; min-width: 250px;">Комментарий менеджера</th>
+        <th style="width: 130px;">Срок исполнения</th>
+        
+        <!-- НАШ НОВЫЙ СТОЛБЕЦ В ШАПКЕ -->
+        <th style="width: 140px; color: #818cf8;">Отправитель</th> 
+        
+        <th style="width: 140px;">Ответственный</th>
+        <th style="width: 120px;">Статус</th>
+        <th style="width: 140px; color: #10b981;">Дата выполнения</th>
+    </tr>
+</thead>
                     <tbody>
                         <?php if (!empty($tasks)): $pp = 1; foreach ($tasks as $row): ?>
                             <tr>
@@ -315,7 +315,9 @@ $canEditComment = !$isDone || ($u_role === 'admin');
                                 <td style="color: #f43f5e; font-weight: 500;">
                                     <?= !empty($row['due_date']) ? date('d.m.Y', strtotime($row['due_date'])) : '—' ?>
                                 </td>
-                                
+                                <td style="color: #818cf8; font-weight: bold;">
+            👑 <?= htmlspecialchars($row['created_by'] ?? 'Система') ?>
+        </td>
                                 <!-- ОТВЕТСТВЕННЫЙ ИСПОЛНИТЕЛЬ -->
                                 <td style="color: #a1a1aa; font-weight: bold;">
                                     <?= htmlspecialchars($row['manager_name'] ?? 'Не назначен') ?>

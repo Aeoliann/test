@@ -354,8 +354,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         <header style =" background-color: #151521 !important;
     background: #151521 !important;
     border-bottom: 1px solid #323248 !important; margin-left: 15px;">
-          
+
        <button onclick="openAddModal()" class="btn-primary">+ Добавить клиента</button>
+                         <a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
+   style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s;"
+   onmouseover="this.style.background='#059669';" 
+   onmouseout="this.style.background='#10b981';">
+    📊 СКАЧАТЬ ОТЧЕТ В EXCEL
+</a>
     <button type="button" onclick="openComplexModal();" style="background: #818cf8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#6366f1';" onmouseout="this.style.background='#818cf8';">
     💎 Добавить клиента и договор
 </button>
@@ -446,12 +452,7 @@ function closeComplexModal() {
 
 
             
-           <a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
-   style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s;"
-   onmouseover="this.style.background='#059669';" 
-   onmouseout="this.style.background='#10b981';">
-    📊 СКАЧАТЬ ОТЧЕТ В EXCEL
-</a>
+   
         </header>
         
 
@@ -885,10 +886,13 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
             <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Дата первого контакта</label>
             <input type="date" id="first_contact_date" name="first_contact_date" value="<?= date('Y-m-d') ?>" readonly style="width: 100%; padding: 10px; background: #242434; border: 1px solid #323248; color: #64748b; border-radius: 6px; outline: none; box-sizing: border-box; cursor: not-allowed;">
         </div>
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Следующий контакт <span style="color:red;">*</span></label>
-            <input type="date" id="next_contact_date" name="next_contact_date" required min="<?= date('Y-m-d') ?>" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-        </div>
+       <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 15px; text-align: left;">
+    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Следующий контакт:</label>
+    <input type="date" 
+           name="next_contact_date" 
+           id="add_client_next_date"
+           style="width: 100%; height: 40px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; color-scheme: dark; box-sizing: border-box;">
+</div>
     </div>
     <!-- РЯД 5: ИСТОЧНИК И СТАТУС -->
     <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
@@ -1040,6 +1044,7 @@ document.addEventListener("DOMContentLoaded", function() {
 </div>
     </main>
     <script>
+        
 // ЖИВОЙ ФИЛЬТР: Фильтрация строк таблицы по первой и любым последующим буквам
 function runLiveClientFilter(searchQuery) {
     // Переводим поисковый запрос в нижний регистр для игнорирования регистра
@@ -1142,28 +1147,34 @@ async function openProtectedEditModal(id) {
 
 }
 // Сохранение (обработка формы)
-// Сохранение (обработка формы)
 document.getElementById('clientForm').onsubmit = async function(e) {
     e.preventDefault();
     console.log("Отправка формы сохранения клиента...");
 
     try {
-        // Упаковываем все инпуты формы в объект FormData
-        const formData = new FormData(this);
+        // 1. Создаем пакет данных из текущей формы (this)
+        const customFormData = new FormData(this);
         
-        // ЖЕСТКИЙ ИНЖЕКТ: Находим наш селект на странице и принудительно заталкиваем его значение в пакет отправки!
+        // 2. Инжектируем тип продукции, если селект есть на странице
         const productSelect = document.querySelector('select[name="product_type"]') || document.getElementById('add_client_product_select');
         if (productSelect) {
-            formData.append('product_type', productSelect.value);
-            console.log("В пакет FormData успешно добавлен тип продукции:", productSelect.value);
+            customFormData.set('product_type', productSelect.value);
+            console.log("В пакет успешно добавлен тип продукции:", productSelect.value);
         }
 
+        // 3. ТОЧЕЧНЫЙ ФИКС: Инжектируем дату следующего контакта строго в созданный customFormData
+        const nextDateInput = document.querySelector('input[name="next_contact_date"]') || document.getElementById('add_client_next_date');
+        if (nextDateInput && nextDateInput.value) {
+            customFormData.set('next_contact_date', nextDateInput.value);
+            console.log("В пакет успешно добавлена дата следующего контакта:", nextDateInput.value);
+        }
+
+        // 4. Отправляем пакет на наш всеядный бэкенд save.php
         const res = await fetch('save.php', {
             method: 'POST',
-            body: formData // Отправляем наш дополненный пакет данных
+            body: customFormData
         });
         
-        // Читаем сырой текст, если PHP выплюнет ошибку — мы увидим её текст
         const rawText = await res.text();
         console.log("Сырой ответ от save.php:", rawText);
         
@@ -1172,13 +1183,13 @@ document.getElementById('clientForm').onsubmit = async function(e) {
         if (result.status === 'success') {
             const modal = document.getElementById('clientModal');
             if (modal) modal.style.display = 'none';
-            window.location.reload(); // Перезагружаем страницу для обновления таблицы
+            window.location.reload(); // Перезагружаем страницу для обновления экрана
         } else {
             alert("Отказ системы: " + result.message);
         }
     } catch (err) {
         console.error("Критический сбой отправки формы:", err);
-        alert("Ошибка сети или синтаксиса при связи с сервером save.php. Проверьте консоль F12.");
+        alert("Ошибка сети или синтаксиса при связи с сервером save.php. Проверьте консоль F12 (Вкладка Console).");
     }
 };
 
