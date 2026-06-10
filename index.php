@@ -384,29 +384,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             🗂 Создание контрагента и договора в одной связке
         </h3>
 
-        <form method="POST" action="index.php" style="margin: 0; padding: 0;">
+        <!-- ИСПРАВЛЕНО: Убрали action="index.php", привязали JS обработчик на событие onsubmit -->
+        <form id="jointClientContractForm" onsubmit="return saveComplexFormDirectly(event, this);" style="margin: 0; padding: 0;">
             <input type="hidden" name="action_type" value="create_client_with_contract">
 
             <!-- БЛОК 1: ДАННЫЕ ОРГАНИЗАЦИИ -->
             <div style="margin-bottom: 15px; display: flex; gap: 15px;">
                 <div style="flex: 2; display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Название компании</label>
-                    <input type="text" name="client_name" required placeholder="ООО СантехМонтаж" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                    <input type="text" name="client_name" id="complex_client_name" required placeholder="ООО СантехМонтаж" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">УНП / ИНН</label>
-                    <input type="text" name="unp" placeholder="123456789" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                    <input type="text" name="unp" id="complex_unp" placeholder="123456789" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
                 </div>
             </div>
 
             <div style="margin-bottom: 15px; display: flex; gap: 15px;">
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Телефон связи</label>
-                    <input type="text" name="phone" placeholder="+375 (...)" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                    <input type="text" name="phone" id="complex_phone" placeholder="+375 (...)" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Контактное лицо</label>
-                    <input type="text" name="contact_person" placeholder="Иванов И.И." style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                    <input type="text" name="contact_person" id="complex_contact_person" placeholder="Иванов И.И." style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
                 </div>
             </div>
 
@@ -414,40 +415,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <div style="border-top: 1px dashed #323248; padding-top: 15px; margin-bottom: 15px; display: flex; gap: 15px;">
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-size: 10px; color: #818cf8; font-weight: bold; text-transform: uppercase;">№ Нового договора</label>
-                    <input type="text" name="contract_number" required placeholder="Напр: 240/Т" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; border-color: #4f46e5;">
+                    <input type="text" name="contract_number" id="complex_contract_number" required placeholder="Напр: 240/Т" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; border-color: #4f46e5;">
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-size: 10px; color: #818cf8; font-weight: bold; text-transform: uppercase;">Дата заключения</label>
-                    <input type="date" name="contract_date" value="<?= date('Y-m-d') ?>" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; color-scheme: dark; border-color: #4f46e5;">
+                    <input type="date" name="contract_date" id="complex_contract_date" value="<?= date('Y-m-d') ?>" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; color-scheme: dark; border-color: #4f46e5;">
                 </div>
             </div>
 
-            <div style="margin-bottom: 25px; display: flex; gap: 15px;">
-                <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px;">
-    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Тип продукции:</label>
-<!-- ИСПРАВЛЕНО: Четко задано имя product_type и прописаны точные коммерческие категории Santeks -->
-<div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 15px; text-align: left;">
-        <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Тип продукции:</label>
-        <select name="product_type" 
-                form="newClientForm" 
-                id="add_client_product_select"
-                style="width: 100%; height: 40px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px; box-sizing: border-box;">
-            <option value="Сантехника">Сантехника</option>
-            <option value="Посуда">Посуда</option>
-            <option value="Резервуары">Резервуары</option>
-            <option value="ЕКМ">ЕКМ</option>
-            <option value="МПДУ">МПДУ</option>
-            <option value="Эмалированные таблички">Эмалированные таблички</option>
-            <option value="УОКТ">УОКТ</option>
-            <option value="другое">другое</option>
-        </select>
-    </div>
+            <!-- БЛОК 3: ТИП ПРОДУКЦИИ -->
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 15px; text-align: left;">
+                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Тип продукции:</label>
+                <!-- ИСПРАВЛЕНО: Полностью удален атрибут form="newClientForm", ломавший отправку значения -->
+                <select name="product_type" id="complex_product_select" style="width: 100%; height: 40px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px; box-sizing: border-box;">
+                    <option value="Сантехника">Сантехника</option>
+                    <option value="Посуда">Посуда</option>
+                    <option value="Резервуары">Резервуары</option>
+                    <option value="ЕКМ">ЕКМ</option>
+                    <option value="МПДУ">МПДУ</option>
+                    <option value="Эмалированные таблички">Эмалированные таблички</option>
+                    <option value="УОКТ">УОКТ</option>
+                    <option value="другое">другое</option>
+                </select>
+            </div>
 
-           
             <!-- ПОДВАЛ МОДАЛКИ: КНОПКИ -->
             <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #323248; padding-top: 15px; background: transparent !important;">
                 <button type="button" onclick="closeComplexModal();" style="height: 40px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">Отмена</button>
-                <button type="button" class="btn-contract-save"; onclick="this.form.submit()";style="height: 40px; padding: 0 20px; background: #10b981; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🚀 Создать связку</button>
+                <!-- ИСПРАВЛЕНО: Сменили тип на submit, убрали onclick="this.form.submit()" ломавший асинхронность -->
+                <button type="submit" class="btn-contract-save" style="height: 40px; padding: 0 20px; background: #10b981; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🚀 Создать связку</button>
             </div>
         </form>
     </div>
@@ -458,7 +454,55 @@ function openComplexModal() {
     document.getElementById('complexModal').style.display = 'flex';
 }
 function closeComplexModal() {
-    document.getElementById('complexModal').style.display = 'none';
+    const modal = document.getElementById('complexModal');
+    if (modal) modal.style.display = 'none';
+}
+
+// Новая асинхронная функция обработки формы
+async function saveComplexFormDirectly(event, formElement) {
+    // Жестко пресекаем перезагрузку страницы браузером
+    event.preventDefault();
+    event.stopPropagation();
+    
+    console.log("Запущена изолированная транзакция пакетного создания...");
+    
+    try {
+        const complexFormData = new FormData(formElement);
+        
+        // Принудительно инжектируем скрытый маркер для бэкенда save.php, чтобы он железно включил Режим А!
+        complexFormData.set('action', 'complex');
+
+        // Направляем пакет на наш всеядный транзакционный save.php
+        const res = await fetch('save.php', {
+            method: 'POST',
+            body: complexFormData
+        });
+        
+        const rawText = await res.text();
+        console.log("Сырой ответ save.php для комплексной формы:", rawText);
+        
+        if (!rawText.trim().startsWith('{')) {
+            alert("🚨 КРИТИЧЕСКИЙ СБОЙ ТРАНЗАКЦИИ СУБД!\nСервер вернул ошибку PHP вместо JSON:\n\n" + rawText);
+            return false;
+        }
+        
+        const result = JSON.parse(rawText);
+        if (result.status === 'success') {
+            console.log("Транзакция успешно зафиксирована во всех таблицах базы!");
+            
+            // Скрываем модальное окно перед обновлением
+            closeComplexModal();
+            
+            // ЮЗАБИЛИТИ ХОТФИКС: Автоматически перенаправляем менеджера в Раздел контрактов (ТТН)
+            window.location.replace('contracts.php');
+        } else {
+            alert("⚠️ Отказ СУБД при сохранении контрагента:\n" + result.message);
+        }
+    } catch (err) {
+        console.error("Критический сбой JavaScript:", err);
+        alert("🚨 Системный сбой JavaScript! Проверьте консоль F12 (Вкладка Console).");
+    }
+    return false;
 }
 </script>
 
@@ -703,8 +747,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (complexForm) {
         console.log("Пакетный движок успешно изолировал комплексную форму связки!");
         
-        complexForm.onsubmit = async function(e) {
-            // МЕРТВО БЛОКИРУЕМ ЛЮБЫЕ ЛОЖНЫЕ ПЕРЕХОДЫ И РЕДИРЕКТЫ СТРАНИЦЫ
+          complexForm.onsubmit = async function(e) {
             e.preventDefault();
             e.stopPropagation();
             
@@ -713,7 +756,32 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const formData = new FormData(this);
 
-                // Отправляем пакет строго на всеядный save.php через FormData
+                // Жестко заставляем PHP включить режим связки клиент+договор
+                formData.set('action', 'complex'); 
+                
+                // Собираем данные по ID, если в HTML у полей кривые name
+                const contractNumInput = document.getElementById('contract_number') 
+                                      || document.getElementById('contract_num') 
+                                      || document.getElementById('add_contract_number')
+                                      || document.querySelector('input[id*="contract"]')
+                                      || document.querySelector('input[name*="contract"]');
+                                      
+                const contractDateInput = document.getElementById('contract_date') 
+                                       || document.getElementById('date')
+                                       || document.querySelector('input[type="date"]');
+
+                if (contractNumInput) {
+                    formData.set('contract_number', contractNumInput.value);
+                    console.log("Найден номер договора для отправки:", contractNumInput.value);
+                } else {
+                    console.error("🚨 КРИТИЧЕСКИЙ СБОЙ ФРОНТЕНДА: Поле номера договора вообще не найдено в DOM!");
+                }
+
+                if (contractDateInput) {
+                    formData.set('contract_date', contractDateInput.value);
+                    console.log("Найдена дата договора для отправки:", contractDateInput.value);
+                }
+
                 const res = await fetch('save.php', {
                     method: 'POST',
                     body: formData
@@ -731,11 +799,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (result.status === 'success') {
                     console.log("Пакетная запись успешно зафиксирована во всех таблицах!");
                     
-                    // Закрываем окно (подставь ID своей комплексной модалки, если он другой)
-                    const cModal = document.getElementById('complexModal') || document.getElementById('jointModal');
+                    const cModal = document.getElementById('complexModal') || document.getElementById('jointModal') || document.getElementById('clientModal');
                     if (cModal) cModal.style.display = 'none';
                     
-                    window.location.reload(); // Чистый перезапуск экрана для обновления всех реестров
+                    // ЧИСТЫЙ ПЕРЕХОД: полностью сбрасывает POST-данные и убирает окно браузера
+                    window.location.replace(window.location.pathname);
                 } else {
                     alert("⚠️ Отказ СУБД при создании связки:\n" + result.message);
                 }
@@ -1198,7 +1266,9 @@ function runLiveClientFilter(searchQuery) {
     });
 }
 
-        
+        // =========================================================================
+// ИСПРАВЛЕНО НАМЕРТВО: Автономный защищенный движок открытия модалки редактирования
+// =========================================================================
 async function openProtectedEditModal(id) {
     console.log("Запрос точных данных из базы для клиента ID:", id);
     
@@ -1206,16 +1276,14 @@ async function openProtectedEditModal(id) {
     const form = document.getElementById('clientForm');
     
     if (!modal) {
-        alert("Критическая ошибка: Форма clientModal не найдена в разметке!");
+        alert("Критическая ошибка интерфейса: Форма clientModal не найдена в разметке!");
         return;
     }
 
-    if (form) form.reset();
-
+    if (form) form.reset(); // Очищаем форму перед заполнением
 
     try {
-        // Делаем микро-запрос к нашему новому обработчику
-        const res = await fetch('get_client.php?id=' + parseInt(id));
+        const res = await fetch('get_client.php?id=' + parseInt(id, 10));
         const responseData = await res.json();
         
         if (responseData.status !== 'success') {
@@ -1223,13 +1291,29 @@ async function openProtectedEditModal(id) {
             return;
         }
 
-        const c = responseData.data; // Чистый массив полей из базы данных
+        const c = responseData.data; 
+        console.log("УСПЕХ API: Данные успешно получены:", c);
 
-        // Набиваем форму данными напрямую по ключам ассоциативного массива БД
+        const targetRow = document.querySelector(`tr[data-id="${id}"]`);
+
+        // =========================================================================
+        // УЛЬТИМАТИВНЫЙ ФИКС БАГА 105: Снятие ложной блокировки КУП "Брестжилстрой"
+        // =========================================================================
+        if (targetRow) {
+            const contractCheckbox = targetRow.querySelector('.contract-checkbox') || targetRow.querySelector('input[type="checkbox"]');
+            if (contractCheckbox && !contractCheckbox.checked) {
+                console.log("ДИАГНОСТИКА: Галочка снята на экране. Блокировка КУП 'Брестжилстрой' снята.");
+            } else if (contractCheckbox && contractCheckbox.checked) {
+                alert("⚠️ Редактирование заблокировано: Данный клиент имеет активный связанный договор в Разделе контрактов (ТТН).");
+                return;
+            }
+        }
+        // =========================================================================
+
+        // Заполнение базовых текстовых полей формы
         if(document.getElementById('client_id')) document.getElementById('client_id').value = c.id;
         if(document.getElementById('modalTitle')) document.getElementById('modalTitle').innerText = 'Редактирование клиента #' + c.id;
         
-        // Автоподбор названия полей организации (имя, client_name, name)
         const nameField = document.getElementById('client_name') || document.getElementById('name');
         if (nameField) nameField.value = c.client_name || c.name || '';
         
@@ -1237,40 +1321,59 @@ async function openProtectedEditModal(id) {
         if(document.getElementById('contact_person')) document.getElementById('contact_person').value = c.contact_person || '';
         if(document.getElementById('phone')) document.getElementById('phone').value = c.phone || '';
         
-        // БРОНЕБОЙНЫЙ АВТОПОДБОР ДЛЯ ПОЛЯ EMAIL (e_mail или email)
         const emailField = document.getElementById('e_mail') || document.getElementById('email');
         if (emailField) emailField.value = c.email || c.e_mail || '';
         
         if(document.getElementById('product_type')) document.getElementById('product_type').value = c.product_type || '';
         if(document.getElementById('first_contact_date')) document.getElementById('first_contact_date').value = c.first_contact_date || '';
-        if(document.getElementById('next_contact_date')) document.getElementById('next_contact_date').value = c.next_contact_date || '';
+
+        // =========================================================================
+        // БРОНЕБОЙНЫЙ ОДНОСТРОЧНЫЙ ФИКС БАГА 104: Конвертер даты без массивов split
+        // =========================================================================
+              // =========================================================================
+        // ЖЕЛЕЗОБЕТОННЫЙ ФИКС БАГА 104 (ИСПРАВЛЕНО НАМЕРТВО): Запись в add_client_next_date
+        // =========================================================================
+        // Ищем инпут строго по твоему реальному HTML-идентификатору модалки!
+        const nextDateInput = document.getElementById('add_client_next_date') || document.getElementById('next_contact_date');
+        if (nextDateInput) {
+            let apiDateValue = (c.next_contact_date || c.next_date || c.date_next || '').toString().trim();
+            console.log("ДИАГНОСТИКА: Записываем в HTML-поле '" + nextDateInput.id + "' значение:", apiDateValue);
+
+            if (apiDateValue && apiDateValue !== '—' && apiDateValue !== 'NULL' && apiDateValue !== '0000-00-00') {
+                if (apiDateValue.includes('-')) {
+                    apiDateValue = apiDateValue.substring(0, 10); // Убираем хвост времени ISO
+                } else if (apiDateValue.includes('.')) {
+                    apiDateValue = apiDateValue.replace(/^(\d{2})\.(\d{2})\.(\d{4})$/, '$3-$2-$1');
+                }
+                
+                nextDateInput.value = apiDateValue;
+                console.log("ПОЛНАЯ ПОБЕДА: Инпут календаря намертво зафиксировал дату:", apiDateValue);
+            } else {
+                nextDateInput.value = ''; // Очищаем, если в базе пусто
+            }
+        } else {
+            console.error("Критический сбой: Инпут add_client_next_date физически не найден в HTML!");
+        }
+        // =========================================================================
+
+        // =========================================================================
+
         if(document.getElementById('status')) document.getElementById('status').value = c.status || '';
-                  // БРОНЕБОЙНЫЙ АВТОПОДБОР ДЛЯ ПОЛЯ КОММЕНТАРИЯ (comment или client_comment)
+        
         const commentField = document.getElementById('comment') || document.getElementById('client_comment');
-        if (commentField) {
-            commentField.value = c.comment || '';
-            console.log("Текущий комментарий успешно подтянут в форму редактирования контрагента.");
-        }
-        // БРОНЕБОЙНЫЙ АВТОПОДБОР ДЛЯ ПОЛЯ ИСТОЧНИКА
-       const sourceField = document.getElementById('source') || document.getElementById('client_source');
-        if (sourceField && c.source) {
-            sourceField.value = c.source;
-            console.log("Источник привлечения успешно подтянут в модалку: ", c.source);
-        }
+        if (commentField) commentField.value = c.comment || '';
+
+        const sourceField = document.getElementById('source') || document.getElementById('client_source');
+        if (sourceField && c.source) sourceField.value = c.source;
+
         // Показываем идеально заполненную форму
         modal.style.display = 'flex';
         console.log("Данные успешно подтянуты из API без единого сбоя.");
 
     } catch (err) {
-        console.error("Сбой fetch при запросе клиента:", err);
-        alert("Не удалось загрузить данные клиента. Проверьте файл get_client.php");
+        console.error("Критическая ошибка JS внутри потока fetch:", err);
+        alert("🚨 Системный сбой JavaScript! Проверьте консоль F12.");
     }
-
-  
-
-
-
-
 }
 
 
@@ -1416,63 +1519,6 @@ function openEditModal(id) {
     // Отображаем окно
     modal.style.display = 'flex';
 }
-// ИСПРАВЛЕНО НАМЕРТВО: Бронебойный сборщик, который НИКОГДА не падает из-за отсутствующих ID инпутов
-document.getElementById('clientForm').onsubmit = async function(e) {
-    e.preventDefault();
-    console.log("Сбор данных формы для отправки на save.php...");
-    
-    // БРОНЕБОЙНЫЙ ПОДХОД: Нативно собираем вообще ВСЕ инпуты, которые лежат внутри формы, одной строкой!
-    const fd = new FormData(this);
-    
-    // Подстраховка: Безопасная инжекция полей по ID (если элемента нет в HTML — JS не упадет!)
-    const safeAppend = (key, elementId) => {
-        const el = document.getElementById(elementId);
-        if (el) {
-            fd.set(key, el.value); // Гарантированно перезаписываем точным значением
-        } else {
-            console.log("Диагностика: Элемент id='" + elementId + "' отсутствует в разметке HTML формы.");
-        }
-    };
-
-    // Поочередно синхронизируем данные из полей с подстраховкой от null
-    safeAppend('id', 'client_id');
-    safeAppend('client_name', 'client_name');
-    safeAppend('unp', 'unp');
-    safeAppend('contact_person', 'contact_person');
-    safeAppend('phone', 'phone');
-    safeAppend('product_type', 'product_type');
-    safeAppend('source', 'source');
-    safeAppend('first_contact_date', 'first_contact_date');
-    safeAppend('next_contact_date', 'next_contact_date');
-    safeAppend('status', 'status');
-    safeAppend('email', 'email');
-    safeAppend('comment', 'comment');
-
-    try {
-        const res = await fetch('save.php', { 
-            method: 'POST', 
-            body: fd 
-        });
-        
-        const rawText = await res.text();
-        console.log("Сырой текст ответа от save.php:", rawText);
-        
-        if (!rawText.trim().startsWith('{')) {
-            alert("🚨 КРИТИЧЕСКИЙ СБОЙ БЭКЕНДА!\nСервер вернул ошибку PHP вместо JSON:\n\n" + rawText);
-            return;
-        }
-        
-        const result = JSON.parse(rawText);
-        if (result.status === 'success') {
-            window.location.reload(); // Чистый перезапуск экрана
-        } else {
-            alert("⚠️ Отказ СУБД: " + result.message);
-        }
-    } catch (err) {
-        console.error("Критическая ошибка JS:", err);
-        alert("🚨 Системный сбой JavaScript! Проверьте консоль F12.");
-    }
-};
 
 // Ждем загрузки страницы
 // ИСПРАВЛЕНО НАМЕРТВО: Клик по Галочке открывает форму договора. Отмена — гасит Галочку.
@@ -1591,6 +1637,105 @@ $remindCount = count($remindList);
 <?php 
 } 
 ?>
-   
+   <script>
+// 1. Делаем функцию глобальной, чтобы кнопка onclick="openAddModal()" видела её из любого места
+window.openAddModal = function() {
+    const form = document.getElementById('clientForm');
+    if (form) form.reset();
+    
+    const clientId = document.getElementById('client_id');
+    if (clientId) clientId.value = '';
+    
+    const dateInp = document.getElementById('first_contact_date');
+    if (dateInp) {
+        dateInp.value = new Date().toISOString().split('T')[0];
+        dateInp.readOnly = false; 
+    }
+    
+    const modal = document.getElementById('clientModal');
+    if (modal) modal.style.display = 'flex';
+};
+
+// 2. Привязываем обработчик отправки формы ТОЛЬКО после того, как вся страница полностью загрузилась
+document.addEventListener("DOMContentLoaded", function() {
+    const clientForm = document.getElementById('clientForm');
+    
+    if (!clientForm) {
+        console.error("Критическая ошибка CRM: Форма с id='clientForm' не найдена на странице!");
+        return;
+    }
+
+    // Сброс красной подсветки при вводе даты
+    document.getElementById('next_contact_date')?.addEventListener('input', function() {
+        this.style.border = '';
+        this.style.backgroundColor = '';
+    });
+
+    // Навешиваем событие отправки
+    clientForm.onsubmit = async function(e) {
+        e.preventDefault();
+        console.log("Сбор данных формы для отправки на save.php...");
+        
+        const nextContactInput = document.getElementById('next_contact_date');
+        if (nextContactInput) {
+            nextContactInput.style.border = ''; 
+            nextContactInput.style.backgroundColor = ''; 
+            
+            if (!nextContactInput.value.trim()) {
+                nextContactInput.style.border = '2px solid #ff4d4d';
+                nextContactInput.style.backgroundColor = '#fff2f2'; 
+                nextContactInput.focus();
+                alert("⚠️ Ошибка заполнения:\nПожалуйста, укажите дату следующего контакта.");
+                return; 
+            }
+        }
+
+        const fd = new FormData(this);
+        const safeAppend = (key, elementId) => {
+            const el = document.getElementById(elementId);
+            if (el) {
+                fd.set(key, el.value); 
+            }
+        };
+
+        safeAppend('id', 'client_id');
+        safeAppend('client_name', 'client_name');
+        safeAppend('unp', 'unp');
+        safeAppend('contact_person', 'contact_person');
+        safeAppend('phone', 'phone');
+        safeAppend('product_type', 'product_type');
+        safeAppend('source', 'source');
+        safeAppend('first_contact_date', 'first_contact_date');
+        safeAppend('next_contact_date', 'next_contact_date');
+        safeAppend('status', 'status');
+        safeAppend('email', 'email');
+        safeAppend('comment', 'comment');
+
+        try {
+            const res = await fetch('save.php', { method: 'POST', body: fd });
+            const rawText = await res.text();
+            
+            if (!rawText.trim().startsWith('{')) {
+                alert("🚨 КРИТИЧЕСКИЙ СБОЙ БЭКЕНДА!\nСервер вернул ошибку PHP вместо JSON:\n\n" + rawText);
+                return;
+            }
+            
+            const result = JSON.parse(rawText);
+            if (result.status === 'success') {
+                window.location.reload(); 
+            } else {
+                if (result.message && result.message.includes('next_contact_date')) {
+                    alert("⚠️ Не удалось сохранить данные:\nПоле 'Следующий контакт' обязательно для заполнения.");
+                } else {
+                    alert("⚠️ Не удалось сохранить изменения:\nПроверьте правильность заполнения полей или обратитесь к администратору.");
+                }
+            }
+        } catch (err) {
+            console.error("Критическая ошибка JS:", err);
+            alert("🚨 Системный сбой JavaScript! Проверьте консоль F12.");
+        }
+    };
+});
+</script>
 </body>
 </html>

@@ -378,6 +378,7 @@ document.querySelectorAll('.contract-checkbox').forEach(cb => {
         }
     }
 });
+    
 function openAddContractModal(clientId, clientName) {
     document.getElementById('modal_client_id').value = clientId;
     document.getElementById('modalClientName').innerText = clientName;

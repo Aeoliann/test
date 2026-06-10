@@ -198,7 +198,6 @@ function runLiveContractFilter(searchQuery) {
         <!-- СТИЛЬНАЯ ШАПКА ТАБЛИЦЫ -->
         <thead style="position: sticky; top: 0; z-index: 10; background: #151521;">
             <tr>
-                <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 80px; background: #151521;">Дата</th>
                 <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: left; background: #151521;">Клиент / Договор</th>
                 <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 110px; background: #151521;">№ Договора</th>
                 <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 120px; background: #151521;">Дата дог.</th>
@@ -206,7 +205,7 @@ function runLiveContractFilter(searchQuery) {
                 <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 110px; background: #151521;">Отгрузки</th>
                 <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 120px; background: #151521;">Посл. отгрузка</th>
                 <th style="padding: 16px 12px; color: #10b981; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: right; width: 140px; background: #151521;">Сумма (BYN)</th>
-                <th style="padding: 16px 12px; color: #f59e0b; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: right; width: 150px; background: #151521;">Лимит (RUB)</th>
+                <th style="padding: 16px 12px; color: #f59e0b; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: right; width: 150px; background: #151521;">Перерасчёт</th>
                 <th style="padding: 16px 12px; color: #62627a; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; border-bottom: 2px solid #2b2b40; text-align: center; width: 90px; background: #151521;">Скан</th>
             </tr>
         </thead>
@@ -279,11 +278,7 @@ function runLiveContractFilter(searchQuery) {
 
     <!-- БОЕВАЯ СТРОКА КОНТРАКТА С ЭФФЕКТОМ МЯГКОГО ХОВЕРА -->
     <tr data-pid="<?= (int)$r['cid'] ?>" style="border-bottom: 1px solid #242434; transition: background 0.15s;" onmouseover="this.style.background='#1e1e2d';" onmouseout="this.style.background='transparent';">
-        
-        <!-- 1. Дата создания -->
-        <td style="padding: 14px 12px; text-align: center; color: #4b5563; font-size: 13px; font-weight: 500;">
-            <?= date('d.m.Y', strtotime($r['created_at'] ?? date('Y-m-d'))) ?>
-        </td>
+ 
         
         <!-- 2. Пустая ячейка выравнивания (Сохранена под твою структуру) -->
         <td style="padding: 14px 12px; text-align: left; color: #fff;"></td>

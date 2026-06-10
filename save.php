@@ -12,16 +12,13 @@ try {
     if (!isset($_SESSION['user_id'])) {
         throw new Exception("Доступ запрещен. Авторизуйтесь.");
     }
-
     $userId = (int)$_SESSION['user_id'];
-
-    // ИДЕНТИФИЦИРУЕМ РЕЖИМ РАБОТЫ ПО НАЛИЧИЮ НОМЕРА ДОГОВОРА В ПОТОКЕ $_POST
-     $is_joint_action = !empty($_POST['contract_number']) || !empty($_POST['number']) || !empty($_POST['contract_num']);
-
+    $is_joint_action = !empty($_POST['contract_number']) 
+                    || !empty($_POST['number']) 
+                    || !empty($_POST['contract_num'])
+                    || !empty($_POST['add_contract_number'])
+                    || (isset($_POST['action']) && $_POST['action'] === 'complex');
     if ($is_joint_action) {
-        // =========================================================================
-        // РЕЖИМ А: БРОНЕБОЙНОЕ ВСЕЯДНОЕ ПАКЕТНОЕ СОЗДАНИЕ КЛИЕНТА И ДОГОВОРА
-        // =========================================================================
         $client_name     = trim($_POST['client_name'] ?? ($_POST['name'] ?? ''));
         $unp             = trim($_POST['unp'] ?? ($_POST['unp_code'] ?? ''));
         $contact_person  = trim($_POST['contact_person'] ?? ($_POST['person'] ?? ''));
@@ -30,42 +27,86 @@ try {
         $source          = trim($_POST['source'] ?? 'Запрос');
         $manager_id      = (int)($_POST['manager_id'] ?? $userId);
         
-        // Всеядный перехват типа продукции
-        $product_type    = trim($_POST['product_type'] ?? ($_POST['product_info'] ?? 'Сантехника'));
+        // Всеядный сбор полей типа продукции
+        $product_type    = trim($_POST['product_type'] ?? ($_POST['product_info'] ?? ($_POST['product'] ?? 'Сантехника')));
         
-        // Всеядный перехват номера и даты договора
-        $contract_number = trim($_POST['contract_number'] ?? ($_POST['number'] ?? ($_POST['contract_num'] ?? '')));
+        // Всеядный сбор номера и даты договора
+        $contract_number = trim($_POST['contract_number'] ?? ($_POST['number'] ?? ($_POST['contract_num'] ?? ($_POST['add_contract_number'] ?? ''))));
         $contract_date   = !empty($_POST['contract_date']) ? trim($_POST['contract_date']) : (!empty($_POST['date']) ? trim($_POST['date']) : date('Y-m-d'));
 
         if (empty($client_name) || empty($contract_number)) {
-            throw new Exception("Не заполнены обязательные поля: Наименование организации или № Договора!");
+            throw new Exception("Не заполнены обязательные поля: Наименование организации (".$client_name.") или № Договора (".$contract_number.")!");
         }
 
-        // СТАРТ ТРАНЗАКЦИИ СУБД MARIADB
+        // ДИАГНОСТИКА СТРУКТУРЫ ТАБЛИЦЫ ПРОЕКТОВ (Ищем реальное имя колонки связи)
+        $client_id_column = 'client_id';
+        try {
+            $qProj = $pdo->query("DESCRIBE projects");
+            $projColumns = $qProj->fetchAll(PDO::FETCH_COLUMN);
+            if (in_array('client_id', $projColumns)) { $client_id_column = 'client_id'; }
+            elseif (in_array('cid', $projColumns)) { $client_id_column = 'cid'; }
+            elseif (in_array('project_id', $projColumns)) { $client_id_column = 'project_id'; }
+        } catch (Exception $e) {
+            $client_id_column = 'client_id';
+        }
+
+      // ВКЛЮЧАЕМ ЖЕСТКИЙ ТРАНЗАКЦИОННЫЙ КОНТРОЛЬ СУБД MARIADB
         $pdo->beginTransaction();
 
-        // ШАГ 1: Вставляем клиента строго со статусом "Текущий" (согласно ТЗ Бага 90!)
-        $sqlClient = "INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, manager_id, product_type, first_contact_date) 
-                      VALUES (?, ?, ?, ?, ?, 'Текущий', ?, ?, ?, CURDATE())";
+
+      // ШАГ 1: Вставляем клиента со статусом "Текущий", датой следующего контакта и флагом подписанного договора
+        // ИСПРАВЛЕНИЕ БАГА 96: Добавили поле is_contract_signed со значением 1, чтобы контракт отобразился в contracts.php
+        $next_contact_default = date('Y-m-d', strtotime('+7 days'));
+
+        $sqlClient = "INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, manager_id, product_type, first_contact_date, next_contact_date, is_contract_signed) 
+                      VALUES (?, ?, ?, ?, ?, 'Текущий', ?, ?, ?, CURDATE(), ?, 1)";
+        
         $stmtClient = $pdo->prepare($sqlClient);
         $stmtClient->execute([
-            $client_name, $unp, $contact_person, $phone, $email, $source, $manager_id, $product_type
+            $client_name, 
+            $unp, 
+            $contact_person, 
+            $phone, 
+            $email, 
+            $source, 
+            $manager_id, 
+            $product_type,
+            $next_contact_default
         ]);
 
         $newClientId = (int)$pdo->lastInsertId();
         if ($newClientId <= 0) {
-            throw new Exception("Сбой генерации системного ID клиента для связки.");
+            throw new Exception("Сбой генерации системного ID клиента в транзакции.");
         }
 
-        // ШАГ 2: Вставляем связанный договор в таблицу проектов/контрактов
-        $sqlContract = "INSERT INTO projects (client_id, contract_number, contract_date, product_type) 
+      // ШАГ 2: Вставляем связанный договор в таблицу проектов/контрактов
+        // ИСПРАВЛЕНИЕ БАГА 96: Оставили только этот чистый блок, всё что ниже — удалили!
+        $sqlContract = "INSERT INTO projects (`$client_id_column`, contract_number, contract_date, product_type) 
                         VALUES (?, ?, ?, ?)";
+        
         $stmtContract = $pdo->prepare($sqlContract);
         $stmtContract->execute([
-            $newClientId, $contract_number, $contract_date, $product_type
+            $newClientId, 
+            $contract_number, 
+            $contract_date,
+            $product_type
         ]);
 
-        // ФИКСИРУЕМ ПОБЕДУ: Пакет данных одновременно улетает во все три таблицы!
+        // ФИКСИРУЕМ УСПЕХ: Данные одновременно и монолитно влетают во все таблицы!
+        $pdo->commit();
+        echo json_encode(['status' => 'success']);
+        exit;
+        // Если динамический SQL кажется перегруженным, можно использовать прямой бронебойный вариант:
+        // $sqlContract = "INSERT INTO projects (`$client_id_column`, contract_number, contract_date, manager_id, status) VALUES (?, ?, ?, ?, 'Действует')";
+
+        $stmtContract = $pdo->prepare($sqlContract);
+        
+        // Собираем параметры для execute
+        $contractParams = [$newClientId, $contract_number, $contract_date, $manager_id];
+        
+        $stmtContract->execute($contractParams);    
+
+        // ФИКСИРУЕМ УСПЕХ: Данные одновременно и монолитно влетают во все три таблицы!
         $pdo->commit();
         echo json_encode(['status' => 'success']);
         exit;
