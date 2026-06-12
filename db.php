@@ -18,18 +18,5 @@ try {
 } catch (\PDOException $e) {
      throw new \PDOException($e->getMessage(), (int)$e->getCode());
 }
-
-/**
- * Универсальная функция логов безопасности
- */
-function logAction($pdo, $actionType, $tableName, $details) {
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-    try {
-        $sql = "INSERT INTO action_logs (user_id, action_type, table_name, details, action_date) 
-                VALUES (?, ?, ?, ?, NOW())";
-        $pdo->prepare($sql)->execute([$userId, strtoupper($actionType), $tableName, $details]);
-    } catch (Exception $e) {
-        error_log("Ошибка логгера CRM: " . $e->getMessage());
-    }
-}
+// ИСПРАВЛЕНО: Дубликат функции logAction удален, чтобы исключить Fatal Error Cannot Redeclare
 ?>

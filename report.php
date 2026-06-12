@@ -56,20 +56,33 @@ try {
     <meta charset="UTF-8">
     <title>Анализ номенклатуры отгрузок — Santeks</title>
     <style>
-        body { background: #151521; color: #fff; font-family: 'Segoe UI', sans-serif; padding: 0; margin: 0; display: flex; min-height: 100vh; }
+        body { background: #13131a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 0; margin: 0; display: flex; min-height: 100vh; }
         aside { width: 240px; background: #1e1e2d; border-right: 1px solid #323248; flex-shrink: 0; }
-        main { flex: 1; min-width: 0; padding: 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; }
-        .card { background: #1e1e2d; border: 1px solid #323248; border-radius: 12px; padding: 24px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
-        .filter-panel { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; background: #1e1e2d; border: 1px solid #323248; border-radius: 12px; padding: 16px 24px; }
-        .f-input { height: 40px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; color-scheme: dark; }
-        .table-wrapper { border-radius: 12px; border: 1px solid #323248; overflow: hidden; background: #1e1e2d; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin: 0; }
-        th { background: #242434; padding: 16px 12px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: 700; border-bottom: 2px solid #323248; text-align: center; }
-        td { padding: 14px 12px; border-bottom: 1px solid #2b2b40; font-size: 13px; background: #1e1e2d; color: #fff; text-align: center; }
-        tr:hover td { background: #242434 !important; }
-        .category-header { background: #202030 !important; color: #818cf8 !important; font-weight: bold; text-align: left; padding: 12px 15px; font-size: 14px; border-bottom: 2px solid #323248; }
-        .bar-outer { width: 100%; height: 8px; background: #151521; border-radius: 4px; overflow: hidden; margin-top: 6px; border: 1px solid #2b2b40; }
-        .bar-inner { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8); border-radius: 4px; }
+        main { flex: 1; min-width: 0; padding: 30px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; }
+        
+        .card { background: #1e1e2d; border: 1px solid #323248; border-radius: 16px; padding: 25px; box-shadow: 0 15px 40px rgba(0,0,0,0.5); }
+        
+        /* ИСПРАВЛЕНО: Премиум-панель фильтрации */
+        .filter-panel { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; background: #1e1e2d; border: 1px solid #323248; border-radius: 14px; padding: 18px 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .f-input { height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; color-scheme: dark; transition: border-color 0.15s; }
+        .f-input:focus { border-color: #4f46e5; }
+        
+        .table-wrapper { border-radius: 16px; border: 1px solid #323248; overflow: hidden; background: #1e1e2d; margin-bottom: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        
+        /* ИСПРАВЛЕНО: Просторная и литая шапка аналитики */
+        th { background: #161624; padding: 16px 14px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; border-bottom: 2px solid #323248; text-align: center; letter-spacing: 0.8px; }
+        
+        /* ИСПРАВЛЕНО: Увеличенные отступы ячеек данных */
+        td { padding: 16px 14px; border-bottom: 1px solid #1c1c28; font-size: 13px; background: #1e1e2d; color: #cbd5e1; text-align: center; box-sizing: border-box; }
+        tr:hover td { background: #171725 !important; color: #fff; }
+        
+        /* ИСПРАВЛЕНО: Роскошный неоновый разделитель категорий продукции */
+        .category-header { background: rgba(99, 102, 241, 0.03) !important; color: #818cf8 !important; font-weight: 700; text-align: left; padding: 15px 20px; font-size: 13px; border-bottom: 2px solid #323248; border-left: 4px solid #4f46e5; letter-spacing: 0.5px; text-transform: uppercase; }
+        
+        /* ИСПРАВЛЕНО: Объёмный и неоновый прогресс-бар */
+        .bar-outer { width: 100%; height: 10px; background: #13131a; border-radius: 6px; overflow: hidden; margin-top: 8px; border: 1px solid #232334; position: relative; box-sizing: border-box; }
+        .bar-inner { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8); border-radius: 6px; box-shadow: 0 0 10px rgba(99, 102, 241, 0.5); }
     </style>
 </head>
 <body>

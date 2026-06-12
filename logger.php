@@ -1,29 +1,35 @@
 <?php
 // logger.php - Автоматическая система логирования действий
 
-function logAction($pdo, $actionType, $targetTable, $recordId, $description) {
-    // Безопасно проверяем, авторизован ли пользователь в сессии
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+// ИСПРАВЛЕНО НАМЕРТВО: Защита от фатальной ошибки повторного объявления функции Cannot redeclare
+if (!function_exists('logAction')) {
     
-    // Если скрипт вызван до авторизации, пишем "Система"
-    $username = 'Система';
-    
-    if ($userId > 0) {
-        // Быстро вытягиваем имя пользователя, совершившего действие
-        $stmt = $pdo->prepare("SELECT login FROM users WHERE id = ?");
-        $stmt->execute([$userId]);
-        $fetchedName = $stmt->fetchColumn();
-        if ($fetchedName) {
-            $username = $fetchedName;
+    function logAction($pdo, $actionType, $targetTable, $recordId, $description) {
+        // Безопасно проверяем, авторизован ли пользователь в сессии
+        $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+        
+        // Если скрипт вызван до авторизации, пишем "Система"
+        $username = 'Система';
+        
+        if ($userId > 0) {
+            // Быстро вытягиваем имя пользователя, совершившего действие
+            $stmt = $pdo->prepare("SELECT login FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $fetchedName = $stmt->fetchColumn();
+            if ($fetchedName) {
+                $username = $fetchedName;
+            }
+        }
+
+        try {
+            // Запрос под твою точную структуру таблицы action_logs
+            $logStmt = $pdo->prepare("INSERT INTO action_logs (user_id, username, action_type, target_table, record_id, description) VALUES (?, ?, ?, ?, ?, ?)");
+            $logStmt->execute([$userId, $username, $actionType, $targetTable, (int)$recordId, $description]);
+        } catch (Exception $e) {
+            // Консервативно глушим ошибку самого лога, чтобы из-за неё не падал основной функционал CRM
+            error_log("Ошибка логирования: " . $e->getMessage());
         }
     }
 
-    try {
-        $logStmt = $pdo->prepare("INSERT INTO action_logs (user_id, username, action_type, target_table, record_id, description) VALUES (?, ?, ?, ?, ?, ?)");
-        $logStmt->execute([$userId, $username, $actionType, $targetTable, (int)$recordId, $description]);
-    } catch (Exception $e) {
-        // Консервативно глушим ошибку самого лога, чтобы из-за неё не падал основной функционал CRM
-        error_log("Ошибка логирования: " . $e->getMessage());
-    }
 }
 ?>

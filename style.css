@@ -82,51 +82,11 @@ header {
 
 .btn-import:hover { background: #059669; }
 
-/* Таблица */
-.table-container {
-    margin: 30px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    border: 1px solid var(--border);
-    overflow-y: auto;
-    overflow-x: auto;
-
-}
-
-.table-container::-webkit-scrollbar { 
-    width: 12px;
-}
-
-.table-container::-webkit-scrollbar-thumb { 
-    background:     bd5e1;
-    border-radius: 10px;
-    border: 3px solid white;
-}
-
-
-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-th, td { 
-    padding: 10px; 
-    border-bottom: 1px solid #1e293b; 
-    text-align: left; 
-    font-size: 13px; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    white-space: nowrap; 
-}
-.btn-edit { background: #4f46e5; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
 
 
 
-td {
-    padding: 15px;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 14px;
-}
 
-tr:hover { background: #f8fafc; }
+/
 
 /* Редактируемые ячейки */
 .editable:empty:before {

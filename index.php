@@ -681,26 +681,26 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
  <div style="max-height: 820px; width: 100%; border: 1px solid #323248; border-radius: 8px; background: #1e1e2d; box-shadow: 0 4px 20px rgba(0,0,0,0.3); box-sizing: border-box;">
     
    <!-- ИСПРАВЛЕНО НАМЕРТВО: Колонки освобождены от жестких процентов экрана и двигаются динамически по длине текста! -->
-<table style="width: 100% !important; min-width: 1300px; border-collapse: collapse; margin: 0; background: #1e1e2d; table-layout: auto !important;">
+<table style="width: 100% !important; min-width: 1400px; border-collapse: separate; border-spacing: 0; margin: 0; background: #13131a; table-layout: fixed !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
 
-
-    <thead>
-       <tr style="background: #242434; border-bottom: 2px solid #323248; position: sticky; top: 0; z-index: 10;">
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">П/П<div class="resizer"></div></th>
-            <th style=" max-width: 5px; padding: 14px 1px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Дата первого контакта<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Клиент<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">УНП<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Контактное лицо<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; max-width:4px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Телефон<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Email<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Статус<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; max-width: 1px;color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Источник привлечения<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">След. контакт<div class="resizer"></div></th>
-           <!-- <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: left; white-space: nowrap; position: relative;">Комментарий<div class="resizer"></div></th> -->
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Вид продукции<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; max-width: 5px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Контракт<div class="resizer"></div></th>
-            <th style="padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; white-space: nowrap; position: relative;">Действие<div class="resizer"></div></th>
+    <!-- СТИЛЬНАЯ ЛИПКАЯ ШАПКА С ИСПРАВЛЕННЫМИ СВОЙСТВАМИ ДЛЯ ДИНАМИЧЕСКОГО РЕСАЙЗА -->
+    <thead style="position: sticky; top: 0; z-index: 10; background: #161624;">
+        <tr style="background: #161624; border-bottom: 2px solid #323248;">
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">П/П<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Дата контакта<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: left; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Клиент<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">УНП<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: left; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Контактное лицо<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Телефон<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: left; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Email<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Статус<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Источник<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">След. контакт<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Вид продукции<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Контракт<div class="resizer"></div></th>
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Действие<div class="resizer"></div></th>
         </tr>
+                
         <script>document.addEventListener('DOMContentLoaded', function() {
     const createResizableTable = function(table) {
         if (!table) return;
@@ -821,60 +821,106 @@ document.addEventListener("DOMContentLoaded", () => {
 });</script>
         <style>
             /* Стили для интерактивных ползунков ручного изменения ширины колонок */
-th {
-  position: sticky; /* Оставляем шапку зафиксированной сверху */
-  top: 0;
-}
-.resizer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 5px;
-  cursor: col-resize;
-  user-select: none;
-  height: 100%;
-  z-index: 1;
-}
-.resizer:hover, .resizing {
-  border-right: 2px solid #4f46e5; /* Подсветка границы фиолетовым при перетаскивании */
-}
-
+            th {
+                position: sticky; /* Оставляем шапку зафиксированной сверху */
+                top: 0;
+            }
+            .resizer {
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 6px;
+                cursor: col-resize;
+                user-select: none;
+                height: 100%;
+                z-index: 10;
+                transition: background 0.15s;
+            }
+            .resizer:hover {
+                background: rgba(79, 70, 229, 0.2); /* Тонкая неоновая подсветка зоны захвата */
+            }
+            .resizing, .resizer:active {
+                border-right: 2px solid #4f46e5; /* Жесткая фиксация границы при перетаскивании */
+                background: rgba(79, 70, 229, 0.3);
+            }
         </style>
     </thead>
 
     <tbody>
-             <?php $i = 1; foreach ($clients as $c): 
-    $isOverdue = false;
-    if ($c['status'] !== 'Отказ' && !empty($c['next_contact_date'])) {
-        $currentDate = strtotime(date('Y-m-d'));
-        $contactDate = strtotime($c['next_contact_date']);
-        
-        $daysDiff = ($contactDate - $currentDate) / 86400;
-        
-        // Сработает на: сегодня, завтра, +6 дней вперед и любую прошлую просрочку
-        if ($daysDiff <= 6) {
-            $isOverdue = true;
+    <?php $i = 1; foreach ($clients as $c): 
+        $isOverdue = false;
+        if ($c['status'] !== 'Отказ' && !empty($c['next_contact_date'])) {
+            $currentDate = strtotime(date('Y-m-d'));
+            $contactDate = strtotime($c['next_contact_date']);
+            
+            $daysDiff = ($contactDate - $currentDate) / 86400;
+            
+            // Сработает на: сегодня, завтра, +6 дней вперед и любую прошлую просрочку
+            if ($daysDiff <= 6) {
+                $isOverdue = true;
+            }
         }
-    }
-?>
+    ?>
 
-        <tr data-id="<?= $c['id'] ?>" class="<?= $isOverdue ? 'reminder-row' : '' ?>">
-            <td><?= $i++ ?></td>
-            <td class="cell-date"><?= date('d.m.Y', strtotime($c['first_contact_date'])) ?></td>
-            <td class="cell-name"><strong><?= htmlspecialchars($c['client_name']) ?></strong></td>
-            <td class="cell-unp"><?= htmlspecialchars($c['unp']) ?></td>
-            <td class="cell-person"><?= htmlspecialchars($c['contact_person']) ?></td>
-            <td class="cell-phone"><?= htmlspecialchars($c['phone']) ?></td>
-            <td class="cell-email"><?= htmlspecialchars($c['email']) ?></td>
-            <td class="cell-status"><?= htmlspecialchars($c['status']) ?></td>
-            <td class="source"><?= htmlspecialchars($c['source'])?></td>
-          <td style="text-align: center;">
-    <?php if (!empty($c['next_contact_date']) && $c['next_contact_date'] !== '0000-00-00'): ?>
-        <?= date('d.m.Y', strtotime($c['next_contact_date'])) ?>
-    <?php else: ?>
-        <span style="color: #64748b;">—</span>
-    <?php endif; ?>
-</td>
+        <!-- ИСПРАВЛЕНО: Премиальные отступы, ховер и рамки строки данных -->
+      <tr data-id="<?= $c['id'] ?>" class="<?= $isOverdue ? 'reminder-row' : '' ?>" style="border-bottom: 1px solid #1c1c28; transition: all 0.15s ease;" onmouseover="this.style.background='#171725'; this.style.boxShadow='inset 4px 0 0 #4f46e5';" onmouseout="this.style.background='transparent'; this.style.boxShadow='none';">
+            
+            <!-- 1. П/П (Приглушенный фиолетовый) -->
+            <td style="padding: 14px 10px; text-align: center; color: #52526b; font-family: monospace; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= $i++ ?></td>
+            
+            <!-- 2. Дата первого контакта (Пепельный) -->
+            <td class="cell-date" style="padding: 14px 10px; text-align: center; color: #71717a; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= date('d.m.Y', strtotime($c['first_contact_date'])) ?></td>
+            
+            <!-- 3. Название компании (Яркий белый нео-нуар) -->
+            <td class="cell-name" style="padding: 14px 10px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><strong style="color: #ffffff; font-weight: 700; letter-spacing: 0.3px; font-size: 13px;"><?= htmlspecialchars($c['client_name']) ?></strong></td>
+            
+            <!-- 4. УНП (Пепельный) -->
+            <td class="cell-unp" style="padding: 14px 10px; text-align: center; color: #71717a; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['unp'] ?: '—') ?></td>
+            
+            <!-- 5. Контактное лицо (Мягкий серебряный) -->
+            <td class="cell-person" style="padding: 14px 10px; text-align: left; color: #cbd5e1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['contact_person'] ?: '—') ?></td>
+            
+            <!-- 6. Телефон -->
+            <td class="cell-phone" style="padding: 14px 10px; text-align: center; color: #cbd5e1; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['phone'] ?: '—') ?></td>
+            
+            <!-- 7. Email -->
+            <td class="cell-email" style="padding: 14px 10px; text-align: left; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['email'] ?: '—') ?></td>
+            
+            <!-- 8. Статус (ИНТЕЛЛЕКТУАЛЬНЫЕ НЕОНОВЫЕ БЕЙДЖИ) -->
+            <td class="cell-status" style="padding: 14px 10px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <?php
+                $statusText = trim($c['status'] ?? 'Новый');
+                // Подбираем премиальный полупрозрачный бейдж под статус
+                $stStyle = "background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2);"; // Синий дефолт
+                if ($statusText === 'Новый') {
+                    $stStyle = "background: rgba(129, 140, 248, 0.1); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.2);";
+                } elseif ($statusText === 'В работе' || $statusText === 'Потенциальный') {
+                    $stStyle = "background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2);";
+                } elseif ($statusText === 'Договор' || $statusText === 'Контракт' || $statusText === 'Завершен') {
+                    $stStyle = "background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);";
+                } elseif ($statusText === 'Отказ' || $statusText === 'Архив') {
+                    $stStyle = "background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);";
+                }
+                ?>
+                <span style="<?= $stStyle ?> padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; display: inline-block; letter-spacing: 0.5px; text-transform: uppercase;">
+                    <?= htmlspecialchars($statusText) ?>
+                </span>
+            </td>
+            
+            <!-- 9. Источник привлечения -->
+            <td class="source" style="padding: 14px 10px; text-align: center; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['source'] ?: '—') ?></td>
+            
+            <!-- 10. След. contact -->
+            <td style="padding: 14px 10px; text-align: center; color: #a1a1aa; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <?php if (!empty($c['next_contact_date']) && $c['next_contact_date'] !== '0000-00-00'): ?>
+                    <!-- Проверка на просрочку для подсветки даты -->
+                    <span style="<?= $isOverdue ? 'color: #ef4444; font-weight: bold; background: rgba(239,68,68,0.1); padding: 2px 6px; border-radius: 4px;' : '' ?>">
+                        <?= date('d.m.Y', strtotime($c['next_contact_date'])) ?>
+                    </span>
+                <?php else: ?>
+                    <span style="color: #4b5563;">—</span>
+                <?php endif; ?>
+            </td>
        <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
  <!--   <td class="cell-comment js-comment-preview"</td>
     data-client-name="<?= htmlspecialchars($c['client_name'], ENT_QUOTES, 'UTF-8') ?>"
@@ -920,33 +966,34 @@ th {
     }
 }</script>
 -->
-</td>
+
 
             <!-- ИСПРАВЛЕНО: Выводим тип продукции привязанного договора вместо дефолтного значения -->
 <!-- ИСПРАВЛЕНО НАМЕРТВО: Проверяем все возможные имена колонок продукции из СУБД (product_type, product_info, prod), убирая жесткий дефолт -->
-<td style="color: #92929f !important; text-align: center; font-weight: 500;">
-    <?= htmlspecialchars($c['product_type'] ?? ($c['product_info'] ?? ($c['product'] ?? ($c['prod'] ?? 'Не указан')))) ?>
-</td>
+ <td style="padding: 14px 10px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span style="background: rgba(129, 140, 248, 0.08); color: #818cf8; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; border: 1px solid rgba(129, 140, 248, 0.15); display: inline-block;">
+                    <?= htmlspecialchars($c['product_type'] ?? ($c['product_info'] ?? ($c['product'] ?? ($c['prod'] ?? 'Не указан')))) ?>
+                </span>
+            </td>
 
-
-        <!-- ИСПРАВЛЕНО НАМЕРТВО: Галочка загорается, если у клиента физически есть договор в таблице проектов -->
-<td style="text-align: center; vertical-align: middle;">
-    <?php 
-    // Сканируем таблицу проектов: есть ли живой договор для текущего ID клиента?
-    $checkContractStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ?");
-    $checkContractStmt->execute([(int)$c['id']]);
-    $hasRealContract = ((int)$checkContractStmt->fetchColumn() > 0);
-    
-    // Всеядный бэкап-статус на всякий случай
-    $cStatus = !empty($c['status']) ? trim($c['status']) : '';
-    $isDoneStatus = ($cStatus === 'Договор' || $cStatus === 'Контракт' || $cStatus === 'Текущий');
-    ?>
-    <input type="checkbox" 
-           class="contract-checkbox"
-           <?= ($hasRealContract || $isDoneStatus) ? 'checked' : '' ?>
-           onchange="toggleContractStatus(<?= (int)$c['id'] ?>, this); return false;"
-           style="width: 18px; height: 18px; cursor: pointer; accent-color: #4f46e5; margin: 0 auto; display: block;">
-</td>
+            <!-- 12. Контракт -->
+            <td style="padding: 14px 10px; text-align: center; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <?php 
+                // Сканируем таблицу проектов: есть ли живой договор для текущего ID клиента?
+                $checkContractStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ?");
+                $checkContractStmt->execute([(int)$c['id']]);
+                $hasRealContract = ((int)$checkContractStmt->fetchColumn() > 0);
+                
+                // Всеядный бэкап-статус на всякий случай
+                $cStatus = !empty($c['status']) ? trim($c['status']) : '';
+                $isDoneStatus = ($cStatus === 'Договор' || $cStatus === 'Контракт' || $cStatus === 'Текущий');
+                ?>
+                <input type="checkbox" 
+                       class="contract-checkbox"
+                       <?= ($hasRealContract || $isDoneStatus) ? 'checked' : '' ?>
+                       onchange="toggleContractStatus(<?= (int)$c['id'] ?>, this); return false;"
+                       style="width: 16px; height: 16px; cursor: pointer; accent-color: #4f46e5; margin: 0 auto; display: block;">
+            </td>
 
             <script>
                 function toggleContractStatus(clientId, checkboxElement) {
