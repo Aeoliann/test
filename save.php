@@ -1,7 +1,10 @@
 <?php
 // save.php — Главный контроллер сохранения транзакций Santeks CRM
-session_start();
-require 'db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'db.php';
+require_once 'logger.php'; // НАМЕРТВО ИСПРАВЛЕНО: Подключаем логгер для предотвращения Fatal Error
 
 header('Content-Type: application/json');
 
@@ -16,7 +19,7 @@ try {
     $action_mode = $_POST['action'] ?? '';
 
     // =========================================================================
-    // РЕЖИМ А: ПАКЕТНАЯ СВЯЗКА КЛИЕНТ + КОНТРАКТ (БАГ 96)
+    // РЕЖИМ А: ПАКЕТНАЯ СВЯЗКА КЛИЕНТ + КОНТРАКТ (ИНТЕГРИРОВАНА МУЛЬТИВАЛЮТНОСТЬ)
     // =========================================================================
     if ($action_mode === 'complex') {
         $client_name     = trim($_POST['client_name'] ?? '');
@@ -26,6 +29,10 @@ try {
         $contract_number = trim($_POST['contract_number'] ?? '');
         $contract_date   = trim($_POST['contract_date'] ?? date('Y-m-d'));
         $product_type    = trim($_POST['product_type'] ?? 'Сантехника');
+
+        // ---- ХОТФИКС: Ловим валюту договора из пакетной формы ----
+        $currency        = trim($_POST['currency'] ?? 'BYN');
+        // ----------------------------------------------------------
 
         if (empty($client_name) || empty($contract_number)) {
             throw new Exception("Не заполнены обязательные поля: Название или Номер договора.");
@@ -41,18 +48,21 @@ try {
         $pdo->prepare($sqlClient)->execute([$client_name, $unp, $contact_person, $phone, $userId, $product_type, $next_contact_default]);
         $newClientId = (int)$pdo->lastInsertId();
 
-        // ШАГ 2: Вставка контракта в projects с типом продукции
+        // ШАГ 2: Вставка контракта в projects (ИСПРАВЛЕНО: Записываем переменную $currency вместо жесткого 'BYN')
         $sqlContract = "INSERT INTO projects (client_id, contract_number, contract_date, product_type, currency) 
-                        VALUES (?, ?, ?, ?, 'BYN')";
-        $pdo->prepare($sqlContract)->execute([$newClientId, $contract_number, $contract_date, $product_type]);
+                        VALUES (?, ?, ?, ?, ?)";
+        $pdo->prepare($sqlContract)->execute([$newClientId, $contract_number, $contract_date, $product_type, $currency]);
+        $newProjectId = (int)$pdo->lastInsertId();
 
         // Пишем в логи
-        logAction($pdo, 'INSERT', 'clients', "Создана связка: Клиент '{$client_name}' со статусом 'Текущий' и Договор №{$contract_number}");
+        if (function_exists('logAction')) {
+            logAction($pdo, 'INSERT', 'projects', $newProjectId, "Создана комплексная связка: Клиент '{$client_name}' (ID: {$newClientId}) и Договор №{$contract_number} (Валюта: {$currency})");
+        }
 
         $pdo->commit();
         echo json_encode(['status' => 'success']);
         exit;
-    } 
+    }
     
     // =========================================================================
     // РЕЖИМ Б: СТАНДАРТНОЕ ОДИНОЧНОЕ СОХРАНЕНИЕ / РЕДАКТИРОВАНИЕ
@@ -91,7 +101,10 @@ try {
                     WHERE id = ?";
             
             $pdo->prepare($sql)->execute([$client_name, $first_contact_date, $source, $phone, $email, $product_type, $next_contact_date, $status, $manager_comment, $is_signed, $client_id]);
-            logAction($pdo, 'UPDATE', 'clients', "Отредактирован клиент ID: {$client_id}. Флаг контракта: {$is_signed}");
+            
+            if (function_exists('logAction')) {
+                logAction($pdo, 'UPDATE', 'clients', $client_id, "Отредактирован клиент ID: {$client_id}. Флаг контракта: {$is_signed}");
+            }
             
             echo json_encode(['status' => 'success']);
             exit;
@@ -102,7 +115,10 @@ try {
             $pdo->prepare($sql)->execute([$client_name, $unp, $contact_person, $phone, $email, $status, $source, $userId, $product_type, $first_contact_date, $next_contact_date, $manager_comment]);
             
             $newId = $pdo->lastInsertId();
-            logAction($pdo, 'INSERT', 'clients', "Создан лид: '{$client_name}' (ID: {$newId})");
+            
+            if (function_exists('logAction')) {
+                logAction($pdo, 'INSERT', 'clients', $newId, "Создан лид: '{$client_name}' (ID: {$newId})");
+            }
             
             echo json_encode(['status' => 'success']);
             exit;
@@ -111,7 +127,7 @@ try {
 
 } catch (Exception $e) {
     if (isset($pdo) && $pdo->inTransaction()) {
-        $pdo->rollBack();
+        $pdo->rollBack(); // Откатываем трансляцию СУБД в случае любого сбоя
     }
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     exit;

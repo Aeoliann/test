@@ -70,11 +70,13 @@ if ($method === 'POST') {
 // =========================================================================
 // ПОДПРОГРАММА 2: ОБРАБОТКА GET (ВЫГРУЗКА СПИСКА ТТН В МОДЕН КЛИЕНТА)
 // =========================================================================
+// ИСПРАВЛЕНО: Добавлено поле currency в SELECT, чтобы фронтенд видел валюту накладных
 $pid = (int)($_GET['pid'] ?? 0);
 
-$stmt = $pdo->prepare("SELECT id, ttn_number, ttn_date, amount, product_info, product_quantity, scan_path FROM project_ttns WHERE project_id = ? ORDER BY id DESC");
+$stmt = $pdo->prepare("SELECT id, ttn_number, ttn_date, amount, currency, product_quantity, product_info, scan_path FROM project_ttns WHERE project_id = ? ORDER BY ttn_date DESC, id DESC");
 $stmt->execute([$pid]);
-$ttns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$data = $stmt->fetchAll();
 
-echo json_encode($ttns ?: []);
+echo json_encode($data);
 exit;
+
