@@ -128,11 +128,9 @@ $savedCurrency = 'RUB';
 
 </head>
 <body>
-    <aside>
+    
         <?php include 'sidebar.php'; ?>
-        <div class="logo">WebCRM</div>
-    </aside>
-
+   
     <main>
        <!-- ИСПРАВЛЕНО: Премиальный, синтаксически чистый и изолированный топбар без лишних тегов -->
 <header style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: #1e1e2d; border-bottom: 1px solid #323248; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); box-sizing: border-box;">
@@ -290,7 +288,7 @@ th, td {
     <col style="width: 100px;">   <!-- 5. Отгрузки -->
     <col style="width: 130px;">   <!-- 6. Посл. отгрузка -->
     <col style="width: 150px;">   <!-- 7. Сумма (BYN) -->
-    <col style="width: 180px;">   <!-- 8. Перерасчёт -->
+  <!--  <col style="width: 180px;">   --> <!-- 8. Перерасчёт -->
     <col style="width: 90px;">    <!-- 9. Скан -->
 </colgroup>
 
@@ -321,7 +319,7 @@ th, td {
                 <th style="padding: 18px 16px; color: #10b981; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: right; background: #161624; width: 11% !important; min-width: 110px; box-sizing: border-box;">Сумма (BYN)</th>
                 
                 <!-- 8. -->
-                <th style="padding: 18px 16px; color: #f59e0b; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: right; background: #161624; width: 11% !important; min-width: 120px; box-sizing: border-box;">Перерасчёт</th>
+                <!--<th style="padding: 18px 16px; color: #f59e0b; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: right; background: #161624; width: 11% !important; min-width: 120px; box-sizing: border-box;">Перерасчёт</th>-->
                 
                 <!-- 9. -->
                 <th style="padding: 18px 12px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: center; background: #161624; width: 6% !important; min-width: 70px; box-sizing: border-box;">Скан</th>
@@ -447,7 +445,7 @@ th, td {
                 </td>
                 
                 <!-- 8. Мультивалютный перерасчет -->
-                <td style="padding: 14px 16px; text-align: right; white-space: nowrap; border: none !important; box-sizing: border-box;">
+              <!--  <td style="padding: 14px 16px; text-align: right; white-space: nowrap; border: none !important; box-sizing: border-box;">
                     <strong class="js-converted-value" data-id="<?= $projectId ?>" style="color: #10b981; font-size: 14px; margin-right: 6px; font-family: monospace;">
                         <?= number_format($convertedSum, 2, '.', ' ') ?>
                     </strong>
@@ -458,7 +456,7 @@ th, td {
                         <option value="CNY" <?= $savedCurrency === 'CNY' ? 'selected' : '' ?>>CNY</option>
                         <option value="BYN" <?= $savedCurrency === 'BYN' ? 'selected' : '' ?>>BYN</option>
                     </select>
-                </td>
+                </td> -->
                 
               <!-- 9. Просмотр и загрузка PDF сканов (ФИНАЛЬНЫЙ ХОТФИКС СКРЕПКИ) -->
                 <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box; background: transparent;">

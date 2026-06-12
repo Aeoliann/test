@@ -65,9 +65,9 @@ $suggestions = $stmt->fetchAll();
 </head>
 <body>
 
-    <aside>
+   
         <?php include 'sidebar.php'; ?>
-    </aside>
+
 
     <div class="main-content">
                 <!-- ФОРМА ПУБЛИКАЦИИ ОБНОВЛЕНИЙ СИСТЕМЫ (ИСПРАВЛЕНИЕ/РАСШИРЕНИЕ) -->

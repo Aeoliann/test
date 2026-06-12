@@ -129,13 +129,14 @@ $usersList = $usersStmt->fetchAll(PDO::FETCH_COLUMN);
     </style>
 </head>
 <body>
-
+   
     <!-- ПОДКЛЮЧЕНИЕ САЙДБАРА -->
-    <aside>
+
         <?php include 'sidebar.php'; ?>
-    </aside>
+       
 
     <div class="main-content">
+        
         <!-- ФИЛЬТР ПОЛЬЗОВАТЕЛЕЙ -->
         <form method="GET" style="display:flex; gap:12px; align-items:center; margin-bottom: 5px;">
             <label style="font-size: 13px; color: #92929f; font-weight: bold;">Сотрудник в системе:</label>
@@ -146,6 +147,7 @@ $usersList = $usersStmt->fetchAll(PDO::FETCH_COLUMN);
                 <?php endforeach; ?>
             </select>
         </form>
+        
         <!-- ЖУРНАЛ АУДИТА -->
         <div class="log-container">
             <h2 style="margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">

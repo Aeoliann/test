@@ -149,9 +149,9 @@ try {
 <body>
 
     <!-- ПОДКЛЮЧЕНИЕ САЙДБАРА -->
-    <aside>
+ 
         <?php include 'sidebar.php'; ?>
-    </aside>
+  
 
     <!-- ОСНОВНОЙ КОНТЕНТ СТРАНИЦЫ -->
     <div class="main-content">
