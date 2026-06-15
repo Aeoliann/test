@@ -85,15 +85,16 @@ try {
             throw new Exception("Наименование организации не может быть пустым!");
         }
 
-        if ($client_id > 0) {
-            // Чтение флага контракта из POST
+     if ($client_id > 0) {
+            // ИСПРАВЛЕНО НАМЕРТВО: Честный перехват состояния чекбокса
             $is_signed = isset($_POST['is_contract_signed']) ? (int)$_POST['is_contract_signed'] : 0;
-            if (!isset($_POST['is_contract_signed'])) {
-                $checkContract = $pdo->prepare("SELECT is_contract_signed FROM clients WHERE id = ?");
-                $checkContract->execute([$client_id]);
-                $is_signed = (int)$checkContract->fetchColumn();
+            
+            // Резервная страховка на случай альтернативного имени ключа в FormData
+            if (isset($_POST['signed'])) {
+                $is_signed = (int)$_POST['signed'];
             }
 
+            // Твой проверенный рабочий SQL-запрос обновления карточки клиента
             $sql = "UPDATE clients SET 
                         client_name = ?, first_contact_date = ?, source = ?, 
                         phone = ?, email = ?, product_type = ?, 

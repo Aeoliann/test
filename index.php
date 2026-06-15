@@ -976,61 +976,119 @@ document.addEventListener("DOMContentLoaded", () => {
                 </span>
             </td>
 
-            <!-- 12. Контракт -->
-            <td style="padding: 14px 10px; text-align: center; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                <?php 
-                // Сканируем таблицу проектов: есть ли живой договор для текущего ID клиента?
-                $checkContractStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ?");
-                $checkContractStmt->execute([(int)$c['id']]);
-                $hasRealContract = ((int)$checkContractStmt->fetchColumn() > 0);
-                
-                // Всеядный бэкап-статус на всякий случай
-                $cStatus = !empty($c['status']) ? trim($c['status']) : '';
-                $isDoneStatus = ($cStatus === 'Договор' || $cStatus === 'Контракт' || $cStatus === 'Текущий');
-                ?>
-                <input type="checkbox" 
-                       class="contract-checkbox"
-                       <?= ($hasRealContract || $isDoneStatus) ? 'checked' : '' ?>
-                       onchange="toggleContractStatus(<?= (int)$c['id'] ?>, this); return false;"
-                       style="width: 16px; height: 16px; cursor: pointer; accent-color: #4f46e5; margin: 0 auto; display: block;">
-            </td>
-
+   <td style="padding: 14px 10px; text-align: center; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        <?php 
+        $currentClientId = (int)($c['id'] ?? 0);
+        
+        // Способ 1: Прямая проверка наличия договора в таблице проектов projects
+        $checkContractStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ?");
+        $checkContractStmt->execute([$currentClientId]);
+        $hasRealContract = ((int)$checkContractStmt->fetchColumn() > 0);
+        
+        // Способ 2: Проверка флага из самой таблицы клиентов clients
+        $isSignedFlag = (isset($c['is_contract_signed']) && (int)$c['is_contract_signed'] === 1);
+        
+        // ИТОГОВЫЙ СИНХРОНИЗАТОР: Если есть запись в projects ИЛИ взведен флаг в clients — галочка ЖЕЛЕЗНО будет чекнута!
+        $contractExists = ($hasRealContract || $isSignedFlag);
+        $jsContractFlag = $contractExists ? 1 : 0;
+        ?>
+        <input type="checkbox" 
+               id="contract_signed_<?= $currentClientId ?>"
+               data-has-contract="<?= $jsContractFlag ?>"
+               <?= $contractExists ? 'checked' : '' ?> 
+               onchange="toggleContractStatus(<?= $currentClientId ?>, event, <?= $jsContractFlag ?>)"
+               style="cursor: pointer; width: 16px; height: 16px; position: relative; z-index: 10;">
+    </td>
             <script>
-                function toggleContractStatus(clientId, checkboxElement) {
-    console.log("Интерактивный вызов привязки договора для клиента ID:", clientId);
+              // ИСПРАВЛЕНО НАМЕРТВО: Защита от перепутанных мест параметров HTML (this и ID)
+// ИСПРАВЛЕНО НАМЕРТВО: Прямая логика по точному флагу из базы данных проектов
+window.toggleContractStatus = async function(clientId, event, dbHasContract) {
+    const ev = (event && event.target) ? event : (window.event || null);
+    
+    let checkboxElement = ev ? ev.target : document.getElementById('contract_signed_' + clientId);
+    if (!checkboxElement) return;
 
-    // 1. Если пользователь СНЯЛ галочку вручную
-    if (!checkboxElement.checked) {
-        if (!confirm("⚠️ Вы уверены, что хотите полностью удалить контракт этого клиента со всеми ТТН?")) {
-            checkboxElement.checked = true; // Возвращаем галочку на место
-            return;
-        }
-        // Сюда можно дописать твою старую логику AJAX удаления, если нужно
-        return;
-    }
+    const isCheckedNow = checkboxElement.checked;
+    const hasContract = (typeof dbHasContract !== 'undefined') 
+        ? Boolean(dbHasContract) 
+        : (checkboxElement.getAttribute('data-has-contract') === '1');
 
-    // 2. Если пользователь ПОСТАВИЛ галочку
-    <a href="contracts.php"></a>
-    const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
-    const clientIdInput = document.getElementById('contract_client_id_storage') || document.getElementById('modal_client_id');
-
-    if (!modal) {
-        alert("Критическая ошибка интерфейса: Модальное окно договора не найдено на странице index.php!");
-        checkboxElement.checked = false; // Гасим галочку
-        return;
-    }
-
-    // Записываем ID клиента в скрытое поле формы договора
-    if (clientIdInput) {
-        clientIdInput.value = parseInt(clientId, 10);
-    }
-
-    // Сохраняем элемент чекбокса в глобальную память браузера window
+    console.log("=== СИНХРОНИЗАЦИЯ ГАЛОЧКИ С СУБД ===");
     window.activeContractCheckbox = checkboxElement;
 
-    // Плавно открываем форму добавления договора поверх экрана
-    modal.style.display = 'block';
-}
+    // СИТУАЦИЯ 1: Контракт РЕАЛЬНО ЕСТЬ в базе projects
+    if (hasContract) {
+        checkboxElement.checked = true; 
+        if (!confirm("⚠️ Вы уверены, что хотите полностью расторгнуть контракт этого клиента со всеми ТТН?\nЭто действие удалит договор из базы контрактов!")) {
+            window.activeContractCheckbox = null;
+            return false;
+        }
+        
+        try {
+            const res = await fetch('update_cell.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: clientId, field: 'is_contract_signed', value: 0 })
+            });
+            if ((await res.json()).status === 'success') {
+                location.reload();
+            }
+        } catch (err) { alert("Ошибка связи с сервером"); }
+        return;
+    } 
+
+    // СИТУАЦИЯ 2: Контракта в базе еще нет (Открытие формы договора)
+    else {
+        if (isCheckedNow) {
+            try {
+                const res = await fetch('update_cell.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: clientId, field: 'is_contract_signed', value: 1 })
+                });
+                const result = await res.json();
+                
+                if (result.status === 'success') {
+                    console.log("Флаг успешно сохранен в clients.");
+                    
+                    // Умный инспектор модалок на index.php
+                    if (typeof openNewContractModal === 'function') {
+                        openNewContractModal(clientId);
+                    } else if (typeof openContractModal === 'function') {
+                        openContractModal(clientId);
+                    } else {
+                        const modal = document.getElementById('contractModal') || document.getElementById('newContractModal') || document.getElementById('addContractModal');
+                        const inputId = document.getElementById('modal_client_id') || document.getElementById('contract_client_id_storage');
+                        
+                        if (modal) {
+                            if (inputId) inputId.value = parseInt(clientId, 10);
+                            modal.style.display = 'flex';
+                        } else {
+                            alert("Вы зафиксировали лид под договор! Обновите страницу или перейдите в раздел 'Договоры'.");
+                            location.reload();
+                        }
+                    }
+                } else {
+                    checkboxElement.checked = false;
+                    alert("Ошибка СУБД: " + result.message);
+                }
+            } catch (err) {
+                checkboxElement.checked = false;
+                alert("Ошибка сети");
+            }
+        } else {
+            try {
+                await fetch('update_cell.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: clientId, field: 'is_contract_signed', value: 0 })
+                });
+            } catch (err) { console.error(err); }
+            window.activeContractCheckbox = null;
+        }
+    }
+};
+
 
 // Принудительный сброс галочки при клике на Отмену
 function closeContractModal() {
@@ -1285,7 +1343,6 @@ document.addEventListener("DOMContentLoaded", function() {
 </div>
     </main>
     <script>
-        
 // ЖИВОЙ ФИЛЬТР: Фильтрация строк таблицы по первой и любым последующим буквам
 function runLiveClientFilter(searchQuery) {
     // Переводим поисковый запрос в нижний регистр для игнорирования регистра
@@ -1565,30 +1622,6 @@ function openEditModal(id) {
 
     // Отображаем окно
     modal.style.display = 'flex';
-}
-
-// Ждем загрузки страницы
-// ИСПРАВЛЕНО НАМЕРТВО: Клик по Галочке открывает форму договора. Отмена — гасит Галочку.
-// ИСПРАВЛЕНО НАМЕРТВО: Клик по Галочке перекидывает менеджера на contracts.php с автооткрытием формы!
-function toggleContractStatus(clientId, checkboxElement) {
-    console.log("Запуск сквозного перехода для создания договора. Клиент ID:", clientId);
-
-    // 1. Если пользователь СНЯЛ галочку вручную — оставляем стандартное подтверждение
-    if (!checkboxElement.checked) {
-        if (!confirm("⚠️ Вы уверены, что хотите полностью расторгнуть контракт этого клиента?")) {
-            checkboxElement.checked = true;
-            return;
-        }
-        // Сюда пойдёт твой fetch-запрос на сброс статуса (если он был)
-        return;
-    }
-
-    // 2. Если пользователь ПОСТАВИЛ галочку:
-    // Мы ПРИНУДИТЕЛЬНО гасим её на секунду на экране index.php (так как запись произойдёт только после сохранения формы!)
-    checkboxElement.checked = false;
-
-    // МГНОВЕННЫЙ РЕДИРЕКТ: Перебрасываем Firefox на contracts.php и передаем в URL маркер автооткрытия 'open_modal_for'
-    window.location.href = 'contracts.php?open_modal_for=' + parseInt(clientId, 10);
 }
 
 

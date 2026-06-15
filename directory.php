@@ -43,7 +43,7 @@ try {
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    
+
     <meta charset="UTF-8">
     <title>Единый справочник контрагентов — Santeks</title>
     <style>
@@ -84,17 +84,15 @@ try {
         td { padding: 12px 10px; border-bottom: 1px solid #2b2b40; font-size: 13px; text-align: center; background: #1e1e2d; color: #fff; }
     </style>
 </head>
+<aside>    <?php include 'sidebar.php'; ?></aside>
 <!-- ИСПРАВЛЕНО: Превратили страницу в двухколоночный Flex-контейнер, как во всей CRM -->
-<body style="background: #151521; color: #fff; font-family: sans-serif; padding: 0; margin: 0; display: flex; min-height: 100vh;">
-
+<body style="background: #151521; color: #fff; font-family: sans-serif; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden;">
+ 
     <!-- ЛЕВАЯ КОЛОНКА: Боковая панель меню sidebar -->
-    <aside style="width: 240px; background: #1e1e2d; border-right: 1px solid #323248; flex-shrink: 0; box-sizing: border-box;">
-        <?php include 'sidebar.php'; ?>
-    </aside>
+   
 
     <!-- ПРАВАЯ КОЛОНКА: Справочник контента (весь твой код теперь живет внутри этого main) -->
-    <main style="flex: 1; min-width: 0; padding: 30px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
-
+    <main style="flex: 1; min-width: 0; height: 100%; padding: 30px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
         <!-- ВЕРХНЯЯ ГОРИЗОНТАЛЬНАЯ ПАНЕЛЬ ПОИСКА -->
       
     
