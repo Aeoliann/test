@@ -256,7 +256,6 @@ if (!isset($stats['in_work'])) {
 $totalClients = isset($clients) ? count($clients) : 0;
 ?>
 
-
 <?php
 // =========================================================================
 // ИСПРАВЛЕНО НАМЕРТВО: Именованный безопасный INSERT лида с жестким контролем product_type
@@ -276,6 +275,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     if (!empty($client_name)) {
         try {
+            // --- НАЧАЛО ФИКСА БАГА: ПРОВЕРКА НА ДУБЛИКАТЫ ---
+            $check_sql = "SELECT COUNT(*) FROM clients WHERE client_name = :client_name AND unp = :unp";
+            $check_stmt = $pdo->prepare($check_sql);
+            $check_stmt->execute([
+                ':client_name' => $client_name,
+                ':unp'         => $unp
+            ]);
+            
+            if ($check_stmt->fetchColumn() > 0) {
+                // Если дубликат найден, выводим красивую ошибку и останавливаем скрипт
+                die("<div style='background: #f8d7da; color: #721c24; padding: 20px; border: 1px solid #f5c6cb; border-radius: 6px; margin: 20px; font-family: sans-serif;'>
+                        <strong>⚠️ Ошибка дублирования данных:</strong> Контрагент с названием «" . htmlspecialchars($client_name) . "» и УНП «" . htmlspecialchars($unp) . "» уже существует в системе! 
+                        <br><br><a href='index.php' style='color: #721c24; font-weight: bold;'>Вернуться назад</a>
+                     </div>");
+            }
+            // --- КОНЕЦ ФИКСА БАГА ---
+
             // Используем именованные параметры :name вместо знаков вопроса, чтобы исключить путаницу мест!
             $sql = "INSERT INTO clients (
                         client_name, 
@@ -448,7 +464,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         </form>
     </div>
 </div>
-
 <script>
 function openComplexModal() {
     document.getElementById('complexModal').style.display = 'flex';
@@ -465,6 +480,30 @@ async function saveComplexFormDirectly(event, formElement) {
     event.stopPropagation();
     
     console.log("Запущена изолированная транзакция пакетного создания...");
+    
+    // --- НАЧАЛО ФИКСА БАГА: ПРОВЕРКА НА ДУБЛИКАТЫ ПЕРЕД ОТПРАВКОЙ ---
+    const clientNameInput = document.getElementById('complex_client_name');
+    const unpInput = document.getElementById('complex_unp');
+    
+    const clientName = clientNameInput ? clientNameInput.value.trim() : '';
+    const unp = unpInput ? unpInput.value.trim() : '';
+
+    if (clientName && unp) {
+        try {
+            // Делаем экспресс-запрос к бэкенду для поиска дубликатов по Названию и УНП
+            const checkRes = await fetch(`check_duplicate.php?name=${encodeURIComponent(clientName)}&unp=${encodeURIComponent(unp)}`);
+            const checkData = await checkRes.json();
+            
+            if (checkData.exists) {
+                alert(`⚠️ Отказ создания дубликата!\nКонтрагент с названием «${clientName}» и УНП «${unp}» уже зарегистрирован в системе.`);
+                return false; // Полностью блокируем дальнейшую отправку формы
+            }
+        } catch (checkErr) {
+            console.error("Не удалось выполнить проверку дубликатов:", checkErr);
+            // Если скрипт проверки недоступен, пропускаем транзакцию дальше, чтобы не ломать CRM
+        }
+    }
+    // --- КОНЕЦ ФИКСА БАГА ---
     
     try {
         const complexFormData = new FormData(formElement);
@@ -505,6 +544,7 @@ async function saveComplexFormDirectly(event, formElement) {
     return false;
 }
 </script>
+
 
 
             
@@ -987,7 +1027,6 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Способ 2: Проверка флага из самой таблицы клиентов clients
         $isSignedFlag = (isset($c['is_contract_signed']) && (int)$c['is_contract_signed'] === 1);
-        
         // ИТОГОВЫЙ СИНХРОНИЗАТОР: Если есть запись в projects ИЛИ взведен флаг в clients — галочка ЖЕЛЕЗНО будет чекнута!
         $contractExists = ($hasRealContract || $isSignedFlag);
         $jsContractFlag = $contractExists ? 1 : 0;
