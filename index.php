@@ -464,6 +464,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         </form>
     </div>
 </div>
+
 <script>
 function openComplexModal() {
     document.getElementById('complexModal').style.display = 'flex';
@@ -480,30 +481,6 @@ async function saveComplexFormDirectly(event, formElement) {
     event.stopPropagation();
     
     console.log("Запущена изолированная транзакция пакетного создания...");
-    
-    // --- НАЧАЛО ФИКСА БАГА: ПРОВЕРКА НА ДУБЛИКАТЫ ПЕРЕД ОТПРАВКОЙ ---
-    const clientNameInput = document.getElementById('complex_client_name');
-    const unpInput = document.getElementById('complex_unp');
-    
-    const clientName = clientNameInput ? clientNameInput.value.trim() : '';
-    const unp = unpInput ? unpInput.value.trim() : '';
-
-    if (clientName && unp) {
-        try {
-            // Делаем экспресс-запрос к бэкенду для поиска дубликатов по Названию и УНП
-            const checkRes = await fetch(`check_duplicate.php?name=${encodeURIComponent(clientName)}&unp=${encodeURIComponent(unp)}`);
-            const checkData = await checkRes.json();
-            
-            if (checkData.exists) {
-                alert(`⚠️ Отказ создания дубликата!\nКонтрагент с названием «${clientName}» и УНП «${unp}» уже зарегистрирован в системе.`);
-                return false; // Полностью блокируем дальнейшую отправку формы
-            }
-        } catch (checkErr) {
-            console.error("Не удалось выполнить проверку дубликатов:", checkErr);
-            // Если скрипт проверки недоступен, пропускаем транзакцию дальше, чтобы не ломать CRM
-        }
-    }
-    // --- КОНЕЦ ФИКСА БАГА ---
     
     try {
         const complexFormData = new FormData(formElement);
@@ -544,7 +521,6 @@ async function saveComplexFormDirectly(event, formElement) {
     return false;
 }
 </script>
-
 
 
             
@@ -950,17 +926,27 @@ document.addEventListener("DOMContentLoaded", () => {
             <!-- 9. Источник привлечения -->
             <td class="source" style="padding: 14px 10px; text-align: center; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['source'] ?: '—') ?></td>
             
-            <!-- 10. След. contact -->
-            <td style="padding: 14px 10px; text-align: center; color: #a1a1aa; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                <?php if (!empty($c['next_contact_date']) && $c['next_contact_date'] !== '0000-00-00'): ?>
-                    <!-- Проверка на просрочку для подсветки даты -->
-                    <span style="<?= $isOverdue ? 'color: #ef4444; font-weight: bold; background: rgba(239,68,68,0.1); padding: 2px 6px; border-radius: 4px;' : '' ?>">
-                        <?= date('d.m.Y', strtotime($c['next_contact_date'])) ?>
-                    </span>
-                <?php else: ?>
-                    <span style="color: #4b5563;">—</span>
-                <?php endif; ?>
-            </td>
+<!-- СТОЛБЕЦ ДАТЫ СЛЕДУЮЩЕГО КОНТАКТА (БРОНЕБОЙНАЯ ПРОВЕРКА ПО ID ПРОЕКТА) -->
+<td style="padding: 14px 12px; text-align: center; font-size: 13px; color: #a1a1aa; font-family: monospace; border: none !important; box-sizing: border-box;">
+    <?php 
+    // Забираем чистую дату следующего контакта из СУБД
+    $rawNextDate = trim($r['next_contact_date'] ?? '');
+    
+    // Проверяем флаг подписания договора из базы (0 - нет договора, 1 - есть договор)
+    $isContractSigned = (int)($r['is_contract_signed'] ?? 0);
+    
+    // КРИТЕРИЙ ВЫВОДА ДАТЫ: дата не пустая, не системный ноль, и договор НЕ подписан
+    $shouldShowDate = (!empty($rawNextDate) && $rawNextDate !== '0000-00-00' && strtolower($rawNextDate) !== 'null' && $isContractSigned === 0);
+    
+    if ($shouldShowDate): 
+        // Выводим реальную дату созвона из карточки клиента
+        echo date('d.m.Y', strtotime($rawNextDate));
+    else: 
+        // Если договор подписан (включая Гомсельмаш и Сантехкомплект) или даты нет — жесткий прочерк по регламенту Е
+        echo '<span style="color: #4b5563; font-weight: bold;">—</span>';
+    endif; 
+    ?>
+</td>
        <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
  <!--   <td class="cell-comment js-comment-preview"</td>
     data-client-name="<?= htmlspecialchars($c['client_name'], ENT_QUOTES, 'UTF-8') ?>"
@@ -1181,11 +1167,118 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
             <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Название организации <span style="color:red;">*</span></label>
             <input type="text" id="client_name" name="client_name" required placeholder="Напр: СЗАО «Сантэкс»" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
         </div>
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">УНП <span style="color:red;">*</span></label>
-            <input type="text" id="unp" name="unp" required placeholder="9 цифр" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-        </div>
+       <!-- ИСПРАВЛЕНО НАМЕРТВО: Инпут УНП с умной AJAX-валидацией и блокировкой дублей -->
+<div class="form-group" style="display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
+    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">УНП контрагента *</label>
+    
+    <input type="text" 
+           id="js-client-unp-input" 
+           name="unp" 
+           required 
+           placeholder="9 знаков" 
+           oninput="checkUnpDuplicateInline(this)"
+           style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; transition: all 0.2s ease; box-sizing: border-box;">
+
+    <!-- Абсолютно позиционированный блок ошибки, чтобы он не раздвигал и не ломал сетку инпутов! -->
+    <div id="js-unp-error-block" style="display: none; font-size: 10px; color: #ef4444; margin-top: 2px; font-weight: 600; text-align: left; flex-direction: column; gap: 4px; width: 100%;">
+        <span>⚠️ УНП уже зарегистрирован (<strong id="js-duplicate-name-span">Имя</strong>)!</span>
+        
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+            <button type="button" onclick="bypassUnpLockForAdmin()" style="align-self: flex-start; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; cursor: pointer; transition: all 0.15s;">
+                🔓 Пропустить как филиал (Админ)
+            </button>
+        <?php endif; ?>
     </div>
+</div>
+<script>
+window.isUnpBlocked = false;
+
+async function checkUnpDuplicateInline(inputElement) {
+    const unpVal = inputElement.value.trim();
+    const errorBlock = document.getElementById('js-unp-error-block');
+    const nameSpan = document.getElementById('js-duplicate-name-span');
+    
+    // Находим главную кнопку отправки формы добавления клиента (проверь её id/class)
+    const submitBtn = document.querySelector('#contractForm button[type="submit"]') || document.querySelector('form button[type="submit"]');
+
+    if (unpVal === "") {
+        resetUnpInputStyle(inputElement, errorBlock, submitBtn);
+        return;
+    }
+
+    try {
+        const res = await fetch('check_unp.php?unp=' + encodeURIComponent(unpVal));
+        const data = await res.json();
+
+        if (data.status === 'duplicate') {
+            window.isUnpBlocked = true;
+            
+            // UX Регламент Е: Подсвечиваем инпут красным и выводим ошибку
+            inputElement.style.borderColor = '#ef4444';
+            inputElement.style.boxShadow = '0 0 10px rgba(239,68,68,0.25)';
+            inputElement.style.color = '#ef4444';
+            
+            if (nameSpan) nameSpan.innerText = data.client_name;
+            if (errorBlock) errorBlock.style.display = 'flex';
+            
+            // Намертво блокируем кнопку создания
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.4';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+        } else {
+            // Если УНП свободен — возвращаем VIP-изумрудный стиль
+            window.isUnpBlocked = false;
+            inputElement.style.borderColor = '#10b981';
+            inputElement.style.boxShadow = '0 0 10px rgba(16,185,129,0.2)';
+            inputElement.style.color = '#10b981';
+            
+            if (errorBlock) errorBlock.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+            }
+        }
+    } catch (err) {
+        console.error("Ошибка API проверки УНП", err);
+    }
+}
+
+function resetUnpInputStyle(input, block, btn) {
+    window.isUnpBlocked = false;
+    input.style.borderColor = '#323248';
+    input.style.boxShadow = 'none';
+    input.style.color = '#fff';
+    if (block) block.style.display = 'none';
+    if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
+}
+
+// Исключение PS: Функция обхода блокировки для Админа
+function bypassUnpLockForAdmin() {
+    window.isUnpBlocked = false;
+    const submitBtn = document.querySelector('#contractForm button[type="submit"]') || document.querySelector('form button[type="submit"]');
+    const inputElement = document.getElementById('js-client-unp-input');
+    
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+    }
+    if (inputElement) {
+        inputElement.style.borderColor = '#6366f1'; // Перекрашиваем в индиго (режим исключения)
+        inputElement.style.boxShadow = '0 0 10px rgba(99,102,241,0.2)';
+    }
+    alert("🔓 Блокировка УНП обойдена. Запись будет сохранена как филиал.");
+}
+
+</script>
+</div>
 
           <!-- РЯД 2: КОНТАКТНОЕ ЛИЦО И ТЕЛЕФОН -->
     <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">

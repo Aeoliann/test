@@ -1,5 +1,5 @@
 <?php
-// save_ttn.php — Автоматическая привязка ТТН к валюте контракта
+// save_ttn.php — Автоматическая привязка ТТН к выбранной руками валюте
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -29,36 +29,40 @@ try {
         throw new Exception("Некорректный системный ID договора.");
     }
 
-    $pdo->beginTransaction();
+    // ВСЕЯДНЫЙ ВАЛЮТНЫЙ ПЕРЕХВАТЧИК: Проверяем абсолютно все ключи, которые мог прислать JS!
+    $currency = strtoupper(trim($_POST['ttn_currency_select'] ?? ($_POST['currency'] ?? ($_POST['ttn_currency'] ?? ''))));
 
-    // ЖЕЛЕЗНЫЙ АВТОМАТ: Вытаскиваем валюту напрямую из карточки родительского договора
-    if ($project_id > 0) {
-        $getCur = $pdo->prepare("SELECT currency FROM projects WHERE id = ?");
-        $getCur->execute([$project_id]);
-        $currency = $getCur->fetchColumn() ?: 'BYN';
-    } else {
-        // Если это редактирование старой ТТН — берем её текущий проект
-        $getCur = $pdo->prepare("SELECT p.currency FROM projects p JOIN project_ttns t ON p.id = t.project_id WHERE t.id = ?");
-        $getCur->execute([$ttn_id]);
-        $currency = $getCur->fetchColumn() ?: 'BYN';
+    // Если фронтенд вообще ничего не прислал, подстраховываемся валютой самого договора из базы
+    if (empty($currency)) {
+        if ($project_id > 0) {
+            $getCur = $pdo->prepare("SELECT currency FROM projects WHERE id = ?");
+            $getCur->execute([$project_id]);
+            $currency = $getCur->fetchColumn() ?: 'BYN';
+        } else {
+            $getCur = $pdo->prepare("SELECT p.currency FROM projects p JOIN project_ttns t ON p.id = t.project_id WHERE t.id = ?");
+            $getCur->execute([$ttn_id]);
+            $currency = $getCur->fetchColumn() ?: 'BYN';
+        }
     }
 
+    $pdo->beginTransaction();
+
     if ($ttn_id > 0) {
-        // Режим редактирования
+        // Режим редактирования существующей накладной
         $sql = "UPDATE project_ttns SET ttn_number = ?, ttn_date = ?, amount = ?, currency = ?, product_info = ?, product_quantity = ? WHERE id = ?";
         $pdo->prepare($sql)->execute([$ttn_number, $ttn_date, $amount, $currency, $prod_info, $qty, $ttn_id]);
         
         if (function_exists('logAction')) {
-            logAction($pdo, 'UPDATE', 'project_ttns', $ttn_id, "Изменена ТТН №{$ttn_number}: сумма {$amount} {$currency} (автомат)");
+            logAction($pdo, 'UPDATE', 'project_ttns', $ttn_id, "Изменена ТТН №{$ttn_number}: сумма {$amount} {$currency}");
         }
     } else {
-        // Режим создания с нуля
+        // Режим создания новой накладной с нуля
         $sql = "INSERT INTO project_ttns (project_id, ttn_number, ttn_date, amount, currency, product_info, product_quantity) VALUES (?, ?, ?, ?, ?, ?, ?)";
         $pdo->prepare($sql)->execute([$project_id, $ttn_number, $ttn_date, $amount, $currency, $prod_info, $qty]);
         $new_ttn_id = $pdo->lastInsertId();
         
         if (function_exists('logAction')) {
-            logAction($pdo, 'INSERT', 'project_ttns', $new_ttn_id, "Добавлена ТТН №{$ttn_number} по договору ID {$project_id}: сумма {$amount} {$currency} (автомат)");
+            logAction($pdo, 'INSERT', 'project_ttns', $new_ttn_id, "Добавлена ТТН №{$ttn_number} по договору ID {$project_id}: сумма {$amount} {$currency}");
         }
     }
 

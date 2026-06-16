@@ -192,12 +192,83 @@ try {
                 <input type="file" id="bug_file_input" name="bug_screenshot" accept="image/*" style="display: none;">
 
                 <!-- БЛОК ДИНАМИЧЕСКОГО ПРЕВЬЮ СКРИНШОТА -->
-                <div id="preview_container" style="display: none; background: #151521; border: 1px solid #323248; padding: 10px; border-radius: 6px; margin-top: 5px; box-sizing: border-box;">
-                    <span style="font-size: 11px; color: #10b981; font-weight: bold; display: block; margin-bottom: 5px;">
-                        🟢 Скриншот успешно прикреплен из буфера обмена!
-                    </span>
-                    <img id="screenshot_preview" style="max-width: 100%; max-height: 100px; border-radius: 4px; border: 1px solid #323248; display: block;">
-                </div>
+          <!-- КОНТЕЙНЕР ЗАГРУЗКИ СКРИНШОТОВ (ЧИСТЫЙ С КОРНЯ UI) -->
+<div style="margin-bottom: 16px; text-align: left; width: 100%; box-sizing: border-box; font-family: sans-serif;">
+    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">
+        Прикрепить скриншот ошибки:
+    </label>
+    
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <!-- Стилизованная кнопка выбора файла -->
+        <label for="bug_screenshot_input" style="cursor: pointer; padding: 10px 16px; background: #242434; border: 1px solid #323248; color: #818cf8; border-radius: 8px; font-size: 13px; font-weight: bold; transition: all 0.15s ease-in-out; display: inline-block;">
+            📎 Выбрать изображение
+        </label>
+        <input type="file" id="bug_screenshot_input" name="screenshot" accept="image/*" onchange="handleBugScreenshotPreview(this)" style="display: none;">
+        <script>
+            // 1. Функция генерации живого превью при выборе файла
+function handleBugScreenshotPreview(inputElement) {
+    if (!inputElement || !inputElement.files || !inputElement.files[0]) return;
+
+    const file = inputElement.files[0];
+    
+    // Проверяем, что это точно изображение
+    if (!file.type.startsWith('image/')) {
+        alert("Разрешено прикреплять только графические файлы (скриншоты)!");
+        inputElement.value = ""; // Сбрасываем некорректный файл
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        // Подставляем картинку и имя файла в наш VIP-блок превью
+        document.getElementById('js-bug-preview-img').src = e.target.result;
+        document.getElementById('js-bug-preview-name').innerText = file.name;
+        
+        // Плавно показываем блок превью на экране
+        document.getElementById('js-bug-preview-wrapper').style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+}
+
+// 2. ФУНКЦИЯ ПОЛНОГО И НАМЕРТВЕННОГО ОЧИЩЕНИЯ СКРИНШОТА (ТОТ САМЫЙ КРЕСТИК)
+function clearBugScreenshotInline() {
+    console.log("=== ЗАПУСК ПРИНУДИТЕЛЬНОЙ ОЧИСТКИ БУФЕРА КАРТИНКИ ===");
+    
+    // Находим наш файловый инпут
+    const fileInput = document.getElementById('bug_screenshot_input');
+    
+    if (fileInput) {
+        // САМАЯ КРИТИЧЕСКАЯ СТРОКА: Полностью сносим файлы из памяти браузера!
+        fileInput.value = ""; 
+        console.log("Системный стек файлового инпута успешно обнулен.");
+    }
+
+    // Скрываем блок превью с экрана обратно в темноту
+    const wrapper = document.getElementById('js-bug-preview-wrapper');
+    if (wrapper) {
+        wrapper.style.display = 'none';
+    }
+    
+    // Вычищаем хвосты данных из тегов, чтобы не плодить фантомы в DOM
+    document.getElementById('js-bug-preview-img').src = "";
+    document.getElementById('js-bug-preview-name').innerText = "";
+}
+        </script>
+        <!-- ДИНАМИЧЕСКИЙ ПУЛЬТ ПРЕВЬЮ КАРТИНКИ -->
+        <div id="js-bug-preview-wrapper" style="display: none; align-items: center; background: #151521; border: 1px solid #323248; padding: 6px 10px; border-radius: 8px; gap: 10px; position: relative;">
+            <img id="js-bug-preview-img" src="" alt="Превью" style="height: 32px; width: auto; border-radius: 4px; object-fit: cover;">
+            <span id="js-bug-preview-name" style="font-size: 12px; color: #e4e4e7; font-family: monospace; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">file.png</span>
+            
+            <!-- КНОПКА УДАЛЕНИЯ (ИСПРАВЛЕНО НАМЕРТВО: тип button + стоп-триггер) -->
+            <button type="button" 
+                    onclick="clearBugScreenshotInline(); return false;" 
+                    style="background: #ef444420; border: 1px solid #ef444440; color: #ef4444; width: 22px; height: 22px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; transition: all 0.15s;"
+                    onmouseover="this.style.background='#ef4444'; this.style.color='#fff';"
+                    onmouseout="this.style.background='#ef444420'; this.style.color='#ef4444';">
+                &times;
+            </button>
+        </div>
+    </div>
 
                 <div>
                     <button type="submit" class="btn-add">

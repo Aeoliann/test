@@ -115,7 +115,76 @@ try {
     <a href="directory.php" style="color: #ef4444; text-decoration: none; font-size: 13px; padding-left: 8px; font-weight: bold;">Сбросить</a>
 <?php endif; ?> 
         </div>
+        <div style="background: #1e1e2d; border: 1px solid #323248; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; box-sizing: border-box; width: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    
+    <!-- Поле ввода поискового запроса -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; position: relative;">
+        <input type="text" 
+               id="js-crm-search-input" 
+               oninput="filterCrmDatabaseInline()" 
+               placeholder="Быстрый поиск по имени клиента, № договора или УНП..." 
+               style="width: 100%; height: 42px; padding: 0 40px 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 13px; transition: all 0.15s ease;" 
+               onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" 
+               onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
         
+        <!-- Иконка лупы (SVG на чистом CSS) -->
+        <span style="position: absolute; right: 14px; top: 13px; color: #71717a; pointer-events: none; font-size: 14px;">🔍</span>
+    </div>
+
+    <!-- Индикатор количества найденных строк -->
+    <div style="background: #151521; border: 1px solid #323248; height: 42px; padding: 0 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #92929f; font-weight: bold; font-family: monospace; white-space: nowrap; box-sizing: border-box;">
+        Найдено строк: <span id="js-search-counter" style="color: #10b981; margin-left: 6px; font-size: 13px;">--</span>
+    </div>
+<script>
+    function filterCrmDatabaseInline() {
+    console.log("=== СТАРТ ЖИВОЙ ФИЛЬТРАЦИИ БАЗЫ ===");
+    
+    // Считываем поисковый запрос менеджера и переводим в нижний регистр
+    const query = document.getElementById('js-crm-search-input').value.toLowerCase().trim();
+    
+    // Находим все строки клиентов в нашей HTML-таблице
+    // (Ищет теги <tr> внутри tbody, за исключением шапки таблицы)
+    const rows = document.querySelectorAll('table tbody tr, .client-row');
+    
+    let visibleCount = 0;
+    let totalCount = 0;
+
+    rows.forEach(row => {
+        // Пропускаем строки, если это технические разделители, не содержащие ячеек <td>
+        if (!row.getElementsByTagName('td').length) return;
+        
+        totalCount++;
+        
+        // Извлекаем текстовое содержимое всей строки (Имя, Договор, Продукция, УНП)
+        const rowText = row.innerText.toLowerCase();
+
+        // Если строка содержит поисковый запрос — плавно показываем её, иначе — полностью скрываем
+        if (rowText.includes(query)) {
+            row.style.display = ''; // Сброс к дефолтному отображению строки таблицы
+            visibleCount++;
+        } else {
+            row.style.display = 'none'; // Намертво скрываем строку из DOM-дерева
+        }
+    });
+
+    // Обновляем счетчик найденных контрагентов на нашей VIP-панели
+    const counterSpan = document.getElementById('js-search-counter');
+    if (counterSpan) {
+        counterSpan.innerText = query === "" ? totalCount : visibleCount;
+        // Если ничего не найдено — подсвечиваем индикатор красным цветом
+        counterSpan.style.color = visibleCount === 0 && query !== "" ? '#ef4444' : '#10b981';
+    }
+}
+
+// Автоматически инициализируем счетчик строк при первой загрузке страницы реестра
+document.addEventListener('DOMContentLoaded', function() {
+    // Вызываем фильтр один раз вхолостую, чтобы посчитать исходное количество записей
+    if (document.getElementById('js-crm-search-input')) {
+        filterCrmDatabaseInline();
+    }
+});
+</script>
+</div>
      <!-- ТАБЛИЦА СПРАВОЧНИКА В НЕЗАВИСИМОМ СКРОЛЛ-КОНТЕЙНЕРЕ -->
     
             <table>

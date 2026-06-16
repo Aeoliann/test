@@ -1,60 +1,103 @@
 <?php
-// upload_scan.php — Безопасный обработчик загрузки PDF-сканов под Windows XAMPP
+// upload_scan.php — Всеядный API-контроллер загрузки сканов контрактов
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require 'db.php';
+require_once 'logger.php';
 
 header('Content-Type: application/json');
 if (ob_get_length()) ob_clean();
 
 try {
     if (!isset($_SESSION['user_id'])) {
-        throw new Exception("Ошибка авторизации. Доступ запрещен.");
+        throw new Exception("Доступ запрещен. Авторизуйтесь.");
     }
 
-  $projectId = 0;
-    if (isset($_POST['project_id'])) {
-        $projectId = (int)$_POST['project_id'];
-    } elseif (isset($_POST['pid'])) {
-        $projectId = (int)$_POST['pid'];
+    // Ловим ID проекта и параметры файла
+    $project_id = (int)($_POST['project_id'] ?? 0);
+    if ($project_id <= 0) {
+        throw new Exception("Не указан системный ID договора для привязки скана.");
     }
 
-    if (!isset($_FILES['contract_pdf']) || $_FILES['contract_pdf']['error'] !== UPLOAD_ERR_OK) {
-        throw new Exception("Файл не был передан на сервер или загружен с ошибкой.");
+    // Ищем ключ файла в массиве $_FILES
+    $fileKey = '';
+    if (isset($_FILES['contract_scan'])) { $fileKey = 'contract_scan'; }
+    elseif (isset($_FILES['scan_file'])) { $fileKey = 'scan_file'; }
+    elseif (isset($_FILES['file'])) { $fileKey = 'file'; }
+
+    if (empty($fileKey) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
+        throw new Exception("Файл не передан или превысил допустимый сервером размер.");
     }
 
-    $file = $_FILES['contract_pdf'];
-    
-    // Проверяем формат файла — строго PDF
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    if ($ext !== 'pdf') {
-        throw new Exception("Недопустимый формат файла! Разрешена загрузка только документов PDF.");
+    $fileName = $_FILES[$fileKey]['name'];
+    $fileExt  = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+    // Наш всеядный массив расширений: PDF + фото с телефона
+    $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+
+    if (!in_array($fileExt, $allowedExtensions)) {
+        throw new Exception("Недопустимый формат файла! Разрешены только документы PDF и изображения (JPG, JPEG, PNG).");
     }
 
-    // Жестко привязываем имя папки загрузок
-    $uploadDir = 'uploads/';
+    // Создаем директорию для хранения сканов на диске
+    $uploadDir = 'uploads/contract_scans/';
     if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true); // Автоматически создаем папку, если её нет
+        @mkdir($uploadDir, 0777, true);
     }
 
-    // Генерируем уникальное имя файла, чтобы избежать перезаписи
-    $newFileName = 'contract_' . $projectId . '_' . time() . '.pdf';
-    $targetPath = $uploadDir . $newFileName;
+    // Генерируем уникальное имя файла для исключения затирания данных
+    $newFileName = 'contract_' . $project_id . '_' . time() . '_' . uniqid() . '.' . $fileExt;
+    $fullPath    = $uploadDir . $newFileName;
 
-    // Переносим файл из временного хранилища Windows в папку uploads
-    if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-        throw new Exception("Серверу XAMPP не удалось сохранить файл на жесткий диск. Проверьте права папки.");
+    // ПЕРЕМЕЩАЕМ ФАЙЛ ИЗ ВРЕМЕННОГО БУФЕРА НА ДИСК
+    if (!move_uploaded_file($_FILES[$fileKey]['tmp_name'], $fullPath)) {
+        throw new Exception("Не удалось сохранить файл на диск сервера XAMPP. Проверьте права папки.");
     }
 
-    // Записываем путь к скану в колонку scan_path таблицы проектов
+    // ОБНОВЛЯЕМ ПУТЬ К СКАНУ В ТАБЛИЦЕ PROJECTS
     $stmt = $pdo->prepare("UPDATE projects SET scan_path = ? WHERE id = ?");
-    $stmt->execute([$targetPath, $projectId]);
+    $stmt->execute([$fullPath, $project_id]);
 
-    echo json_encode(['status' => 'success', 'message' => 'Скан договора успешно загружен и привязан!']);
+    // Логируем действие менеджера (5 параметров)
+    if (function_exists('logAction')) {
+        logAction($pdo, 'UPDATE', 'projects', $project_id, "Загружен новый скан договора. Формат: .{$fileExt}, Путь: {$fullPath}");
+    }
+
+    echo json_encode(['status' => 'success', 'file_path' => $fullPath, 'ext' => $fileExt]);
     exit;
 
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     exit;
 }
+// ПОДПРОГРАММА УДАЛЕНИЯ СКАНА И ФИЗИЧЕСКОГО СТИРАНИЯ ФАЙЛА С ДИСКА
+    if (isset($_POST['action_mode']) && $_POST['action_mode'] === 'delete_contract_scan_full') {
+        $project_id = (int)($_POST['project_id'] ?? 0);
+        if ($project_id <= 0) {
+            throw new Exception("Не указан корректный ID договора.");
+        }
+
+        // 1. Сначала вытаскиваем текущий путь к файлу из базы данных, чтобы стереть его с жесткого диска
+        $getOld = $pdo->prepare("SELECT scan_path FROM projects WHERE id = ?");
+        $getOld->execute([$project_id]);
+        $oldPath = trim($getOld->fetchColumn() ?: '');
+
+        // 2. Если файл реально существует на сервере — физически уничтожаем его
+        if (!empty($oldPath) && file_exists($oldPath) && is_file($oldPath)) {
+            @unlink($oldPath); 
+        }
+
+        // 3. Обнуляем ячейку пути в таблице projects СУБД
+        $updateStmt = $pdo->prepare("UPDATE projects SET scan_path = NULL WHERE id = ?");
+        $updateStmt->execute([$project_id]);
+
+        // 4. Логируем зачистку (5 параметров)
+        if (function_exists('logAction')) {
+            logAction($pdo, 'DELETE', 'projects', $project_id, "Менеджер полностью удалил скан-копию договора. Старый файл: {$oldPath}");
+        }
+
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
+?>
