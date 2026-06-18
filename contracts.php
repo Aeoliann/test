@@ -318,15 +318,9 @@ function runLiveContractFilter(searchQuery) {
     
     </style>
 <!-- ИСПРАВЛЕНО: Полная двухкоординатная прокрутка масштабной таблицы -->
-<div style="width: 100% !important; max-width: 100% !important; height: calc(100vh - 200px); max-height: 1000px; overflow-y: auto !important; overflow-x: auto !important; border: 1px solid #2e2a47; border-radius: 16px; background: #13131a; box-shadow: 0 20px 50px rgba(0,0,0,0.6); box-sizing: border-box; position: relative;">
-
-  <table>
-<style>* Принудительно заставляем каждую ячейку в теле таблицы наследоваться от ширины заголовка th */
-table {
-    table-layout: fixed !important;
-    width: 100% !important;
-    border-collapse: collapse !important;
-}
+<div style="width: 100%; height: 580px; max-height: 580px; overflow-y: auto; overflow-x: auto; position: relative; border-radius: 12px; border: 1px solid #323248; box-sizing: border-box; background: #151521; margin-top: 15px;">
+     <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; box-sizing: border-box; table-layout: fixed;">
+   <style>* Принудительно заставляем каждую ячейку в теле таблицы наследоваться от ширины заголовка th */
 
 /* Наследуем процентную ширину шапки во все нижние ячейки автоматически */
 table tbody tr td {
@@ -1021,7 +1015,7 @@ document.addEventListener("DOMContentLoaded", function() {
             </table>
         </div>
  
-     ========================================================================= -->
+ 
 <?php
 // ГЛОБАЛЬНЫЙ МУЛЬТИВАЛЮТНЫЙ ПОДСЧЕТ ДЛЯ ФУТЕРА СТРАНИЦЫ НА СТОРОНЕ PHP
 // Собираем вообще все ТТН из базы данных по текущим видимым проектам
@@ -1182,17 +1176,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <!-- ВЫБОР ВАЛЮТЫ ЗАКЛЮЧЕНИЯ КОНТРАКТА -->
-            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px; width: 100%; box-sizing: border-box;">
-                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">Валюта договора *</label>
-                <select name="currency" required style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #10b981; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 13px; font-weight: bold; cursor: pointer; transition: all 0.15s ease;" onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
-                    <option value="BYN" selected>BYN (Белорусский рубль)</option>
-                    <option value="RUB">RUB (Российский рубль)</option>
-                    <option value="USD">USD (Доллар США)</option>
-                    <option value="EUR">EUR (Евро)</option>
-                    <option value="CNY">CNY (Китайский юань)</option>
-                </select>
-            </div>
-
+      
             <!-- Вид продукции -->
             <div class="form-group" style="display: flex; flex-direction: column; gap: 6px; width: 100%; box-sizing: border-box;">
                 <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">Вид продукции *</label>
@@ -1281,8 +1265,7 @@ function closeContractModal() {
 <!-- ИСПРАВЛЕНО: Полностью рабочий монолит формы управления ТТН/CMR Santeks CRM -->
 <!-- МОДАЛЬНОЕ ОКНО МЕНЕДЖЕРА ТТН (УСПЕШНО СИНХРОНИЗИРОВАНО С СУБД SANTEKS) -->
 <!-- =========================================================================
-     КАРКАС МОДАЛЬНОГО ОКНА ТТН v3.0 (ЧАСТЬ 2: ЧИСТАЯ ВЕРСТКА БЕЗ СЕЛЕКТОРОВ ВАЛЮТ)
-     ========================================================================= -->
+     КАРКАС МОДАЛЬНОГО ОКНА ТТН v3.0 (ЧАСТЬ 2: ЧИСТАЯ ВЕРСТКА БЕЗ СЕЛЕКТОРОВ ВАЛЮТ -->
 <div id="ttnManagerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); justify-content: center; align-items: center; z-index: 99999; box-sizing: border-box; backdrop-filter: blur(5px); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     <div style="background: #1e1e2d; padding: 25px 30px; border-radius: 16px; width: 500px; border: 1px solid #323248; box-shadow: 0 25px 50px rgba(0,0,0,0.6); color: #fff; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; position: relative;">
         

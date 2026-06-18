@@ -93,17 +93,6 @@ try {
 
     <!-- ПРАВАЯ КОЛОНКА: Справочник контента (весь твой код теперь живет внутри этого main) -->
     <main style="flex: 1; min-width: 0; height: 100%; padding: 30px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
-        <!-- ВЕРХНЯЯ ГОРИЗОНТАЛЬНАЯ ПАНЕЛЬ ПОИСКА -->
-      
-    
-    <!-- Форма шлет GET-запрос на саму себя при клике на Найти или Enter -->
-   
-
-
-            
-            <!-- Форма мгновенного сканирования -->
-           
-
             <a href="index.php" style="background: #242434; border: 1px solid #323248; color: #92929f; text-decoration: none; padding: 10px 15px; border-radius: 6px; font-size: 13px; font-weight: bold; transition: 0.15s;" onmouseover="this.style.color='#fff'; this.style.background='#2b2b3d';" onmouseout="this.style.color='#92929f'; this.style.background='#242434';">← В CRM</a>
               <div class="table-scroll-box" style="display:flex;">
             <input type="text" 

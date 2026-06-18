@@ -11,31 +11,22 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 // 1. ПРОВЕРКА АВТОРИЗАЦИИ И СИНХРОНИЗАЦИЯ ИМЕН ПЕРЕМЕННЫХ
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.html");
+    header("Location: auth.html");
     exit;
 }
-
-
 // Задаем единые сквозные переменные, которые используются и в логике, и в верстке
 $userId    = (int)$_SESSION['user_id'];
 $userRole  = $_SESSION['role'] ?? 'manager';
 $u_role    = $userRole; // Дублируем для совместимости с любыми плашками
 $u_id      = $userId;   // Дублируем для старой верстки
-
 // 2. ФИЛЬТРАЦИЯ ПО МЕНЕДЖЕРУ ДЛЯ АДМИНИСТРАТОРА
 $filterManagerId = isset($_GET['manager_id']) ? (int)$_GET['manager_id'] : 0;
-
-
-
 $filterSource = isset($_GET['source']) ? trim($_GET['source']) : '';
-
 // 3. ЖЕСТКИЙ ПЕРЕХВАТ ТЕКУЩЕЙ ВКЛАДКИ
 $current_tab = isset($_GET['tab']) ? strtolower(trim($_GET['tab'])) : 'active';
 $tab = $current_tab; // Синхронизируем, чтобы HTML-ссылки понимали активный статус
-
 // Единая логика сортировки: просроченные контакты летят наверх, отказники всегда вниз
 $orderByLogic = "ORDER BY first_contact_date DESC";
-
 // 4. СБОР СТАТИСТИКИ ДЛЯ ПЛАШЕК ДАШБОРДА (БЕЗ ВАРНИНГОВ)
 $stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
 try {
@@ -59,12 +50,10 @@ try {
         $stats = $stmt_stats->fetch() ?: $stats;
     }
 } catch (Exception $e) { }
-
 // Подстраховка массива, чтобы верстка на строке 291 никогда не падала
 if (!$stats) {
     $stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
 }
-
 // 5. ПОДСЧЕТ ВЫРУЧКИ ИЗ НАКЛАДНЫХ ТТН
 $managerTotalSales = 0.00;
 try {
@@ -80,8 +69,6 @@ try {
         $managerTotalSales = (float)($sumStmt->fetchColumn() ?: 0.00);
     }
 } catch (Exception $e) { }
-
-
 $clients = [];
 try {
     // Базовые условия для Админа и Менеджера
@@ -109,29 +96,23 @@ try {
         }
         $params = [$userId];
     }
-
     // ТОЧЕЧНАЯ НАДСТРОЙКА: Если источник выбран, динамически дописываем фильтр в SQL
     if (!empty($filterSource)) {
         $sql .= " AND source = ?";
         $params[] = $filterSource;
     }
-
     // Приклеиваем нашу эталонную сортировку просрочек
     $sql .= " " . $orderByLogic;
-
     // Готовим и выполняем безопасный запрос
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $clients = $stmt->fetchAll() ?: [];
-
 } catch (Exception $e) {
     $clients = [];
 }
-
 // =========================================================================
 // ЕДИНЫЙ МОДУЛЬ МНОГОФАКТОРНОЙ ФИЛЬТРАЦИИ С НУЛЯ
 // =========================================================================
-
 // 1. Принимаем параметры фильтров из адресной строки браузера
 $sourceFilter  = isset($_GET['source']) ? trim($_GET['source']) : '';
 $statusFilter  = isset($_GET['status']) ? trim($_GET['status']) : '';
@@ -141,26 +122,33 @@ $dateFilter    = isset($_GET['next_contact_date_filter']) ? trim($_GET['next_con
 if ($sourceFilter === 'Все источники') $sourceFilter = '';
 if ($statusFilter === 'Все статусы')   $statusFilter = '';
 if ($productFilter === 'Все виды')     $productFilter = '';
-
-
-// ИСПРАВЛЕНО: Запрос на главной теперь подтягивает реальный тип продукции ИЗ ДОГОВОРА (project_product_type)
 if ($userRole === 'admin') {
     if ($current_tab === 'refused') {
-        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.status = 'Отказ'";
+        $sql = "SELECT c.*, c.next_contact_date AS client_next_contact_date, p.product_type AS project_product_type, p.contract_number, p.id as pid 
+                FROM clients c 
+                LEFT JOIN projects p ON c.id = p.client_id 
+                WHERE c.status = 'Отказ'";
     } else {
-        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.status != 'Отказ'";
+        $sql = "SELECT c.*, c.next_contact_date AS client_next_contact_date, p.product_type AS project_product_type, p.contract_number, p.id as pid 
+                FROM clients c 
+                LEFT JOIN projects p ON c.id = p.client_id 
+                WHERE c.status != 'Отказ'";
     }
     $params = [];
 } else {
     if ($current_tab === 'refused') {
-        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.manager_id = ? AND c.status = 'Отказ'";
+        $sql = "SELECT c.*, c.next_contact_date AS client_next_contact_date, p.product_type AS project_product_type, p.contract_number, p.id as pid 
+                FROM clients c 
+                LEFT JOIN projects p ON c.id = p.client_id 
+                WHERE c.manager_id = ? AND c.status = 'Отказ'";
     } else {
-        $sql = "SELECT c.*, p.product_type AS project_product_type FROM clients c LEFT JOIN projects p ON c.id = p.client_id WHERE c.manager_id = ? AND c.status != 'Отказ'";
+        $sql = "SELECT c.*, c.next_contact_date AS client_next_contact_date, p.product_type AS project_product_type, p.contract_number, p.id as pid 
+                FROM clients c 
+                LEFT JOIN projects p ON c.id = p.client_id 
+                WHERE c.manager_id = ? AND c.status != 'Отказ'";
     }
     $params = [$userId];
 }
-
-
 try {
     // Формируем каркас базового запроса с учетом ролей и вкладок (Рабочая/Архив)
     if ($userRole === 'admin') {
@@ -209,9 +197,7 @@ try {
 } catch (Exception $e) {
     $clients = [];
 }
-
 $totalClients = count($clients);
-
 ?>
 
 <?php 
@@ -268,6 +254,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $email          = trim($_POST['email'] ?? '');
     $status         = trim($_POST['status'] ?? 'Новый');
     $source         = trim($_POST['source'] ?? '');
+    
+    // ИСПРАВЛЕНО НАМЕРТВО: Кавычка возвращена на место внутри $_POST
+    $next_contact_date = trim($_POST['next-contact-date'] ?? '0000-00-00');
+    
     $manager_id     = (int)($_POST['manager_id'] ?? $userId);
     
     // Перехватываем выбранную продукцию (УОКТ, ЕКМ и т.д.)
@@ -301,6 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         email, 
                         status, 
                         source, 
+                        next_contact_date,
                         manager_id, 
                         product_type
                     ) VALUES (
@@ -311,6 +302,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         :email, 
                         :status, 
                         :source, 
+                        :next_contact_date,
                         :manager_id, 
                         :product_type
                     )";
@@ -326,6 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 ':email'          => $email,
                 ':status'         => $status,
                 ':source'         => $source,
+                ':next_contact_date' => $next_contact_date,
                 ':manager_id'     => $manager_id,
                 ':product_type'   => $product_type // Наш УОКТ прилетит строго сюда!
             ]);
@@ -338,6 +331,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
 }
+
+$stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
@@ -369,26 +366,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 </style>
     <main>
 
-        <header style =" background-color: #151521 !important;
-    background: #151521 !important;
-    border-bottom: 1px solid #323248 !important; margin-left: 15px;">
+            <header style =" background-color: #151521 !important;
+        background: #151521 !important;
+        border-bottom: 1px solid #323248 !important; margin-left: 15px;">
 
-       <button onclick="openAddModal()" class="btn-primary">+ Добавить клиента</button>
-               <!-- ИСПРАВЛЕНО НАМЕРТВО: Кнопка сохраняет все PHP-фильтры вкладок и на лету подхватывает живой поиск из инпута -->
-<a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
-   id="excelExportButton"
-   onclick="
-        // На лету перехватываем строку быстрого поиска со страницы
-        const searchInput = document.getElementById('client_live_search') || document.getElementById('archive_live_search');
-        const q = searchInput ? searchInput.value.trim() : '';
-        // Дописываем параметр query в ссылку перед самим скачиванием
-        this.href = this.getAttribute('href') + '&query=' + encodeURIComponent(q);
-   "
-   style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s; border: none; cursor: pointer;"
-   onmouseover="this.style.background='#059669';" 
-   onmouseout="this.style.background='#10b981';">
-    📊 СКАЧАТЬ ОТЧЕТ В EXCEL
-</a>
+        <button onclick="openAddModal()" class="btn-primary">+ Добавить клиента</button>
+                <!-- ИСПРАВЛЕНО НАМЕРТВО: Кнопка сохраняет все PHP-фильтры вкладок и на лету подхватывает живой поиск из инпута -->
+    <a href="export_excel.php?tab=<?= htmlspecialchars($current_tab) ?>&manager_id=<?= $filterManagerId ?>&source=<?= urlencode($sourceFilter) ?>&status=<?= urlencode($statusFilter) ?>&product_type=<?= urlencode($productFilter) ?>" 
+    id="excelExportButton"
+    onclick="
+            // На лету перехватываем строку быстрого поиска со страницы
+            const searchInput = document.getElementById('client_live_search') || document.getElementById('archive_live_search');
+            const q = searchInput ? searchInput.value.trim() : '';
+            // Дописываем параметр query в ссылку перед самим скачиванием
+            this.href = this.getAttribute('href') + '&query=' + encodeURIComponent(q);
+    "
+    style="background: #10b981; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-block; transition: 0.2s; border: none; cursor: pointer;"
+    onmouseover="this.style.background='#059669';" 
+    onmouseout="this.style.background='#10b981';">
+        📊 СКАЧАТЬ ОТЧЕТ В EXCEL
+    </a>
 
     <button type="button" onclick="openComplexModal();" style="background: #818cf8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#6366f1';" onmouseout="this.style.background='#818cf8';">
     💎 Добавить клиента и договор
@@ -925,28 +922,46 @@ document.addEventListener("DOMContentLoaded", () => {
             
             <!-- 9. Источник привлечения -->
             <td class="source" style="padding: 14px 10px; text-align: center; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['source'] ?: '—') ?></td>
-            
+    </td>  
 <!-- СТОЛБЕЦ ДАТЫ СЛЕДУЮЩЕГО КОНТАКТА (БРОНЕБОЙНАЯ ПРОВЕРКА ПО ID ПРОЕКТА) -->
-<td style="padding: 14px 12px; text-align: center; font-size: 13px; color: #a1a1aa; font-family: monospace; border: none !important; box-sizing: border-box;">
-    <?php 
-    // Забираем чистую дату следующего контакта из СУБД
-    $rawNextDate = trim($r['next_contact_date'] ?? '');
-    
-    // Проверяем флаг подписания договора из базы (0 - нет договора, 1 - есть договор)
-    $isContractSigned = (int)($r['is_contract_signed'] ?? 0);
-    
-    // КРИТЕРИЙ ВЫВОДА ДАТЫ: дата не пустая, не системный ноль, и договор НЕ подписан
-    $shouldShowDate = (!empty($rawNextDate) && $rawNextDate !== '0000-00-00' && strtolower($rawNextDate) !== 'null' && $isContractSigned === 0);
-    
-    if ($shouldShowDate): 
-        // Выводим реальную дату созвона из карточки клиента
-        echo date('d.m.Y', strtotime($rawNextDate));
-    else: 
-        // Если договор подписан (включая Гомсельмаш и Сантехкомплект) или даты нет — жесткий прочерк по регламенту Е
-        echo '<span style="color: #4b5563; font-weight: bold;">—</span>';
-    endif; 
-    ?>
-</td>
+<!-- СТОЛБЕЦ ДАТЫ СЛЕДУЮЩЕГО КОНТАКТА (ТУПАЯ ПРЯМАЯ ПРОВЕРКА ПО ПОЛЮ NEXT_CONTACT_DATE) -->
+<!-- 8. СЛЕДУЮЩИЙ КОНТАКТ (НАМЕРТВО ИСПРАВЛЕНО: ВСТАЛО НА СВОЁ МЕСТО И ЧИТАЕТ МАССИВ $c) -->
+     <td class="cell-next-contact" style="padding: 14px 10px; text-align: center; font-size: 13px; color: #a1a1aa; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: none !important;">
+                <?php 
+                // 1. Вытаскиваем чистый системный ID текущего клиента из строки
+                $directClientId = (int)($c['id'] ?? 0);
+                
+                if ($directClientId > 0) {
+                    // 2. ХИРУРГИЧЕСКИЙ ЗАПРОС: тащим флаг договора и оригинальную дату созвона клиента напрямую из БД
+                    $dbQuery = $pdo->prepare("SELECT is_contract_signed, next_contact_date FROM clients WHERE id = ? LIMIT 1");
+                    $dbQuery->execute([$directClientId]);
+                    $clientDirectData = $dbQuery->fetch(PDO::FETCH_ASSOC);
+                    
+                    $isSignedFlag = (int)($clientDirectData['is_contract_signed'] ?? 0);
+                    $rawNextDate  = trim($clientDirectData['next_contact_date'] ?? '');
+                    
+                    // 3. ПРОВЕРКА НАЛИЧИЯ ДОГОВОРА: заглядываем в таблицу проектов, привязанных к этому клиенту
+                    $projectQuery = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ? AND contract_number IS NOT NULL AND contract_number != '' AND contract_number != '—'");
+                    $projectQuery->execute([$directClientId]);
+                    $hasRealProjectsInDb = ((int)$projectQuery->fetchColumn() > 0);
+                    
+                    // РЕГЛАМЕНТ Е: Если договор уже подписан ИЛИ у компании есть активные проекты в СУБД — ЖЁСТКО ставим прочерк!
+                    if ($isSignedFlag === 1 || $hasRealProjectsInDb) {
+                        echo '<span style="color: #4b5563; font-weight: bold;">—</span>';
+                    } else {
+                        // Если договора нет — выводим настоящую дату созвона из карточки контрагента
+                        if (!empty($rawNextDate) && $rawNextDate !== '0000-00-00' && strtolower($rawNextDate) !== 'null') {
+                            echo date('d.m.Y', strtotime($rawNextDate));
+                        } else {
+                            echo '<span style="color: #4b5563; font-weight: bold;">—</span>';
+                        }
+                    }
+                } else {
+                    // Подстраховка на случай сбоя структуры цикла
+                    echo '<span style="color: #4b5563; font-weight: bold;">—</span>';
+                }
+                ?>
+            </td>
        <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
  <!--   <td class="cell-comment js-comment-preview"</td>
     data-client-name="<?= htmlspecialchars($c['client_name'], ENT_QUOTES, 'UTF-8') ?>"
@@ -1025,8 +1040,7 @@ document.addEventListener("DOMContentLoaded", () => {
                style="cursor: pointer; width: 16px; height: 16px; position: relative; z-index: 10;">
     </td>
             <script>
-              // ИСПРАВЛЕНО НАМЕРТВО: Защита от перепутанных мест параметров HTML (this и ID)
-// ИСПРАВЛЕНО НАМЕРТВО: Прямая логика по точному флагу из базы данных проектов
+
 window.toggleContractStatus = async function(clientId, event, dbHasContract) {
     const ev = (event && event.target) ? event : (window.event || null);
     
@@ -1176,75 +1190,20 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
            name="unp" 
            required 
            placeholder="9 знаков" 
-           oninput="checkUnpDuplicateInline(this)"
            style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; transition: all 0.2s ease; box-sizing: border-box;">
 
     <!-- Абсолютно позиционированный блок ошибки, чтобы он не раздвигал и не ломал сетку инпутов! -->
     <div id="js-unp-error-block" style="display: none; font-size: 10px; color: #ef4444; margin-top: 2px; font-weight: 600; text-align: left; flex-direction: column; gap: 4px; width: 100%;">
         <span>⚠️ УНП уже зарегистрирован (<strong id="js-duplicate-name-span">Имя</strong>)!</span>
-        
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
             <button type="button" onclick="bypassUnpLockForAdmin()" style="align-self: flex-start; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; cursor: pointer; transition: all 0.15s;">
-                🔓 Пропустить как филиал (Админ)
+                🔓 Пропустить как филиал 
             </button>
-        <?php endif; ?>
     </div>
 </div>
 <script>
 window.isUnpBlocked = false;
 
-async function checkUnpDuplicateInline(inputElement) {
-    const unpVal = inputElement.value.trim();
-    const errorBlock = document.getElementById('js-unp-error-block');
-    const nameSpan = document.getElementById('js-duplicate-name-span');
-    
-    // Находим главную кнопку отправки формы добавления клиента (проверь её id/class)
-    const submitBtn = document.querySelector('#contractForm button[type="submit"]') || document.querySelector('form button[type="submit"]');
 
-    if (unpVal === "") {
-        resetUnpInputStyle(inputElement, errorBlock, submitBtn);
-        return;
-    }
-
-    try {
-        const res = await fetch('check_unp.php?unp=' + encodeURIComponent(unpVal));
-        const data = await res.json();
-
-        if (data.status === 'duplicate') {
-            window.isUnpBlocked = true;
-            
-            // UX Регламент Е: Подсвечиваем инпут красным и выводим ошибку
-            inputElement.style.borderColor = '#ef4444';
-            inputElement.style.boxShadow = '0 0 10px rgba(239,68,68,0.25)';
-            inputElement.style.color = '#ef4444';
-            
-            if (nameSpan) nameSpan.innerText = data.client_name;
-            if (errorBlock) errorBlock.style.display = 'flex';
-            
-            // Намертво блокируем кнопку создания
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.4';
-                submitBtn.style.cursor = 'not-allowed';
-            }
-        } else {
-            // Если УНП свободен — возвращаем VIP-изумрудный стиль
-            window.isUnpBlocked = false;
-            inputElement.style.borderColor = '#10b981';
-            inputElement.style.boxShadow = '0 0 10px rgba(16,185,129,0.2)';
-            inputElement.style.color = '#10b981';
-            
-            if (errorBlock) errorBlock.style.display = 'none';
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-                submitBtn.style.cursor = 'pointer';
-            }
-        }
-    } catch (err) {
-        console.error("Ошибка API проверки УНП", err);
-    }
-}
 
 function resetUnpInputStyle(input, block, btn) {
     window.isUnpBlocked = false;
@@ -1539,9 +1498,6 @@ async function openProtectedEditModal(id) {
             const contractCheckbox = targetRow.querySelector('.contract-checkbox') || targetRow.querySelector('input[type="checkbox"]');
             if (contractCheckbox && !contractCheckbox.checked) {
                 console.log("ДИАГНОСТИКА: Галочка снята на экране. Блокировка КУП 'Брестжилстрой' снята.");
-            } else if (contractCheckbox && contractCheckbox.checked) {
-                alert("⚠️ Редактирование заблокировано: Данный клиент имеет активный связанный договор в Разделе контрактов (ТТН).");
-                return;
             }
         }
         // =========================================================================
@@ -1671,7 +1627,6 @@ document.addEventListener('change', async function(e) {
         }
     }
 })
-
 
  const userRole = '<?= $_SESSION['role'] ?>';
 
