@@ -3,8 +3,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-require 'db.php';
-require_once 'logger.php';
+require 'db.php'; // Здесь находится наше подключение и универсальная функция logAction
 
 header('Content-Type: application/json');
 if (ob_get_length()) ob_clean();
@@ -14,7 +13,37 @@ try {
         throw new Exception("Доступ запрещен. Авторизуйтесь.");
     }
 
-    // Ловим ID проекта и параметры файла
+    // --- РЕЖИМ 1: ПОДПРОГРАММА УДАЛЕНИЯ СКАНА И ФИЗИЧЕСКОГО СТИРАНИЯ ФАЙЛА С ДИСКА ---
+    if (isset($_POST['action_mode']) && $_POST['action_mode'] === 'delete_contract_scan_full') {
+        $project_id = (int)($_POST['project_id'] ?? 0);
+        if ($project_id <= 0) {
+            throw new Exception("Не указан корректный ID договора.");
+        }
+
+        // 1. Сначала вытаскиваем текущий путь к файлу из базы данных, чтобы стереть его с жесткого диска
+        $getOld = $pdo->prepare("SELECT scan_path FROM projects WHERE id = ?");
+        $getOld->execute([$project_id]);
+        $oldPath = trim($getOld->fetchColumn() ?: '');
+
+        // 2. Если файл реально существует на сервере — физически уничтожаем его
+        if (!empty($oldPath) && file_exists($oldPath) && is_file($oldPath)) {
+            @unlink($oldPath); 
+        }
+
+        // 3. Обнуляем ячейку пути в таблице projects СУБД
+        $updateStmt = $pdo->prepare("UPDATE projects SET scan_path = NULL WHERE id = ?");
+        $updateStmt->execute([$project_id]);
+
+        // 4. ИСПРАВЛЕНО: Привели вызов лога к стандарту из 3-х параметров
+        if (function_exists('logAction')) {
+            logAction('DELETE', 'projects', "Полностью удалена скан-копия договора ID {$project_id}. Старый файл: {$oldPath}");
+        }
+
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
+
+    // --- РЕЖИМ 2: СТАНДАРТНАЯ ЗАГРУЗКА НОВОГО СКАНА ---
     $project_id = (int)($_POST['project_id'] ?? 0);
     if ($project_id <= 0) {
         throw new Exception("Не указан системный ID договора для привязки скана.");
@@ -59,9 +88,9 @@ try {
     $stmt = $pdo->prepare("UPDATE projects SET scan_path = ? WHERE id = ?");
     $stmt->execute([$fullPath, $project_id]);
 
-    // Логируем действие менеджера (5 параметров)
+    // ИСПРАВЛЕНО: Убрали лишние параметры ($pdo, $project_id) из вызова функции логов
     if (function_exists('logAction')) {
-        logAction($pdo, 'UPDATE', 'projects', $project_id, "Загружен новый скан договора. Формат: .{$fileExt}, Путь: {$fullPath}");
+        logAction('UPDATE', 'projects', "Загружен новый скан договора ID {$project_id}. Формат: .{$fileExt}, Имя: {$fileName}");
     }
 
     echo json_encode(['status' => 'success', 'file_path' => $fullPath, 'ext' => $fileExt]);
@@ -71,33 +100,4 @@ try {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     exit;
 }
-// ПОДПРОГРАММА УДАЛЕНИЯ СКАНА И ФИЗИЧЕСКОГО СТИРАНИЯ ФАЙЛА С ДИСКА
-    if (isset($_POST['action_mode']) && $_POST['action_mode'] === 'delete_contract_scan_full') {
-        $project_id = (int)($_POST['project_id'] ?? 0);
-        if ($project_id <= 0) {
-            throw new Exception("Не указан корректный ID договора.");
-        }
-
-        // 1. Сначала вытаскиваем текущий путь к файлу из базы данных, чтобы стереть его с жесткого диска
-        $getOld = $pdo->prepare("SELECT scan_path FROM projects WHERE id = ?");
-        $getOld->execute([$project_id]);
-        $oldPath = trim($getOld->fetchColumn() ?: '');
-
-        // 2. Если файл реально существует на сервере — физически уничтожаем его
-        if (!empty($oldPath) && file_exists($oldPath) && is_file($oldPath)) {
-            @unlink($oldPath); 
-        }
-
-        // 3. Обнуляем ячейку пути в таблице projects СУБД
-        $updateStmt = $pdo->prepare("UPDATE projects SET scan_path = NULL WHERE id = ?");
-        $updateStmt->execute([$project_id]);
-
-        // 4. Логируем зачистку (5 параметров)
-        if (function_exists('logAction')) {
-            logAction($pdo, 'DELETE', 'projects', $project_id, "Менеджер полностью удалил скан-копию договора. Старый файл: {$oldPath}");
-        }
-
-        echo json_encode(['status' => 'success']);
-        exit;
-    }
 ?>

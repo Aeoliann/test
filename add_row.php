@@ -12,7 +12,16 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$mid]);
     
-    echo json_encode(['status' => 'success', 'id' => $pdo->lastInsertId()]);
+    // Получаем ID только что созданной строки
+    $newId = $pdo->lastInsertId();
+    
+    // ВШИВАЕМ ЗАПИСЬ В ЖУРНАЛ АУДИТА:
+    // Так как при создании имя пустое, пишем две одинарные кавычки, как на вашем скриншоте
+    if (function_exists('logAction')) {
+        logAction('INSERT', 'clients', "Создан лид: '' (ID: {$newId})");
+    }
+    
+    echo json_encode(['status' => 'success', 'id' => $newId]);
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }

@@ -30,7 +30,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 }
-
 // СВЯЗЫВАНИЕ ТАБЛИЦ: Вытаскиваем предложения и текстовый LOGIN автора вместо ID
 $sql = "SELECT s.*, u.login 
         FROM suggestions s 
@@ -144,6 +143,5 @@ $suggestions = $stmt->fetchAll();
             </table>
         </div>
     </div>
-
 </body>
 </html>

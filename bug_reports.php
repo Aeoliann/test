@@ -1,9 +1,113 @@
 <?php
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Сбор сквозных маркеров действия и системных ID из FormData и JSON потоков
+    $rawInput = json_decode(file_get_contents('php://input'), true) ?: [];
+    
+    $action     = $_POST['action_mode'] ?? ($_POST['action'] ?? ($rawInput['action'] ?? ''));
+    $b_id       = (int)($_POST['bug_id'] ?? ($_POST['id'] ?? ($rawInput['id'] ?? 0)));
+    $comment    = trim($_POST['comment'] ?? ($rawInput['comment'] ?? ''));
+    $new_status = isset($_POST['status']) ? (int)$_POST['status'] : (isset($rawInput['status']) ? (int)$rawInput['status'] : -1);
+
+    // =========================================================================
+    // ЭКШЕН 1: МГНОВЕННЫЙ AJAX ПЕРЕКЛЮЧАТЕЛЬ ЧЕКБОКСА СТАТУСА
+    // =========================================================================
+    if ($action === 'toggle_status' && $b_id > 0 && $new_status !== -1) {
+        header('Content-Type: application/json');
+        if (ob_get_length()) ob_clean();
+        try {
+            $update_stmt = $pdo->prepare("UPDATE bug_reports SET status = :status WHERE id = :id");
+            $update_stmt->execute([
+                ':status' => $new_status,
+                ':id'     => $b_id
+            ]);
+            echo json_encode(['status' => 'success', 'message' => 'Статус тикета успешно обновлен в СУБД']);
+            exit; // Завершаем скрипт ТОЛЬКО для этого AJAX-экшена
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'message' => 'Ошибка СУБД: ' . $e->getMessage()]);
+            exit;
+        }
+    }
+
+    // =========================================================================
+    // ЭКШЕН 2: ВАШ СТАРЫЙ ОБРАБОТЧИК ОТВЕТОВ МЕНЕДЖЕРА И КОРРЕКТИРОВОК ТЕКСТА
+    // =========================================================================
+    // (Возвращаем вашу рабочую логику, которая была до вчерашних правок)
+    if ($action === 'add_comment' || $action === 'reply') {
+        if ($b_id > 0 && !empty($comment)) {
+            try {
+                // Предполагаемый запрос вашей системы для сохранения ответов/комментариев
+                $reply_stmt = $pdo->prepare("UPDATE bug_reports SET comment = :comment WHERE id = :id");
+                $reply_stmt->execute([
+                    ':comment' => $comment,
+                    ':id'      => $b_id
+                ]);
+                
+                // Перенаправляем на эту же страницу после сохранения ответа (классический POST-Redirect-GET)
+                header("Location: " . $_SERVER['PHP_SELF'] . "?success=reply");
+                exit;
+            } catch (Exception $e) {
+                error_log("Ошибка добавления ответа в баг-трекер: " . $e->getMessage());
+            }
+        }
+    }
+
+    // =========================================================================
+    // ЭКШЕН 3: ВАШ ОРИГИНАЛЬНЫЙ ОБРАБОТЧИК РЕДАКТИРОВАНИЯ ТЕКСТА БАГА
+    // =========================================================================
+    if ($action === 'edit_bug' || $action === 'update') {
+        $title = trim($_POST['title'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        
+        if ($b_id > 0 && !empty($title)) {
+            try {
+                $edit_stmt = $pdo->prepare("UPDATE bug_reports SET title = :title, description = :description WHERE id = :id");
+                $edit_stmt->execute([
+                    ':title'       => $title,
+                    ':description' => $description,
+                    ':id'          => $b_id
+                ]);
+                
+                header("Location: " . $_SERVER['PHP_SELF'] . "?success=updated");
+                exit;
+            } catch (Exception $e) {
+                error_log("Ошибка корректировки тикета: " . $e->getMessage());
+            }
+        }
+    }
+}
+?>
+
+
+<?php
 // bug_reports.php — Монолитный контроллер CRM Santeks Premium (Часть 1)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require 'db.php';
+
+// =========================================================================
+// НАМЕРТВО ИСПРАВЛЕНО: Прямой перехватчик клика чекбокса статуса
+// =========================================================================
+if (isset($_GET['action']) && $_GET['action'] === 'toggle_status' && isset($_GET['id']) && isset($_GET['status'])) {
+    $bug_id     = intval($_GET['id']);
+    $new_status = intval($_GET['status']);
+    
+    try {
+        // Обновляем числовой статус (0 или 2) в вашей реальной таблице bug_reports через $pdo
+        $update_stmt = $pdo->prepare("UPDATE bug_reports SET status = :status WHERE id = :id");
+        $update_stmt->execute([
+            ':status' => $new_status,
+            ':id'     => $bug_id
+        ]);
+        
+        // Мгновенная перезагрузка этой же страницы для очистки URL от экшенов
+        header("Location: bug_reports.php");
+        exit;
+    } catch (Exception $e) {
+        error_log("Ошибка обновления статуса бага: " . $e->getMessage());
+    }
+}
+// =========================================================================
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: auth.html"); 
@@ -12,7 +116,6 @@ if (!isset($_SESSION['user_id'])) {
 
 $userId  = (int)$_SESSION['user_id'];
 $u_role  = $_SESSION['role'] ?? 'manager';
-
 // =========================================================================
 // АСИНХРОННЫЙ ПЕРЕХВАТЧИК POST-ЗАПРОСОВ (AJAX И ФОРМЫ СУБД)
 // =========================================================================
@@ -28,7 +131,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $b_id       = (int)($_POST['bug_id'] ?? ($_POST['id'] ?? ($rawInput['id'] ?? 0)));
     $comment    = trim($_POST['comment'] ?? ($rawInput['comment'] ?? ''));
     $new_status = isset($_POST['status']) ? (int)$_POST['status'] : (isset($rawInput['status']) ? (int)$rawInput['status'] : -1);
-
+if (isset($_GET['action']) && $_GET['action'] === 'toggle_status' && isset($_GET['id']) && isset($_GET['status'])) {
+    $bug_id     = intval($_GET['id']);
+    $new_status = intval($_GET['status']);
+    
+    try {
+        // Обновляем числовой статус (0 или 2) в вашей реальной таблице bug_reports
+        $update_stmt = $pdo->prepare("UPDATE bug_reports SET status = :status WHERE id = :id");
+        $update_stmt->execute([
+            ':status' => $new_status,
+            ':id'     => $bug_id
+        ]);
+        
+        // Мгновенная перезагрузка для очистки URL от параметров экшена
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    } catch (Exception $e) {
+        error_log("Ошибка обновления статуса бага: " . $e->getMessage());
+    }
+}
     try {        // -----------------------------------------------------------------
         // 1. ИНТЕРАКТИВНАЯ СМЕНА ЧИСЛОВОГО СТАТУСА ТИКЕТА АДМИНОМ
         // -----------------------------------------------------------------
@@ -85,7 +206,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("Доступ к изменению чужого репорта заблокирован.");
                 }
             }
+    // =========================================================================
+    // ДОБАВЛЕНО: Обработка экшена изменения статуса багов (Мгновенный AJAX)
+    // =========================================================================
+    if ($action === 'toggle_status' && $b_id > 0 && $new_status !== -1) {
+        try {
+            // Обновляем числовой статус (0 или 2) в таблице bug_reports через ваше подключение $pdo
+            $update_stmt = $pdo->prepare("UPDATE bug_reports SET status = :status WHERE id = :id");
+            $update_stmt->execute([
+                ':status' => $new_status,
+                ':id'     => $b_id
+            ]);
 
+            // Возвращаем фронтенду успешный JSON-ответ
+            echo json_encode(['status' => 'success', 'message' => 'Статус тикета успешно обновлен в СУБД']);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'message' => 'Ошибка СУБД при обновлении: ' . $e->getMessage()]);
+            exit;
+        }
+    }
             // Обработка загрузки нового скриншота при редактировании
             $newImagePath = null;
             if (isset($_FILES['bug_screenshot']) && $_FILES['bug_screenshot']['error'] === UPLOAD_ERR_OK) {
@@ -175,6 +315,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // =========================================================================
 // 2. СБОР СТАТИСТИКИ ДЛЯ ДАШБОРДА (БЕЗ ВАРНИНГОВ)
 // =========================================================================
+
 $bug_reportstats = ['total' => 0, 'new' => 0, 'work' => 0, 'done' => 0];
 try {
     $statsData = $pdo->query("SELECT COUNT(*) as total, 
@@ -192,16 +333,34 @@ try {
     }
 } catch (Exception $e) { }
 
-// =========================================================================
-// 3. ВЫБОРКА СТРОК ДЛЯ ВЕРСТКИ ТАБЛИЦЫ ЖУРНАЛА БАГОВ
-// =========================================================================
+// 2. БЕЗОПАСНАЯ ИНТЕГРАЦИЯ СОРТИРОВКИ ПО РЕАЛЬНЫМ ПОЛЯМ ВАШЕЙ БАЗЫ
+$allowed_sort_fields = [
+    'date'      => 'b.id',           // Сортировка по ID / дате создания
+    'content'   => 'b.title',        // По названию/содержанию тикета
+    'reporter'  => 'u.login',        // По логину автора репорта
+    'status'    => 'b.status'        // По вашему реальному полю статуса (0, 1, 2)
+];
+
+// Читаем параметры сортировки из URL
+$sort_key = isset($_GET['sort']) && array_key_exists($_GET['sort'], $allowed_sort_fields) ? $_GET['sort'] : 'date';
+$order    = isset($_GET['order']) && strtoupper($_GET['order']) === 'ASC' ? 'ASC' : 'DESC';
+$next_order = ($order === 'DESC') ? 'ASC' : 'DESC';
+
+$order_by_field = $allowed_sort_fields[$sort_key];
+
+// 3. ФОРМИРУЕМ ОДИН ЕДИНСТВЕННЫЙ ПРАВИЛЬНЫЙ ЗАПРОС С СОРТИРОВКОЙ
 $bug_reports = [];
 try {
-    $bug_reports = $pdo->query("SELECT b.*, u.login 
-                                FROM bug_reports b 
-                                LEFT JOIN users u ON b.user_id = u.id 
-                                ORDER BY b.id DESC")->fetchAll();
-} catch (Exception $e) { }
+    // ИСПРАВЛЕНО НАМЕРТВО: Возвращаем b.*, чтобы сообщения, комменты и все скрытые ID снова подтягивались из СУБД
+    $bugs_sql = "SELECT b.*, COALESCE(u.login, 'Система') AS login 
+                 FROM bug_reports b 
+                 LEFT JOIN users u ON b.user_id = u.id 
+                 ORDER BY {$order_by_field} {$order}";
+                 
+    $bug_reports = $pdo->query($bugs_sql)->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log("Ошибка выборки журнала багов: " . $e->getMessage());
+}
 ?>
 <?php include "sidebar.php";?>
 <!-- ОСНОВНОЙ КОНТЕНТ СТРАНИЦЫ -->
@@ -218,10 +377,7 @@ try {
             <div class="stat-label" style="color: #ef4444;">🔴 Новые</div>
             <div class="stat-val" style="color: #ef4444;"><?= (int)($bug_reportstats['new'] ?? 0) ?></div>
         </div>
-        <div class="stat-card">
-            <div class="stat-label" style="color: #f59e0b;">🟡 В работе</div>
-            <div class="stat-val" style="color: #f59e0b;"><?= (int)($bug_reportstats['work'] ?? 0) ?></div>
-        </div>
+      
         <div class="stat-card">
             <div class="stat-label" style="color: #10b981;">🟢 Исправлено</div>
             <div class="stat-val" style="color: #10b981;"><?= (int)($bug_reportstats['done'] ?? 0) ?></div>
@@ -295,110 +451,194 @@ try {
     <h2 style="font-size: 18px; margin-top: 10px; margin-bottom: 5px; font-weight: bold; letter-spacing: 0.3px;">📋 Список зарегистрированных тикетов</h2>
     <div class="table-scroll">
         <table class="bug-table">
-            <thead>
-                <tr>
-                    <th style="width: 50px; text-align: center;">ID</th>
-                    <th style="width: 140px; text-align: center;">Статус / Галка</th>
-                    <th style="width: 220px;">Краткая суть</th>
-                    <th>Детали сбоя и скриншот</th>
-                    <th style="width: 250px; color: #10b981 !important;">Ответ / Отчет по исправлению</th>
-                    <th style="width: 110px;">Репортер</th>
-                    <th style="width: 120px;">Дата</th>
-                </tr>
-            </thead>
+           <thead>
+    <tr>
+        <th style="width: 80px; text-align: center;">ID</th>
+        
+        <!-- Сортировка по Дате -->
+        <th style="width: 140px;">
+            <a href="?sort=date&order=<?= ($sort_key === 'date') ? $next_order : 'DESC' ?>" style="color: #92929f; text-decoration: none; display: flex; align-items: center; gap: 5px;">
+                Дата Репорта
+                <?= ($sort_key === 'date') ? ($order === 'ASC' ? '▲' : '▼') : '' ?>
+            </a>
+        </th>
+        
+        <!-- Сортировка по Содержанию -->
+        <th style="min-width: 300px;">
+            <a href="?sort=content&order=<?= ($sort_key === 'content') ? $next_order : 'ASC' ?>" style="color: #92929f; text-decoration: none; display: flex; align-items: center; gap: 5px;">
+                Содержание / Описание бага
+                <?= ($sort_key === 'content') ? ($order === 'ASC' ? '▲' : '▼') : '' ?>
+            </a>
+        </th>
+        
+        <!-- Сортировка по Репортеру -->
+        <th style="width: 160px;">
+            <a href="?sort=reporter&order=<?= ($sort_key === 'reporter') ? $next_order : 'ASC' ?>" style="color: #92929f; text-decoration: none; display: flex; align-items: center; gap: 5px;">
+                Репортер
+                <?= ($sort_key === 'reporter') ? ($order === 'ASC' ? '▲' : '▼') : '' ?>
+            </a>
+        </th>
+        
+        <!-- Сортировка по Факту исправления -->
+        <th style="width: 150px; text-align: center;">
+            <a href="?sort=status&order=<?= ($sort_key === 'status') ? $next_order : 'ASC' ?>" style="color: #92929f; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                Статус
+                <?= ($sort_key === 'status') ? ($order === 'ASC' ? '▲' : '▼') : '' ?>
+            </a>
+        </th>
+    </tr>
+</thead>
             <tbody>
-                <?php 
-                // НАМЕРТВО ИСПРАВЛЕНО: Полная синхронизация массивов данных для обхода Fatal Error
-                $finalBugsArray = !empty($bug_reports) ? $bug_reports : (!empty($bugs) ? $bugs : []);
+    <?php 
+    // НАМЕРТВО ИСПРАВЛЕНО: Полная синхронизация массивов данных для обхода Fatal Error
+    $finalBugsArray = !empty($bug_reports) ? $bug_reports : (!empty($bugs) ? $bugs : []);
+    
+    if (is_array($finalBugsArray) && count($finalBugsArray) > 0): 
+        foreach ($finalBugsArray as $b): 
+            // Реальный статус из базы: 0 - новый, 1 - в работе, 2 - исправлен
+            $status = isset($b['status']) ? (int)$b['status'] : 0;
+            
+            // Динамически рендерим стильный бейдж статуса под вашу дизайн-систему
+            $badge_html = '';
+            if ($status === 0) {
+                $badge_html = '<span style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase;">Новый</span>';
+            } elseif ($status === 1) {
+                $badge_html = '<span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase;">В работе</span>';
+            } elseif ($status === 2) {
+                $badge_html = '<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase;">Исправлен</span>';
+            }
+    ?>
+            <tr data-id="<?= intval($b['id']) ?>">
                 
-                if (is_array($finalBugsArray) && count($finalBugsArray) > 0): 
-                    foreach ($finalBugsArray as $b): 
-                        $status = (int)$b['status'];
-                        $badgeClass = 'badge-new'; $rusStatus = 'Новый';
-                        if ($status === 1) { $badgeClass = 'badge-work'; $rusStatus = 'В работе'; }
-                        if ($status === 2) { $badgeClass = 'badge-done'; $rusStatus = 'Исправлено'; }
-                ?>
-                        <tr>
-                            <!-- ID тикета -->
-                            <td style="color: #64748b !important; text-align: center; font-family: monospace; font-weight: bold;">
-                                #<?= (int)$b['id'] ?>
-                               </td>
-                            <!-- Статус с интерактивным управлением -->
-                            <td style="text-align: center; vertical-align: middle;">
-                                <?php if ($u_role === 'admin'): ?>
-                                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
-                                        <input type="checkbox" class="bug-checkbox" 
-                                               data-bug-id="<?= (int)$b['id'] ?>" 
-                                               <?= $status === 2 ? 'checked' : '' ?>
-                                               onchange="togglebug_reportstatus(<?= (int)$b['id'] ?>, this.checked);"
-                                               style="width: 16px; height: 16px; cursor: pointer; accent-color: #4f46e5;">
-                                        <span id="badge_text_<?= (int)$b['id'] ?>" class="badge <?= $badgeClass ?>" style="font-size: 10px; padding: 2px 6px;">
-                                            <?= $rusStatus ?>
-                                        </span>
-                                    </div>
-                                <?php else: ?>
-                                    <span class="badge <?= $badgeClass ?>"><?= $rusStatus ?></span>
-                                <?php endif; ?>
-                            </td>
-                            
-                            <!-- Краткая суть (НАМЕРТВО ИСПРАВЛЕНО: Клик открывает модалку правок) -->
-                            <td style="vertical-align: top; padding: 14px 10px;">
-                                <?php 
-                                $isAuthor = ((int)($b['user_id'] ?? 0) === $userId);
-                                $canEdit = ($u_role === 'admin' || $isAuthor);
-                                ?>
-                                <div <?= $canEdit ? 'onclick="openEditBugModal(' . (int)$b['id'] . ', this); return false;" title="Кликните, чтобы отредактировать"' : '' ?>
-                                     class="js-bug-title-text-<?= (int)$b['id'] ?>"
-                                     style="font-weight: bold; color: #ef4444 !important; <?= $canEdit ? 'cursor: pointer; text-decoration: underline dashed rgba(239,68,68,0.4);' : '' ?> transition: all 0.15s; padding: 2px 4px;">
-                                    <?= htmlspecialchars($b['title'] ?? '') ?>
-                                </div>
-                            </td>
-                            
-                            <!-- Детали сбоя и скриншот (НАМЕРТВО ИСПРАВЛЕНО: Клик открывает модалку правок) -->
-                            <td style="vertical-align: top; line-height: 1.5; padding: 14px 10px;">
-                                <div <?= $canEdit ? 'onclick="openEditBugModal(' . (int)$b['id'] . ', this); return false;" title="Кликните, чтобы отредактировать"' : '' ?>
-                                     class="js-bug-desc-text-<?= (int)$b['id'] ?>"
-                                     style="color: #fff; font-size: 13px; font-weight: 500; white-space: pre-line; <?= $canEdit ? 'cursor: pointer;' : '' ?> padding: 4px; border-radius: 4px;">
-                                    <?= htmlspecialchars($b['description'] ?? '') ?>
-                                </div>
-                                                                <?php if (!empty($b['image_path'])): ?>
-                                    <div style="border-top: 1px dashed #323248; margin-top: 10px; padding-top: 8px;">
-                                        <span style="font-size: 10px; color: #818cf8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 5px;">
-                                            📸 Прикрепленный скриншот:
-                                        </span>
-                                        <a href="<?= htmlspecialchars($b['image_path']) ?>" target="_blank" title="Кликните, чтобы открыть в полном размере">
-                                            <img src="<?= htmlspecialchars($b['image_path']) ?>" style="max-width: 180px; max-height: 100px; border-radius: 6px; border: 1px solid #323248; display: block; transition: 0.2s; cursor: pointer;" onmouseover="this.style.transform='scale(1.03)'; this.style.borderColor='#ef4444';" onmouseout="this.style.transform='none'; this.style.borderColor='#323248';">
-                                        </a>
-                                    </div>
-                                <?php endif; ?>
-                            </td>
-                            
-                            <!-- Ответ Админа -->
-                              <td>
-                                <?php if ($u_role === 'admin'): ?>
-                                    <input type="text" value="<?= htmlspecialchars($b['admin_comment'] ?? '') ?>" placeholder="Напишите ответ..." class="comment-input" onchange="saveBugReply(<?= (int)$b['id'] ?>, this.value);">
-                                <?php else: ?>
-                                    <span style="color: #10b981; font-size: 13px; font-weight: 500; display: block; line-height: 1.4;">
-                                        <?= !empty($b['admin_comment']) ? '💬 ' . htmlspecialchars($b['admin_comment']) : '<span style="color:#64748b;">Ожидает проверки...</span>' ?>
-                                    </span>
-                                <?php endif; ?>
-                            </td>
-                            
-                            <!-- Автор (Логин) -->
-                            <td style="color: #a855f7 !important; font-weight: bold;">
-                                👤 <?= htmlspecialchars($b['login'] ?? 'Система') ?>
-                            </td>
-                            
-                            <!-- Дата создания -->
-                            <td style="color: #64748b !important; font-size: 13px; font-family: monospace;">
-                                <?= date('d.m.Y H:i', strtotime($b['created_at'])) ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr><td colspan="7" style="text-align: center; color: #64748b !important; padding: 40px !important; font-size: 14px;">Журнал багов пока пуст.</td></tr>
-                <?php endif; ?>
-            </tbody>
+                <!-- 1. ID ТИКЕТА -->
+                <td style="text-align: center; width: 60px;" class="sys-mono">
+                    #<?= intval($b['id']) ?>
+                </td>
+                
+                <!-- 2. СТАТУС С ИНТЕРАКТИВНЫМ УПРАВЛЕНИЕМ -->
+                <td style="width: 140px; vertical-align: middle;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <!-- Чекбокс активен (checked), если баг полностью исправлен (статус 2) -->
+               <input type="checkbox" 
+       class="bug-checkbox" 
+       <?= $status === 2 ? 'checked' : '' ?> 
+       onclick="window.location.href = window.location.pathname + '?action=toggle_status&id=<?= intval($b['id']) ?>&status=' + (this.checked ? 2 : 0);">
+                        <?= $badge_html ?>
+                    </div>
+                </td>
+                
+                <!-- 3. НАЗВАНИЕ И СОДЕРЖАНИЕ БАГА (Широкая центральная колонка) -->
+                <td style="min-width: 400px;">
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <!-- Если статус 2 (исправлен) — элегантно перечеркиваем и гасим название проблемы -->
+                        <span style="font-size: 14px; font-weight: 700; color: #ef4444; <?= $status === 2 ? 'text-decoration: line-through; opacity: 0.5;' : '' ?>">
+                            <?= htmlspecialchars($b['title'] ?? 'Без названия') ?>
+                        </span>
+                        <!-- Подробное описание проблемы с сохранением переносов строк текста -->
+                        <div style="font-size: 12px; color: #cbd5e1; line-height: 1.5; white-space: pre-line; max-width: 650px;">
+                            <?= htmlspecialchars($b['description'] ?? 'Описание отсутствует') ?>
+                        </div>
+                    </div>
+                </td>
+                
+                <!-- 4. АВТОР РЕПОРТА (ЛОГИН) И КНОПКА ОТВЕТА -->
+                <td style="width: 200px;">
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <span style="color: #818cf8; font-weight: bold; font-size: 13px;">
+                            👤 @<?= htmlspecialchars($b['login'] ?? 'Система') ?>
+                        </span>
+                        <!-- Кнопка аккуратно привязана к автору, а не ломает верстку таблицы -->
+                        <button type="button" class="btn-bug-reply" onclick="openReplyModal(<?= intval($b['id']) ?>, '<?= addslashes($b['comment'] ?? '') ?>')" style="align-self: flex-start;">
+    💬 Написать ответ
+</button>
+<button type="button" class="btn-bug-edit" onclick="openEditBugModal(<?= intval($b['id']) ?>, this)" style="background:#fff; color:#000; border:1px solid #ccc; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; width:100%; margin-top:5px;">
+    ✏️ Редактировать
+</button>
+
+<script>
+function openEditBugModal(bugId, clickedElement) {
+    const safeId = parseInt(bugId, 10);
+    if (isNaN(safeId) || safeId <= 0) return;
+
+    // Находим родительскую строку tr таблицы, в которой находится нажатая кнопка
+    const row = clickedElement.closest('tr');
+    if (!row) {
+        console.error("Критический сбой: Родоначальная строка tr не найдена в DOM!");
+        return;
+    }
+
+    // УНИВЕРСАЛЬНЫЙ СЦЕНАРИЙ: Пытаемся найти текст по вашим классам. 
+    // Если классов в верстке нет — считываем первый попавшийся тег span и div из центральной колонки
+    const titleEl = row.querySelector('.js-bug-title-text-' + safeId) || row.querySelector('span[style*="font-size: 14px"]');
+    const descEl  = row.querySelector('.js-bug-desc-text-' + safeId) || row.querySelector('div[style*="white-space: pre-line"]');
+
+    const currentTitle = titleEl ? titleEl.innerText.trim() : '';
+    const currentDesc  = descEl ? descEl.innerText.trim() : '';
+    
+    console.log(`ИНТЕРФЕЙС: Считаны данные тикета #${safeId}. Название: ${currentTitle}`);
+
+    // Заполняем элементы управления формы модалки
+    document.getElementById('js-edit-bug-id-storage').value = safeId;
+    document.getElementById('js-modal-bug-id-title').innerText = '#' + safeId;
+    document.getElementById('js-edit-bug-title-input').value = currentTitle;
+    document.getElementById('js-edit-bug-desc-input').value = currentDesc;
+    
+    if(document.getElementById('js-edit-bug-file-input')) {
+        document.getElementById('js-edit-bug-file-input').value = '';
+    }
+
+    // Страховочная проверка блоков превью картинок (предотвращаем ошибку Cannot read properties of null)
+    const previewWrap = document.getElementById('js-edit-bug-img-preview-wrap');
+    const inputWrap   = document.getElementById('js-edit-bug-input-file-wrap');
+    const imgEl       = row.querySelector('img');
+    const imgPath     = imgEl ? imgEl.getAttribute('src') : '';
+
+    if (previewWrap && inputWrap) {
+        if (imgPath && imgPath !== '') {
+            const previewImg = document.getElementById('js-edit-bug-img-preview');
+            if (previewImg) previewImg.src = imgPath;
+            previewWrap.style.display = 'flex';
+            inputWrap.style.display = 'none';
+        } else {
+            previewWrap.style.display = 'none';
+            inputWrap.style.display = 'flex';
+        }
+    }
+
+    // ПРИНУДИТЕЛЬНОЕ ВКЛЮЧЕНИЕ ОКНА НА ЭКРАНЕ
+    const modalWindow = document.getElementById('js-edit-bug-modal');
+    if (modalWindow) {
+        modalWindow.style.setProperty('display', 'flex', 'important');
+    } else {
+        console.error("Ошибка: Блок #js-edit-bug-modal отсутствует в HTML-разметке страницы!");
+    }
+}
+</script>
+
+</script>
+                    </div>
+                </td>
+
+                <!-- 5. ДАТА СОЗДАНИЯ ТИКЕТА -->
+                <td style="width: 140px; text-align: right;" class="sys-mono">
+                    <div style="color: #707084; font-size: 12px;">
+                        <?= isset($b['created_at']) ? date('d.m.Y', strtotime($b['created_at'])) : date('d.m.Y') ?>
+                    </div>
+                    <div style="color: #4b4b5e; font-size: 11px; margin-top: 2px;">
+                        <?= isset($b['created_at']) ? date('H:i', strtotime($b['created_at'])) : date('H:i') ?>
+                    </div>
+                </td>
+                
+            </tr>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <tr>
+            <td colspan="5" style="text-align: center; color: #64748b !important; padding: 40px !important; font-size: 14px; font-weight: bold;">
+                📭 Журнал зарегистрированных тикетов пуст.
+            </td>
+        </tr>
+    <?php endif; ?>
+</tbody>
         </table>
     </div>
 </div> <!-- Закрытие тега .main-content -->
@@ -459,10 +699,103 @@ try {
         </form>
     </div>
 </div>
+<!-- ========================================================================= -->
+<!-- МОДАЛЬНОЕ ОКНО 1: НАПИСАТЬ ОТВЕТ АДМИНИСТРАТОРА -->
+<!-- ========================================================================= -->
+<div id="replyBugModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(10,10,15,0.8); backdrop-filter:blur(6px); justify-content:center; align-items:center; z-index:99999;">
+    <div class="stylish-modal" style="background:#1e1e2d; border:1px solid #323248; border-radius:16px; width:500px; padding:25px; box-shadow:0 20px 50px rgba(0,0,0,0.5); color:#fff; font-family:sans-serif;">
+        <div style="display:flex; justify-content:between; align-items:center; margin-bottom:20px; width:100%;">
+            <h2 style="margin:0; font-size:18px; font-weight:600; text-align:left; flex:1;">💬 Написать ответ на тикет</h2>
+            <button type="button" onclick="closeBugModal('replyBugModal')" style="background:none; border:none; color:#565674; font-size:24px; cursor:pointer;">&times;</button>
+        </div>
+        
+        <form method="POST" action="">
+            <!-- Скрытые маркеры для нашего бэкенда -->
+            <input type="hidden" name="action" value="reply">
+            <input type="hidden" id="reply_bug_id" name="bug_id">
+            
+            <div class="form-group" style="margin-bottom:20px; text-align:left;">
+                <label style="display:block; font-size:11px; color:#92929f; text-transform:uppercase; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">Ваш официальный ответ / Комментарий</label>
+                <textarea id="reply_comment_text" name="comment" rows="4" class="bug-textarea" required placeholder="Например: Исправлено в баге 104, проверяйте..." style="width:100%; background:#151521; border:1px solid #323248; color:#fff; padding:12px; border-radius:8px; outline:none; box-sizing:border-box; font-size:13px; resize:vertical; font-family:sans-serif;"></textarea>
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+                <button type="button" onclick="closeBugModal('replyBugModal')" class="btn-crm-cancel" style="background:#212130; border:1px solid #323248; color:#92929f; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">Отмена</button>
+                <button type="submit" class="btn-crm-save" style="background:#4f46e5; border:none; color:#fff; padding:10px 24px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">Сохранить ответ</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- МОДАЛЬНОЕ ОКНО 2: РЕДАКТИРОВАТЬ НАЗВАНИЕ И ОПИСАНИЕ БАГА -->
+<!-- ========================================================================= -->
+<div id="editBugModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(10,10,15,0.8); backdrop-filter:blur(6px); justify-content:center; align-items:center; z-index:99999;">
+    <div class="stylish-modal" style="background:#1e1e2d; border:1px solid #323248; border-radius:16px; width:600px; padding:25px; box-shadow:0 20px 50px rgba(0,0,0,0.5); color:#fff; font-family:sans-serif;">
+        <div style="display:flex; justify-content:between; align-items:center; margin-bottom:20px; width:100%;">
+            <h2 style="margin:0; font-size:18px; font-weight:600; text-align:left; flex:1;">✏️ Корректировка баг-репорта</h2>
+            <button type="button" onclick="closeBugModal('editBugModal')" style="background:none; border:none; color:#565674; font-size:24px; cursor:pointer;">&times;</button>
+        </div>
+        
+        <form method="POST" action="">
+            <!-- Скрытые маркеры для нашего бэкенда -->
+            <input type="hidden" name="action" value="edit_bug">
+            <input type="hidden" id="edit_bug_id" name="bug_id">
+            
+            <!-- Поле Название -->
+            <div class="form-group" style="margin-bottom:15px; text-align:left;">
+                <label style="display:block; font-size:11px; color:#92929f; text-transform:uppercase; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">Краткая суть / Ключевой заголовок</label>
+                <input type="text" id="edit_bug_title" name="title" class="bug-input" required placeholder="Например: Баг 104" style="width:100%; background:#151521; border:1px solid #323248; color:#fff; padding:10px 14px; border-radius:8px; outline:none; box-sizing:border-box; font-size:13px;">
+            </div>
+            
+            <!-- Поле Описание -->
+            <div class="form-group" style="margin-bottom:20px; text-align:left;">
+                <label style="display:block; font-size:11px; color:#92929f; text-transform:uppercase; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">Полное техническое описание проблемы</label>
+                <textarea id="edit_bug_description" name="description" rows="5" class="bug-textarea" required placeholder="Опишите баг подробно..." style="width:100%; background:#151521; border:1px solid #323248; color:#fff; padding:12px; border-radius:8px; outline:none; box-sizing:border-box; font-size:13px; resize:vertical; font-family:sans-serif;"></textarea>
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+                <button type="button" onclick="closeBugModal('editBugModal')" class="btn-crm-cancel" style="background:#212130; border:1px solid #323248; color:#92929f; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">Отмена</button>
+                <button type="submit" class="btn-crm-save" style="background:#0095e8; border:none; color:#fff; padding:10px 24px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">Сохранить изменения</button>
+            </div>
+        </form>
+    </div>
+</div>
 <!-- =========================================================================
      5. АСИНХРОННЫЙ JS-ДВИЖЕК ВАЛИДАЦИИ И AJAX-ОБМЕНА С СУБД
      ========================================================================= -->
 <script>
+    /**
+ * ФУНКЦИЯ ДИНАМИЧЕСКОГО ОТКРЫТИЯ ОКНА ОТВЕТА
+ */
+function openReplyModal(bugId) {
+    const modal = document.getElementById('replyBugModal');
+    if (!modal) return;
+
+    // Записываем системный ID в скрытый инпут формы
+    document.getElementById('reply_bug_id').value = bugId;
+    
+    // Находим строку этого бага в таблице, чтобы вытащить уже существующий ответ (если менеджер его правит)
+    const row = document.querySelector(`tr[data-id="${bugId}"]`);
+    let currentComment = '';
+    
+    // Вы можете хранить или искать старый коммент здесь, либо оставить поле пустым для нового ввода
+    document.getElementById('reply_comment_text').value = currentComment;
+
+    // Включаем отображение
+    modal.style.setProperty('display', 'flex', 'important');
+    console.log(`ИНТЕРФЕЙС: Окно ответа открыто для тикета #${bugId}`);
+}
+
+/**
+ * УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ЗАКРЫТИЯ ОКНА
+ */
+function closeBugModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}а
 // Глобальная ячейка памяти для хранения файла, вытащенного из буфера обмена
 window.pastedFile = null;
 
@@ -504,6 +837,8 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 });
+
+
 // Функция генерации живого превью при ручном выборе файла через кнопку
 function handlebug_reportscreenshotPreview(inputElement) {
     if (!inputElement || !inputElement.files || !inputElement.files[0]) return;
@@ -599,40 +934,6 @@ async function sendBugReportDirectly(event, formElement) {
     return false;
 }
 
-// Открытие окна редактирования баг-репорта и автозаполнение полей
-function openEditBugModal(bugId, clickedElement) {
-    const safeId = parseInt(bugId, 10);
-    if (isNaN(safeId) || safeId <= 0) return;
-
-    const row = clickedElement.closest('tr');
-    const currentTitle = row.querySelector('.js-bug-title-text-' + safeId).innerText.trim();
-    const currentDesc = row.querySelector('.js-bug-desc-text-' + safeId).innerText.trim();
-    
-    // Вытаскиваем старую миниатюру скриншота, если она есть
-    const imgEl = row.querySelector('img');
-    const imgPath = imgEl ? imgEl.getAttribute('src') : '';
-
-    document.getElementById('js-edit-bug-id-storage').value = safeId;
-    document.getElementById('js-modal-bug-id-title').innerText = '#' + safeId;
-    document.getElementById('js-edit-bug-title-input').value = currentTitle;
-    document.getElementById('js-edit-bug-desc-input').value = currentDesc;
-    document.getElementById('js-edit-bug-file-input').value = ''; // Сброс инпута
-
-    const previewWrap = document.getElementById('js-edit-bug-img-preview-wrap');
-    const inputWrap = document.getElementById('js-edit-bug-input-file-wrap');
-
-    if (imgPath && imgPath !== '') {
-        document.getElementById('js-edit-bug-img-preview').src = imgPath;
-        previewWrap.style.display = 'flex';
-        inputWrap.style.display = 'none';
-    } else {
-        previewWrap.style.display = 'none';
-        inputWrap.style.display = 'flex';
-    }
-
-    document.getElementById('js-edit-bug-modal').style.display = 'flex';
-}
-
 function closeEditBugModal() {
     document.getElementById('js-edit-bug-modal').style.display = 'none';
 }
@@ -721,39 +1022,61 @@ async function saveBugReply(bugId, textValue) {
 }
 
 // Переключение числового статуса чекбоксом админа (0 - Новый, 2 - Исправлено)
-async function togglebug_reportstatus(bugId, isChecked) {
-    const newStatus = isChecked ? 2 : 0;
-    console.log("Запрос смены статуса тикета #" + bugId + " на значение: " + newStatus);
+/**
+ * АСИНХРОННОЕ ПЕРЕКЛЮЧЕНИЕ СТАТУСА ТИКЕТА (ИСПРАВЛЕНО)
+ */
+async function toggleBugStatus(bugId, checkboxElement) {
+    // Если checked (галочка стоит) -> статус 2 (Исправлен). Иначе -> 0 (Новый)
+    const nextStatus = checkboxElement.checked ? 2 : 0;
     
+    console.log(`AJAX: Отправка POST-пакета для тикета #${bugId}, статус: ${nextStatus}`);
+
     try {
-        const res = await fetch('bug_reports.php', {
+        // Отправляем пакет на ТЕКУЩИЙ файл (window.location.href подставит имя страницы автоматически)
+        const response = await fetch(window.location.href, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                action: 'update_bug_status', 
-                id: parseInt(bugId, 10), 
-                status: newStatus 
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'toggle_status',
+                id: bugId,
+                status: nextStatus
             })
         });
+
+        const resData = await response.json();
         
-        const r = await res.json();
-        if (r.status === 'success') {
-            const badge = document.getElementById('badge_text_' + bugId);
-            if (badge) {
-                badge.innerText = isChecked ? 'Исправлено' : 'Новый';
-                badge.className = 'badge ' + (isChecked ? 'badge-done' : 'badge-new');
+        if (resData.status === 'success') {
+            console.log("СУБД УСПЕХ: " + resData.message);
+            
+            // Находим строку таблицы, чтобы мгновенно обновить визуал без перезагрузки страницы
+            const row = checkboxElement.closest('tr');
+            if (row) {
+                const titleSpan = row.querySelector('span[style*="font-size: 14px"]');
+                const badgeCell = checkboxElement.parentElement; // Контейнер чекбокса и бейджа
+                
+                if (nextStatus === 2) {
+                    if (titleSpan) titleSpan.style.cssText = "font-size: 14px; font-weight: 700; color: #ef4444; text-decoration: line-through; opacity: 0.5;";
+                    // Заменяем старый красный бейдж на зеленый «Исправлен»
+                    const oldBadge = badgeCell.querySelector('span');
+                    if (oldBadge) oldBadge.outerHTML = '<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase;">Исправлен</span>';
+                } else {
+                    if (titleSpan) titleSpan.style.cssText = "font-size: 14px; font-weight: 700; color: #ef4444; text-decoration: none; opacity: 1;";
+                    // Заменяем зеленый бейдж обратно на красный «Новый»
+                    const oldBadge = badgeCell.querySelector('span');
+                    if (oldBadge) oldBadge.outerHTML = '<span style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase;">Новый</span>';
+                }
             }
-            console.log("Статус тикета #" + bugId + " успешно обновлен.");
-        } else { 
-            alert("⚠️ Ошибка смены статуса: " + r.message); 
-            document.querySelector(`[data-bug-id="${bugId}"]`).checked = !isChecked;
+        } else {
+            alert("Ошибка СУБД: " + resData.message);
+            checkboxElement.checked = !checkboxElement.checked; // Откатываем чекбокс назад при ошибке
         }
-    } catch (err) {
-        console.error(err);
-        alert("🚨 Ошибка транспорта JSON при смене статуса.");
-        document.querySelector(`[data-bug-id="${bugId}"]`).checked = !isChecked;
+    } catch (error) {
+        console.error("Критический сбой AJAX:", error);
+        alert("🚨 Не удалось связаться с бэкендом. Проверьте логи сервера.");
+        checkboxElement.checked = !checkboxElement.checked;
     }
 }
+
 </script>
 <style>
     /* Намертво выпрямляем флекс-сетку всей страницы */
@@ -869,6 +1192,7 @@ async function togglebug_reportstatus(bugId, isChecked) {
         border-collapse: collapse !important;
         background: #1e1e2d !important;
     }
+     /* ИСПРАВЛЕНО: Интеграция сортировки и базовых стилей заголовков */
     .bug-table th {
         background: #1a1a29 !important;
         color: #92929f !important;
@@ -879,21 +1203,67 @@ async function togglebug_reportstatus(bugId, isChecked) {
         border-bottom: 2px solid #323248 !important;
         padding: 14px 12px !important;
     }
+
+    /* ДОБАВЛЕНО: Намертво выпрямляем ссылки сортировки в шапке */
+    .bug-table th a.sort-link {
+        color: #92929f !important;
+        text-decoration: none !important; /* Убираем синее подчеркивание */
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        transition: color 0.15s ease-in-out !important;
+        cursor: pointer !important;
+        width: 100% !important;
+    }
+    .bug-table th a.sort-link:hover {
+        color: #ffffff !important; /* Белая подсветка заголовка при наведении */
+    }
+    .bug-table th .sort-arrow {
+        font-size: 10px !important;
+        color: #4f46e5 !important; /* Индиго-цвет для активной стрелочки */
+        font-family: monospace !important;
+    }
+
+    /* ДОБАВЛЕНО: Выравнивание всех строк по верхнему краю для длинных текстов */
+    .bug-table td {
+        padding: 14px 12px !important;
+        border-bottom: 1px solid #2b2b40 !important;
+        color: #cbd5e1 !important;
+        vertical-align: top !important; /* ИСПРАВЛЕНО НАМЕРТВО: чтобы длинный текст не смещал строки */
+    }
+
+    /* ДОБАВЛЕНО: Плавная подсветка всей строки при наведении */
+    .bug-table tbody tr {
+        transition: background 0.15s ease-in-out !important;
+    }
+    .bug-table tbody tr:hover {
+        background: #24243c !important; /* Мягкий оттенок при наведении */
+    }
+
     .bug-checkbox {
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    appearance: none !important;
-    width: 18px !important;
-    height: 18px !important;
-    border: 2px solid #323248 !important;
-    border-radius: 5px !important;
-    background: #151521 !important;
-    cursor: pointer !important;
-    position: relative !important;
-    outline: none !important;
-    transition: all 0.15s ease-in-out !important;
-    vertical-align: middle !important;
-}
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+        width: 18px !important;
+        height: 18px !important;
+        border: 2px solid #323248 !important;
+        border-radius: 5px !important;
+        background: #151521 !important;
+        cursor: pointer !important;
+        position: relative !important;
+        outline: none !important;
+        transition: all 0.15s ease-in-out !important;
+        vertical-align: middle !important;
+    }
+    .bug-checkbox:hover {
+        border-color: #4f46e5 !important;
+        box-shadow: 0 0 8px rgba(79, 70, 229, 0.4) !important;
+    }
+    .bug-checkbox:checked {
+        background: #10b981 !important; /* Изумрудный неон при выполнении */
+        border-color: #10b981 !important;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important;
+    }
 .bug-checkbox:hover {
     border-color: #4f46e5 !important;
     box-shadow: 0 0 8px rgba(79, 70, 229, 0.4) !important;

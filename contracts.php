@@ -532,7 +532,7 @@ async function deleteContractScanInline(pid) {
                             <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="color: #818cf8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🏢 Клиент:</span>
                     <span style="color: #ffffff; font-size: 14px; font-weight: 700; letter-spacing: 0.3px;"><?= htmlspecialchars($r['client_name']) ?></span>
-                    <span style="color: #4b5a75; font-size: 11px; font-weight: normal; margin-left: 4px;">(Все active договора компании)</span>
+                    <span style="color: #4b5a75; font-size: 11px; font-weight: normal; margin-left: 4px;">(Все активные договора компании)</span>
                 </div>
                             
                           <button type="button" 
@@ -1747,7 +1747,6 @@ async function loadProjectTtnsPremium(pid) {
         container.innerHTML = '<span style="color:#ef4444; font-size:12px; padding:15px; display:block; text-align:center;">Критическая ошибка загрузки</span>';
     }
 }
-
 
 window.submitTtnFormPremium = async function() {
     const pid = document.getElementById('ttn_pid_storage').value;

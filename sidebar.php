@@ -88,6 +88,26 @@ try {
 
 if ($lastUpdate): 
 ?>
+<script>
+(function() {
+    // Функция отправки сигнала "Я онлайн"
+    async function sendPing() {
+        try {
+            // Тихо вызываем ping.php в фоновом режиме
+            await fetch('ping.php', { method: 'POST', cache: 'no-store' });
+        } catch (e) {
+            // Если интернет на секунду пропал — не ломаем интерфейс, просто пропустим тик
+            console.log('Сбой пинга присутствия');
+        }
+    }
+
+    // Запускаем первый пинг сразу при загрузке любой страницы CRM
+    sendPing();
+
+    // Затем каждые 60 секунд (60000 миллисекунд) повторяем отправку сигнала
+    setInterval(sendPing, 60000);
+})();
+</script>
 <div id="systemUpdateToast" style="display: none; position: fixed; bottom: 20px; right: 20px; width: 320px; background: #1e1e2d; border: 1px solid #4f46e5; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 100000; box-sizing: border-box; animation: slideInUpdate 0.4s ease-out;">
     <!-- Шапка сообщения -->
     <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid #323248; background: rgba(79, 70, 229, 0.1); border-top-left-radius: 11px; border-top-right-radius: 11px;">

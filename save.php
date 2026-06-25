@@ -13,7 +13,35 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+
 $userId = (int)$_SESSION['user_id'];
+
+$unp = isset($_POST['unp']) ? trim($_POST['unp']) : '';
+$role = $_SESSION['role'] ?? 'manager';
+
+// Проверяем уникальность УНП только если оно заполнено и пользователь НЕ админ
+if (!empty($unp) && $role !== 'admin') {
+    
+    // Ищем, есть ли уже клиент с таким УНП в базе данных
+    $checkStmt = $pdo->prepare("SELECT id, client_name FROM clients WHERE unp = ? LIMIT 1");
+    $checkStmt->execute([$unp]);
+    $existingClient = $checkStmt->fetch();
+
+    if ($existingClient) {
+        // Если нашли дубликат — прерываем скрипт и возвращаем ошибку в JSON
+        echo json_encode([
+            'status' => 'duplicate_unp',
+            'message' => "Критическая ошибка: Клиент с УНП {$unp} уже существует в базе ('{$existingClient['client_name']}'). Ввод заблокирован. Для создания филиала обратитесь к Администратору."
+        ]);
+        
+        // Логируем попытку создания дубликата менеджером
+        if (function_exists('logAction')) {
+            logAction('SECURITY', 'clients', "Заблокирована попытка создания дубликата УНП: {$unp}");
+        }
+        exit;
+    }
+}
+
 
 try {
     $action_mode = $_POST['action'] ?? '';

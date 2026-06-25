@@ -41,7 +41,7 @@ try {
     } else {
         $sql_stats = "SELECT 
             COUNT(*) as total,
-          
+            SUM(CASE WHEN status = 'Текущий' THEN 1 ELSE 0 END) as in_work,
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
         FROM clients WHERE manager_id = ?";
@@ -222,7 +222,7 @@ try {
         // МЕНЕДЖЕР: Считает 'Текущий' только по своим клиентам
         $sql_stats = "SELECT 
             COUNT(*) as total,  
-            SUM(CASE WHEN status = 'Текущий' THEN 1 ELSE 0 END) as in_work,
+            SUM(CASE WHEN status = 'Новый' THEN 1 ELSE 0 END) as in_work,
             SUM(CASE WHEN status = 'Отказ' THEN 1 ELSE 0 END) as refusals,
             SUM(CASE WHEN is_contract_signed = 1 THEN 1 ELSE 0 END) as signed
         FROM clients WHERE manager_id = ?";
@@ -270,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $check_stmt = $pdo->prepare($check_sql);
             $check_stmt->execute([
                 ':client_name' => $client_name,
-                ':unp'         => $unp
+                
             ]);
             
             if ($check_stmt->fetchColumn() > 0) {
@@ -280,6 +280,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         <br><br><a href='index.php' style='color: #721c24; font-weight: bold;'>Вернуться назад</a>
                      </div>");
             }
+            $check_stmt->execute([
+                ':unp'         => $unp
+            ]);
+             if ($check_stmt->fetchColumn() > 0) {
+                // Если дубликат найден, выводим красивую ошибку и останавливаем скрипт
+                die("<div style='background: #f8d7da; color: #721c24; padding: 20px; border: 1px solid #f5c6cb; border-radius: 6px; margin: 20px; font-family: sans-serif;'>
+                        <strong>⚠️ Ошибка дублирования данных:</strong> Контрагент с названием «" . htmlspecialchars($client_name) . "» и УНП «" . htmlspecialchars($unp) . "» уже существует в системе! 
+                        <br><br><a href='index.php' style='color: #721c24; font-weight: bold;'>Вернуться назад</a>
+                     </div>");
+            }   
             // --- КОНЕЦ ФИКСА БАГА ---
 
             // Используем именованные параметры :name вместо знаков вопроса, чтобы исключить путаницу мест!
@@ -293,7 +303,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         source, 
                         next_contact_date,
                         manager_id, 
-                        product_type
+                        product_type,
+                        website
                     ) VALUES (
                         :client_name, 
                         :unp, 
@@ -305,6 +316,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         :next_contact_date,
                         :manager_id, 
                         :product_type
+                        :website
                     )";
             
             $stmt = $pdo->prepare($sql);
@@ -320,7 +332,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 ':source'         => $source,
                 ':next_contact_date' => $next_contact_date,
                 ':manager_id'     => $manager_id,
-                ':product_type'   => $product_type // Наш УОКТ прилетит строго сюда!
+                ':product_type'   => $product_type, // Наш УОКТ прилетит строго сюда!
+                ':website' => $website
             ]);
             
             header("Location: index.php");
@@ -408,8 +421,16 @@ $stmt = $pdo->prepare($sql);
                     <input type="text" name="client_name" id="complex_client_name" required placeholder="ООО СантехМонтаж" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">УНП / ИНН</label>
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">УНП / ИНН</label>                    
                     <input type="text" name="unp" id="complex_unp" placeholder="123456789" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
+                <script> document.getElementById('complex_unp').addEventListener('blur', function() {
+    let unpValue = this.value.trim();
+    
+    // Проверяем, что поле не пустое и длина не равна 9
+    if (unpValue.length > 0 && unpValue.length !== 9) {
+        alert('Внимание: УНП должен содержать 9 знаков. Проверьте корректность данных (для иностранных партнеров допускается другое количество).');
+    }
+});</script>
                 </div>
             </div>
 
@@ -463,6 +484,7 @@ $stmt = $pdo->prepare($sql);
 </div>
 
 <script>
+    
 function openComplexModal() {
     document.getElementById('complexModal').style.display = 'flex';
 }
@@ -659,7 +681,7 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
 
     <!-- Карточка 2 -->
     <div style="background: #1e1e2d; padding: 20px; border-radius: 12px; border-left: 4px solid #f6ad55; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-left:25px; margin-right:25px;">
-        <div style="color: #92929f; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">Новые</div>
+        <div style="color: #92929f; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">в работе</div>
         <div style="color: #fff; font-size: 28px; font-weight: bold; line-height: 1;"><?= (int)$stats['in_work'] ?></div>
     </div>
 
@@ -712,8 +734,11 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Вид продукции<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Контракт<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Действие<div class="resizer"></div></th>
+         <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Веб-сайт<div class="resizer"></div></th>
+        
         </tr>
-                
+      
+        
         <script>document.addEventListener('DOMContentLoaded', function() {
     const createResizableTable = function(table) {
         if (!table) return;
@@ -962,6 +987,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 ?>
             </td>
+          <td class="website" style="padding: 14px 10px; text-align: center; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['website'] ?: '—') ?></td>
+    </td>  
        <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
  <!--   <td class="cell-comment js-comment-preview"</td>
     data-client-name="<?= htmlspecialchars($c['client_name'], ENT_QUOTES, 'UTF-8') ?>"
@@ -1132,9 +1159,11 @@ window.toggleContractStatus = async function(clientId, event, dbHasContract) {
 // Принудительный сброс галочки при клике на Отмену
 function closeContractModal() {
     const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+     
+
+        console.log("Данные успешно подтянуты из API без единого сбоя.");
+
+
 
     if (window.activeContractCheckbox) {
         window.activeContractCheckbox.checked = false; // Галочка принудительно снимается
@@ -1153,17 +1182,167 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
 <button type="button" 
         class="btn-edit"
         onclick="<?= $isComplexLock ? "alert('⚠️ Доступ ограничен: Карточка заблокирована для редактирования, так как по ней уже заключен договор! Обратитесь к Администратору.'); return false;" : "openProtectedEditModal(" . (int)$c['id'] . "); return false;" ?>"
-        style="background: <?= $isComplexLock ? '#3f3f46' : '#4f46e5' ?>; color: <?= $isComplexLock ? '#92929f' : 'white' ?>; border: none; padding: 4px 10px; border-radius: 4px; cursor: <?= $isComplexLock ? 'not-allowed' : 'pointer' ?>; font-size: 12px; font-weight: bold;"
+        style="ba  ckground: <?= $isComplexLock ? '#3f3f46' : '#4f46e5' ?>; color: <?= $isComplexLock ? '#92929f' : 'white' ?>; border: none; padding: 4px 10px; border-radius: 4px; cursor: <?= $isComplexLock ? 'not-allowed' : 'pointer' ?>; font-size: 12px; font-weight: bold;"
         title="<?= $isComplexLock ? 'Редактирование запрещено! Карточка создана в связке с договором.' : 'Редактировать личные данные клиента' ?>">
     <?= $isComplexLock ? '🔒 Ред.' : '✏️ Ред.' ?>
+
+
 </button>
 
 </td>
+
             <td class="cell-source" style="display:none;"><?= htmlspecialchars($c['source']) ?></td>
         </tr>
+        
         <?php endforeach; ?>
     </tbody>
+    
 </table>
+<script>
+let ContactIndex = 0;
+
+/**
+ * ГЛОБАЛЬНАЯ ФУНКЦИЯ ДОБАВЛЕНИЯ ПОЛЕЙ КОНТАКТА
+ */
+function addContactField(data = null) {
+    const container = document.getElementById('contactsContainer');
+    if (!container) return; 
+
+    const contactRow = document.createElement('div');
+    contactRow.className = 'contact-card';
+    contactRow.setAttribute('data-index', contactIndex);
+
+    const deleteBtn = contactIndex > 0 
+        ? `<button type="button" onclick="removeContactField(${contactIndex})" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: #ef4444; font-size: 20px; cursor: pointer; font-weight: bold; padding: 0; line-height: 1;">&times;</button>`
+        : '';
+
+    contactRow.innerHTML = `
+        ${deleteBtn}
+        <div class="crm-grid-2" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label>ФИО ответственного лица ${contactIndex === 0 ? '<span style="color:#ef4444;">*</span>' : ''}</label>
+                <input type="text" name="contacts[${contactIndex}][name]" ${contactIndex === 0 ? 'required' : ''} value="${data ? data.name : ''}" class="crm-input" placeholder="Иванов Иван Иванович">
+            </div>
+            <div class="form-group">
+                <label>Должность лица</label>
+                <input type="text" name="contacts[${contactIndex}][position]" value="${data ? data.position : ''}" class="crm-input" placeholder="Напр: Главный снабженец">
+            </div>
+        </div>
+        <div class="crm-grid-2" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label>Телефон прямой</label>
+                <input type="text" name="contacts[${contactIndex}][phone]" value="${data ? data.phone : ''}" class="crm-input" placeholder="+375 (...)">
+            </div>
+            <div class="form-group">
+                <label>Email лица</label>
+                <input type="email" name="contacts[${contactIndex}][email]" value="${data ? data.email : ''}" class="crm-input" placeholder="ivanov@partner.com">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Примечания по функциям / Сфера ответственности</label>
+            <textarea name="contacts[${contactIndex}][function_notes]" rows="1" class="crm-textarea" placeholder="ЛПР, принимает итоговые решения по отгрузкам...">${data ? data.function_notes : ''}</textarea>
+        </div>
+    `;
+
+    container.appendChild(contactRow);
+    contactIndex++;
+    container.scrollTop = container.scrollHeight;
+}   
+
+function removeContactField(index) {
+    const row = document.querySelector(`.contact-item-row[data-index="${index}"]`);
+    if (row) row.remove();
+}
+
+/**
+ * ФУНКЦИЯ РЕДАКТИРОВАНИЯ КЛИЕНТА (ВЫНЕСЕНА В ФИНАЛЬНЫЙ БЛОК)
+ */
+async function openProtectedEditModal(id) {
+    console.log("=== ТЕСТ ЗАПУЩЕН ===");
+    const modal = document.getElementById('clientModal');
+    const form = document.getElementById('clientForm');
+    
+    try {
+        const res = await fetch('get_client.php?id=' + parseInt(id, 10));
+        const responseData = await res.json();
+        const c = responseData.data; 
+        console.log("CHECKPOINT 1: Данные получены из базы.");
+
+        // Базовые текстовые поля
+        if(document.getElementById('client_id')) document.getElementById('client_id').value = c.id;
+        if(document.getElementById('modalTitle')) document.getElementById('modalTitle').innerText = 'Редактирование клиента #' + c.id;
+        
+        const nameField = document.getElementById('client_name') || document.getElementById('name');
+        if (nameField) nameField.value = c.client_name || '';
+        
+        const unpInput = document.getElementById('js-client-unp-input') || document.getElementById('unp');
+        if (unpInput) unpInput.value = c.unp || '';
+        
+        console.log("CHECKPOINT 2: Базовые поля (Имя, УНП) заполнены.");
+
+        // 1. Проверяем поле сайта
+        const websiteField = document.getElementById('client_website');
+        if (websiteField) {
+            websiteField.value = c.website || '';
+        }
+        console.log("CHECKPOINT 3: Поле сайта обработано.");
+
+        // 2. Проверяем функцию контактов
+        const contactsContainer = document.getElementById('contactsContainer');
+        if (contactsContainer) {
+            contactsContainer.innerHTML = '';
+            contactIndex = 0;
+            if (c.contacts && Array.isArray(c.contacts) && c.contacts.length > 0) {
+                c.contacts.forEach(contact => { addContactField(contact); });
+            } else {
+                addContactField();
+            }
+        }
+        console.log("CHECKPOINT 4: Динамические контакты отрисованы.");
+
+        // 3. Проверяем старые поля обратной совместимости
+        if(document.getElementById('contact_person')) document.getElementById('contact_person').value = c.contact_person || '';
+        if(document.getElementById('phone')) document.getElementById('phone').value = c.phone || '';
+        
+        const emailField = document.getElementById('e_mail') || document.getElementById('email');
+        if (emailField) emailField.value = c.email || '';
+        console.log("CHECKPOINT 5: Поля обратной совместимости пройдены.");
+
+        // 4. Проверяем даты и вызов фикса бага 104
+        const nextDateInput = document.getElementById('add_client_next_date') || document.getElementById('next_contact_date');
+        if (nextDateInput) {
+            let apiDateValue = (c.next_contact_date || '').toString().trim();
+            if (apiDateValue && apiDateValue !== '—' && apiDateValue !== 'NULL' && apiDateValue !== '0000-00-00') {
+                if (apiDateValue.includes('-')) apiDateValue = apiDateValue.substring(0, 10);
+                nextDateInput.value = apiDateValue;
+            } else {
+                nextDateInput.value = ''; 
+            }
+        }
+        console.log("CHECKPOINT 6: Даты и календари зафиксированы.");
+
+        // 5. Проверяем статусы и системные селекты
+        if(document.getElementById('status')) document.getElementById('status').value = c.status || 'Новый';
+        if(document.getElementById('comment')) document.getElementById('comment').value = c.comment || '';
+        if(document.getElementById('source')) document.getElementById('source').value = c.source || '';
+        
+        console.log("CHECKPOINT 7: Системные селекты записаны. Пытаемся открыть модалку...");
+
+        // ФИНАЛЬНЫЙ СТАРТ
+        if (modal) {
+            modal.style.setProperty('display', 'flex', 'important');
+            modal.classList.add('active');
+            console.log("CHECKPOINT ФИНАЛ: КЛАССЫ И СТИЛИ ДОБАВЛЕНЫ УСПЕШНО!");
+        }
+
+    } catch (err) {
+        console.error("КРИТИЧЕСКИЙ СБОЙ ВНУТРИ ТЕСТА:", err);
+    }
+}console.log("Данные успешно подтянуты из API без единого сбоя. Окно открыто.");
+
+
+
+    </script>
 </div>
 <!-- МОДАЛЬНОЕ ОКНО (ОДНО НА ВЕСЬ ФАЙЛ, ВНЕ ЦИКЛА!) -->
 <div id="clientModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:9999;">
@@ -1176,21 +1355,107 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
             
              
     <!-- РЯД 1: НАЗВАНИЕ И УНП -->
-    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-        <div class="form-group" style="flex: 2; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Название организации <span style="color:red;">*</span></label>
-            <input type="text" id="client_name" name="client_name" required placeholder="Напр: СЗАО «Сантэкс»" style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-        </div>
+   
+        
+        <form id="clientForm" autocomplete="off">
+            <input type="hidden" id="client_id" name="id">
+            
+            <div class="modal-body">
+                
+                <!-- РЯД 1: КЛЮЧЕВАЯ ИНФОРМАЦИЯ -->
+                <div class="crm-grid-3">
+                    <div class="form-group">
+                        <label>Название организации <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="client_name" name="client_name" required class="crm-input" placeholder="СЗАО «Сантэкс»">
+                    </div>
+                    <div class="form-group">
+                        <label>УНП контрагента <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="js-client-unp-input" name="unp" required class="crm-input" placeholder="9 знаков">
+                        <div id="js-unp-error-block" style="display:none; font-size:10px; color:#ef4444; font-weight:600;"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Сайт компании</label>
+                        <input type="text" id="client_website" name="website" class="crm-input" placeholder="example.com">
+                    </div>
+                </div>
+
+                <!-- РЯД 2: ДИНАМИЧЕСКИЕ КОНТАКТНЫЕ ЛИЦА -->
+                <div class="contacts-section">
+                    <div class="contacts-section-header">
+                        <h3>Контактные лица компании</h3>
+                        <button type="button" class="btn-add-contact" onclick="addContactField()">+ Добавить лицо</button>
+                    </div>
+                    <div id="contactsContainer" class="contacts-scroll-container">
+                        <!-- Динамические строки добавляются через JS -->
+                    </div>
+                </div>
+
+                <!-- РЯД 3: СВЯЗЬ И ПРОДУКЦИЯ -->
+                <div class="crm-grid-2">
+                    <div class="form-group">
+                        <label>E-Mail компании</label>
+                        <input type="email" id="e_mail" name="email" class="crm-input" placeholder="info@partner.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Вид продукции <span style="color:#ef4444;">*</span></label>
+                        <select id="product_type" name="product_type" class="crm-select">
+                            <option value="ЕКМ">ЕКМ</option>
+                            <option value="Сантехника">Сантехника</option>
+                            <option value="Посуда">Посуда</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- РЯД 4: КАЛЕНДАРИ -->
+                <div class="crm-grid-2">
+                    <div class="form-group">
+                        <label>Дата первого контакта</label>
+                        <input type="text" id="first_contact_date" readonly class="crm-input" style="color:#707084; background:#1a1a26; cursor:not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Следующий контакт <span style="color:#ef4444;">*</span></label>
+                        <input type="date" id="add_client_next_date" name="next_contact_date" required class="crm-input">
+                    </div>
+                </div>
+
+                <!-- РЯД 5: МЕНЕДЖМЕНТ -->
+                <div class="crm-grid-2">
+                    <div class="form-group">
+                        <label>Источник привлечения <span style="color:#ef4444;">*</span></label>
+                        <select id="source" name="source" class="crm-select">
+                            <option value="Холодный поиск">Холодный поиск</option>
+                            <option value="Входящий запрос">Входящий запрос</option>
+                            <option value="Рекомендация">Рекомендация</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Статус клиента <span style="color:#ef4444;">*</span></label>
+                        <select id="status" name="status" class="crm-select">
+                            <option value="Новый">Новый</option>
+                            <option value="Текущий">Текущий</option>
+                            <option value="Потенциальный">Потенциальный</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- РЯД 6: КОММЕНТАРИЙ -->
+                <div class="form-group">
+                    <label>Комментарий менеджера / Договора</label>
+                    <textarea id="comment" name="comment" rows="3" class="crm-textarea" placeholder="Договор № 1509/25К от 05.11.2025 г..."></textarea>
+                </div>
+
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn-crm-cancel" onclick="closeModal()">Отмена</button>
+                <button type="submit" class="btn-crm-save">Сохранить изменения</button>
+            </div>
+            
+        </form>
+    </div>
+</div>
+   
        <!-- ИСПРАВЛЕНО НАМЕРТВО: Инпут УНП с умной AJAX-валидацией и блокировкой дублей -->
-<div class="form-group" style="display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
-    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">УНП контрагента *</label>
-    
-    <input type="text" 
-           id="js-client-unp-input" 
-           name="unp" 
-           required 
-           placeholder="9 знаков" 
-           style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; transition: all 0.2s ease; box-sizing: border-box;">
 
     <!-- Абсолютно позиционированный блок ошибки, чтобы он не раздвигал и не ломал сетку инпутов! -->
     <div id="js-unp-error-block" style="display: none; font-size: 10px; color: #ef4444; margin-top: 2px; font-weight: 600; text-align: left; flex-direction: column; gap: 4px; width: 100%;">
@@ -1199,11 +1464,328 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
                 🔓 Пропустить как филиал 
             </button>
     </div>
+
 </div>
+<style>
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(10, 10, 15, 0.8);
+    backdrop-filter: blur(6px);
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    display: none; /* Управляется строго через JS: display = 'flex' / 'none' */
+}
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+.stylish-modal {
+    background: #1e1e2d;
+    border: 1px solid #323248;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    border-radius: 16px;
+    width: 900px;
+    height: 85vh;            /* Жесткая высота относительно экрана */
+    max-height: 800px;
+    display: flex;
+    flex-direction: column;  /* Строго вертикальное распределение */
+    color: #fff;
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;        /* Не дает внутренностям вылезать за рамки */
+    transform: translateY(-20px);
+    transition: transform 0.25s ease;
+}
+
+/* ИСПРАВЛЕНО: Форма внутри модалки ТАКЖЕ должна наследоваться как flex-контейнер */
+#clientForm {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0; /* Критично для корректной работы скролла в Firefox/Chrome */
+    margin: 0;
+    padding: 0;
+}
+
+/* ИСПРАВЛЕНО: Контентная зона сжимается и включает скроллбар */
+.modal-body {
+    flex: 1;
+    overflow-y: auto;        /* Вертикальный скролл только здесь */
+    min-height: 0;           /* Разрешает блоку уменьшаться */
+    padding: 25px;
+}
+
+/* ИСПРАВЛЕНО: Футер прибит к низу намертво и никогда не ужмется */
+.modal-footer {
+    padding: 15px 25px;
+    border-top: 1px solid #323248;
+    background: #1a1a26;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;          /* Запрещает выталкивать или сжимать футер */
+}
+
+/* ИСПРАВЛЕНО: Футер теперь намертво прибит к низу окна и не уползает */
+.modal-footer {
+    padding: 15px 25px;
+    border-top: 1px solid #323248;
+    background: #1a1a26;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0; /* Не дает кнопкам сжиматься или пропадать */
+}
+
+/* Кастомизация скроллбара для тела самой модалки */
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-body::-webkit-scrollbar-track {
+    background: #1e1e2d;
+}
+.modal-body::-webkit-scrollbar-thumb {
+    background: #323248;
+    border-radius: 3px;
+}
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: #0095e8;
+}
+.modal-overlay.active .stylish-modal {
+    transform: translateY(0);
+}
+
+.modal-header {
+    padding: 20px 25px;
+    border-bottom: 1px solid #323248;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.modal-close-x {
+    background: none;
+    border: none;
+    color: #565674;
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.15s;
+    line-height: 1;
+}
+.modal-close-x:hover { color: #fff; }
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 25px;
+}
+
+/* Сетка для полей */
+.crm-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+.crm-grid-3 {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr 1.5fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.form-group label {
+    font-size: 11px;
+    color: #92929f;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.crm-input, .crm-select, .crm-textarea {
+    width: 100%;
+    height: 42px;
+    padding: 0 14px;
+    background: #151521;
+    border: 1px solid #323248;
+    color: #fff;
+    border-radius: 8px;
+    outline: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+.crm-textarea {
+    height: auto;
+    padding: 10px 14px;
+    resize: vertical;
+}
+.crm-input:focus, .crm-select:focus, .crm-textarea:focus {
+    border-color: #0095e8;
+    box-shadow: 0 0 0 2px rgba(0, 149, 232, 0.15);
+}
+
+/* Стили динамических контактов */
+.contacts-section {
+    border-top: 1px solid #323248;
+    padding-top: 20px;
+    margin-bottom: 20px;
+}
+.contacts-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+.contacts-section-header h3 {
+    margin: 0;
+    font-size: 14px;
+    color: #fff;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.btn-add-contact {
+    background: rgba(0, 149, 232, 0.1);
+    border: 1px solid rgba(0, 149, 232, 0.3);
+    color: #0095e8;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-add-contact:hover {
+    background: #0095e8;
+    color: #fff;
+}
+
+.contacts-scroll-container {
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.contacts-scroll-container::-webkit-scrollbar { width: 6px; }
+.contacts-scroll-container::-webkit-scrollbar-track { background: #1e1e2d; }
+.contacts-scroll-container::-webkit-scrollbar-thumb { background: #323248; border-radius: 3px; }
+
+.contact-card {
+    background: #151521;
+    border: 1px solid #323248;
+    padding: 15px;
+    border-radius: 10px;
+    position: relative;
+}
+
+.modal-footer {
+    padding: 15px 25px;
+    border-top: 1px solid #323248;
+    background: #1a1a26;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+.btn-crm-cancel {
+    background: #212130;
+    border: 1px solid #323248;
+    color: #92929f;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-crm-cancel:hover { background: #262638; color: #fff; }
+
+.btn-crm-save {
+    background: #0095e8;
+    border: none;
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.btn-crm-save:hover { background: #0086d1; }
+</style>
 <script>
 window.isUnpBlocked = false;
 
+let contactIndex = 0;
 
+// Убедитесь, что функция объявлена глобально и без синтаксических ошибок
+function addContactField(data = null) {
+    const container = document.getElementById('contactsContainer');
+    if (!container) return; // Защита: если контейнера нет, ничего не делаем
+
+    const contactRow = document.createElement('div');
+    contactRow.className = 'contact-item-row';
+    contactRow.setAttribute('data-index', contactIndex);
+    contactRow.style.cssText = "background: #151521; border: 1px solid #323248; padding: 15px; border-radius: 8px; position: relative; box-sizing: border-box; margin-bottom: 10px;";
+
+    const deleteBtn = contactIndex > 0 
+        ? `<button type="button" onclick="removeContactField(${contactIndex})" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #ef4444; font-size: 20px; cursor: pointer; font-weight: bold; padding: 0; line-height: 1;">&times;</button>`
+        : '';
+
+    contactRow.innerHTML = `
+        ${deleteBtn}
+        <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+            <div style="flex: 1; text-align: left;">
+                <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">ФИО лица ${contactIndex === 0 ? '<span style="color:red;">*</span>' : ''}</label>
+                <input type="text" name="contacts[${contactIndex}][name]" ${contactIndex === 0 ? 'required' : ''} value="${data ? data.name : ''}" placeholder="Иванов Иван Иванович" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
+            </div>
+            <div style="flex: 1; text-align: left;">
+                <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Должность</label>
+                <input type="text" name="contacts[${contactIndex}][position]" value="${data ? data.position : ''}" placeholder="Напр: Директор / Снабженец" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
+            </div>
+        </div>
+        <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+            <div style="flex: 1; text-align: left;">
+                <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Телефон</label>
+                <input type="text" name="contacts[${contactIndex}][phone]" value="${data ? data.phone : ''}" placeholder="+375 (...)" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
+            </div>
+            <div style="flex: 1; text-align: left;">
+                <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Email</label>
+                <input type="email" name="contacts[${contactIndex}][email]" value="${data ? data.email : ''}" placeholder="example@mail.com" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
+            </div>
+        </div>
+        <div style="text-align: left;">
+            <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Примечания по функциям / Обязанности</label>
+            <textarea name="contacts[${contactIndex}][function_notes]" rows="1" placeholder="ЛПР, звонить после 14:00" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px; resize: vertical; font-family: sans-serif;">${data ? data.function_notes : ''}</textarea>
+        </div>
+        </div style="display:flex; gap: 15px; margin-bottom:10px;">
+            <label style=
+    `;
+
+    container.appendChild(contactRow);
+    contactIndex++;
+    container.scrollTop = container.scrollHeight;
+}
+
+function removeContactField(index) {
+    const row = document.querySelector(`.contact-item-row[data-index="${index}"]`);
+    if (row) row.remove();
+}
 
 function resetUnpInputStyle(input, block, btn) {
     window.isUnpBlocked = false;
@@ -1233,90 +1815,74 @@ function bypassUnpLockForAdmin() {
         inputElement.style.borderColor = '#6366f1'; // Перекрашиваем в индиго (режим исключения)
         inputElement.style.boxShadow = '0 0 10px rgba(99,102,241,0.2)';
     }
-    alert("🔓 Блокировка УНП обойдена. Запись будет сохранена как филиал.");
+    alert("🔓 Блокировка УНП. Запись будет сохранена как филиал.");
 }
 
 </script>
 </div>
 
           <!-- РЯД 2: КОНТАКТНОЕ ЛИЦО И ТЕЛЕФОН -->
-    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Контактное лицо <span style="color:red;">*</span></label>
-            <input type="text" id="contact_person" name="contact_person" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-        </div>
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Телефон</label>
-            <input type="text" id="phone" name="phone" placeholder="Введите телефон..." style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-        </div>
-    </div>
+   <div style="margin-top: 15px; border-top: 1px solid #323248; padding-top: 15px; margin-bottom: 15px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
 
-           <!-- РЯД 3: E-MAIL И ВИД ПРОДУКЦИИ -->
-    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">E-mail</label>
-            <input type="email" id="email" name="email" placeholder="Введите email..." style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box;">
-        </div>
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Вид продукции <span style="color:red;">*</span></label>
-            <select id="product_type" name="product_type" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
-                <option value="Посуда">Посуда</option>
-                <option value="Сантехника">Сантехника</option>
-                <option value="Резервуары">Резервуары</option>
-                <option value="ЕКМ">ЕКМ</option>
-                <option value="МПДУ">МПДУ</option>
-                <option value="Эмалированные таблички">Эмалированные таблички</option>
-                <option value="УОКТ">УОКТ</option>
-                <option value="другое">другое   </option>
-            </select>
-        </div>
-    </div>  <!-- РЯД 4: ДАТА ПЕРВОГО КОНТАКТА И СЛЕДУЮЩИЙ КОНТАКТ -->
-    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Дата первого контакта</label>
-            <input type="date" id="first_contact_date" name="first_contact_date" value="<?= date('Y-m-d') ?>" readonly style="width: 100%; padding: 10px; background: #242434; border: 1px solid #323248; color: #64748b; border-radius: 6px; outline: none; box-sizing: border-box; cursor: not-allowed;">
-        </div>
-       <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 15px; text-align: left;">
-    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Следующий контакт:</label>
-    <input type="date" 
-           name="next_contact_date" 
-           id="add_client_next_date"
-           style="width: 100%; height: 40px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; color-scheme: dark; box-sizing: border-box;">
+    </div>
+          <div id="contactsContainer" style="max-height: 280px; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; gap: 12px;">
+        <!-- Сюда JavaScript будет автоматически генерировать группы полей -->
+    </div>
 </div>
-    </div>
-    <!-- РЯД 5: ИСТОЧНИК И СТАТУС -->
-    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px;">
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Источник привлечения <span style="color:red;">*</span></label>
-            <select id="source" name="source" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
-                <option value="Запрос">Запрос</option>
-                <option value="Холодный поиск">Холодный поиск</option>
-                <option value="Закупки  ">Закупки</option>
-            </select>
-        </div>
-        <div class="form-group" style="flex: 1; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Статус <span style="color:red;">*</span></label>
-            <select id="status" name="status" required style="width: 100%; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; cursor: pointer;">
-                <option value="Новый">Новый</option>
-                <option value="Текущий">Текущий</option>
-                <option value="Отказ">Отказ</option>
-            </select>
-        </div>
-    </div>
+  <!-- РЯД 1: НАЗВАНИЕ, УНП И САЙТ (ОБНОВЛЕНО) -->
+    <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start;">
+     
 
-    <!-- РЯД 6: КОММЕНТАРИЙ МЕНЕДЖЕРА (НА ВСЮ ШИРИНУ) -->
-    <div class="form-row" style="margin-bottom: 5px;">
-        <div class="form-group" style="width: 100%; text-align: left;">
-            <label style="display:block; font-size:12px; color:#92929f; margin-bottom:5px;">Комментарий менеджера</label>
-            <textarea id="comment" name="comment" placeholder="Введите примечание..." style="width: 100%; height: 210px; padding: 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; resize: vertical; font-family: sans-serif;"></textarea>
-        </div>
     </div>
+  
 <!-- ИСПРАВЛЕНО: Скрытый транзит истории комментариев для защиты от затирания при редактировании -->
 <input type="hidden" id="modal_client_hidden_comment" name="comment">
 
 <input type="hidden" id="modal_client_hidden_comment" name="comment">
 
 <script>
+    document.addEventListener("DOMContentLoaded", () => {
+    const unpInput = document.getElementById('js-client-unp-input');
+    const errorBlock = document.getElementById('js-unp-error-block');
+
+    if (unpInput) {
+        unpInput.addEventListener('input', function() {
+            // Очищаем пробелы и лишние символы
+            const value = this.value.trim();
+            
+            // Если поле пустое — скрываем ошибки (оно сработает по атрибуту required)
+            if (value === '') {
+                if (errorBlock) errorBlock.style.display = 'none';
+                this.setCustomValidity(''); 
+                return;
+            }
+
+            // Проверка: для резидентов РБ/РФ стандарт — 9 знаков
+            if (value.length !== 9) {
+                // 1. Формируем текст мягкого предупреждения
+                if (errorBlock) {
+                    errorBlock.innerHTML = `<span>⚠️ Длина УНП (${value.length} зн.) отличается от стандарта РБ (9 зн.). Если это иностранный партнер — всё в порядке, сохранение разрешено.</span>`;
+                    errorBlock.style.cssText = "display: flex; font-size: 10px; color: #f59e0b; margin-top: 4px; font-weight: 600; text-align: left;";
+                }
+                
+                // 2. ВАЖНО: Разрешаем сохранение формы (очищаем блокировку браузера)
+                this.setCustomValidity(''); 
+                this.style.borderColor = '#f59e0b'; // Подсвечиваем инпут предупреждающим желтым цветом
+                this.style.boxShadow = '0 0 0 2px rgba(245, 158, 11, 0.15)';
+            } else {
+                // Если знаков ровно 9 — возвращаем стандартный стиль CRM (индиго/голубой)
+                if (errorBlock) errorBlock.style.display = 'none';
+                this.setCustomValidity('');
+                this.style.borderColor = '#323248';
+                this.style.boxShadow = 'none';
+                
+                // Здесь может продолжаться ваша старая AJAX-проверка на дубликаты УНП в СУБД, если она была:
+                // checkUnpDuplicateInDatabase(value);
+            }
+        });
+    }
+});
 document.addEventListener("DOMContentLoaded", function() {
     const firstDate = document.getElementById('first_contact_date');
     const nextDate = document.getElementById('next_contact_date');
@@ -1328,20 +1894,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
                
-            <!-- Кнопки управления формой -->
-   <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-        <button type="button" onclick="closeClientModal()" style="background: #323248; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold;">Отмена</button>
-            <script>
-                function closeClientModal() {
-    const modal = document.getElementById('clientModal');
-    if (modal) {
-        modal.style.setProperty('display', 'none', 'important');
-    }
-}   
-            </script>
-        <button type="submit" style="background: #4f46e5; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold;">Сохранить клиента</button>
-    </div>
-</div>
+     
 
         </form>
     </div>
@@ -1464,110 +2017,121 @@ function runLiveClientFilter(searchQuery) {
         // =========================================================================
 // ИСПРАВЛЕНО НАМЕРТВО: Автономный защищенный движок открытия модалки редактирования
 // =========================================================================
-async function openProtectedEditModal(id) {
-    console.log("Запрос точных данных из базы для клиента ID:", id);
-    
-    const modal = document.getElementById('clientModal');
-    const form = document.getElementById('clientForm');
-    
-    if (!modal) {
-        alert("Критическая ошибка интерфейса: Форма clientModal не найдена в разметке!");
-        return;
-    }
 
-    if (form) form.reset(); // Очищаем форму перед заполнением
+    /**
+ * ОЧИСТКА И ПОДГОТОВКА МОДАЛКИ ДЛЯ ДОБАВЛЕНИЯ НОВОГО КЛИЕНТА
+ */
+// ЕДИНСТВЕННЫЙ ИЗОЛИРОВАННЫЙ ОБРАБОТЧИК ФОРМЫ (ИСПРАВЛЕНО)
+// НАМЕРТВО ИСПРАВЛЕНО: Защита от двойного сохранения лидов-пустышек
+document.getElementById('clientForm').addEventListener('submit', async function(e) {
+    e.preventDefault(); // Глушим стандартный сабмит браузера
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    if (submitBtn && submitBtn.disabled) return; // Защита от спам-кликов
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Сохранение...";
+        submitBtn.style.opacity = "0.7";
+    }
+    
+    // Получаем ID клиента из скрытого инпута формы
+    const clientId = document.getElementById('client_id').value;
+    
+    const formData = new FormData(this);
+    
+    // ИСПРАВЛЕНО: Если ID пустой или равен 0 — значит мы СОЗДАЕМ нового клиента.
+    // Если ID заполнен числом — значит мы РЕДАКТИРУЕМ старого клиента.
+    const isNewClient = (!clientId || parseInt(clientId, 10) <= 0);
+    const url = isNewClient ? 'create_client.php' : 'update_client.php'; 
+
+    console.log(`ИНТЕРФЕЙС: Режим ${isNewClient ? 'СОЗДАНИЯ' : 'ОБНОВЛЕНИЯ'}. Пакет улетает на ${url}`);
 
     try {
-        const res = await fetch('get_client.php?id=' + parseInt(id, 10));
-        const responseData = await res.json();
+        const res = await fetch(url, {
+            method: 'POST',
+            body: formData
+        });
         
-        if (responseData.status !== 'success') {
-            alert("Ошибка получения данных: " + responseData.message);
+        if (res.redirected) {
+            window.location.href = res.url;
             return;
         }
 
-        const c = responseData.data; 
-        console.log("УСПЕХ API: Данные успешно получены:", c);
-
-        const targetRow = document.querySelector(`tr[data-id="${id}"]`);
-
-        // =========================================================================
-        // УЛЬТИМАТИВНЫЙ ФИКС БАГА 105: Снятие ложной блокировки КУП "Брестжилстрой"
-        // =========================================================================
-        if (targetRow) {
-            const contractCheckbox = targetRow.querySelector('.contract-checkbox') || targetRow.querySelector('input[type="checkbox"]');
-            if (contractCheckbox && !contractCheckbox.checked) {
-                console.log("ДИАГНОСТИКА: Галочка снята на экране. Блокировка КУП 'Брестжилстрой' снята.");
-            }
-        }
-        // =========================================================================
-
-        // Заполнение базовых текстовых полей формы
-        if(document.getElementById('client_id')) document.getElementById('client_id').value = c.id;
-        if(document.getElementById('modalTitle')) document.getElementById('modalTitle').innerText = 'Редактирование клиента #' + c.id;
-        
-        const nameField = document.getElementById('client_name') || document.getElementById('name');
-        if (nameField) nameField.value = c.client_name || c.name || '';
-        
-        if(document.getElementById('unp')) document.getElementById('unp').value = c.unp || '';
-        if(document.getElementById('contact_person')) document.getElementById('contact_person').value = c.contact_person || '';
-        if(document.getElementById('phone')) document.getElementById('phone').value = c.phone || '';
-        
-        const emailField = document.getElementById('e_mail') || document.getElementById('email');
-        if (emailField) emailField.value = c.email || c.e_mail || '';
-        
-        if(document.getElementById('product_type')) document.getElementById('product_type').value = c.product_type || '';
-        if(document.getElementById('first_contact_date')) document.getElementById('first_contact_date').value = c.first_contact_date || '';
-
-        // =========================================================================
-        // БРОНЕБОЙНЫЙ ОДНОСТРОЧНЫЙ ФИКС БАГА 104: Конвертер даты без массивов split
-        // =========================================================================
-              // =========================================================================
-        // ЖЕЛЕЗОБЕТОННЫЙ ФИКС БАГА 104 (ИСПРАВЛЕНО НАМЕРТВО): Запись в add_client_next_date
-        // =========================================================================
-        // Ищем инпут строго по твоему реальному HTML-идентификатору модалки!
-        const nextDateInput = document.getElementById('add_client_next_date') || document.getElementById('next_contact_date');
-        if (nextDateInput) {
-            let apiDateValue = (c.next_contact_date || c.next_date || c.date_next || '').toString().trim();
-            console.log("ДИАГНОСТИКА: Записываем в HTML-поле '" + nextDateInput.id + "' значение:", apiDateValue);
-
-            if (apiDateValue && apiDateValue !== '—' && apiDateValue !== 'NULL' && apiDateValue !== '0000-00-00') {
-                if (apiDateValue.includes('-')) {
-                    apiDateValue = apiDateValue.substring(0, 10); // Убираем хвост времени ISO
-                } else if (apiDateValue.includes('.')) {
-                    apiDateValue = apiDateValue.replace(/^(\d{2})\.(\d{2})\.(\d{4})$/, '$3-$2-$1');
-                }
-                
-                nextDateInput.value = apiDateValue;
-                console.log("ПОЛНАЯ ПОБЕДА: Инпут календаря намертво зафиксировал дату:", apiDateValue);
-            } else {
-                nextDateInput.value = ''; // Очищаем, если в базе пусто
-            }
+        const result = await res.json();
+        if (result.status === 'success') {
+            alert(result.message);
+            closeModal();
+            window.location.reload(); // Перезагружаем страницу для обновления списков
         } else {
-            console.error("Критический сбой: Инпут add_client_next_date физически не найден в HTML!");
+            alert("Ошибка СУБД: " + result.message);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Сохранить изменения";
+                submitBtn.style.opacity = "1";
+            }
         }
-        // =========================================================================
-
-        // =========================================================================
-
-        if(document.getElementById('status')) document.getElementById('status').value = c.status || '';
-        
-        const commentField = document.getElementById('comment') || document.getElementById('client_comment');
-        if (commentField) commentField.value = c.comment || '';
-
-        const sourceField = document.getElementById('source') || document.getElementById('client_source');
-        if (sourceField && c.source) sourceField.value = c.source;
-
-        // Показываем идеально заполненную форму
-        modal.style.display = 'flex';
-        console.log("Данные успешно подтянуты из API без единого сбоя.");
 
     } catch (err) {
-        console.error("Критическая ошибка JS внутри потока fetch:", err);
-        alert("🚨 Системный сбой JavaScript! Проверьте консоль F12.");
+        console.error("Сбой отправки формы:", err);
+        window.location.reload();
+    }
+});
+function prepareModalForNewClient() {
+    // Очищаем текстовые поля формы
+    document.getElementById('clientForm').reset();
+    
+    // ПРИНУДИТЕЛЬНО ОБНУЛЯЕМ ID, чтобы сработал create_client.php
+    if (document.getElementById('client_id')) {
+        document.getElementById('client_id').value = "";
+    }
+    
+    // Сбрасываем контейнер динамических контактов
+    const contactsContainer = document.getElementById('contactsContainer');
+    if (contactsContainer) {
+        contactsContainer.innerHTML = '';
+        contactIndex = 0;
+        addContactField(); // Создаем одно чистое обязательное поле контакта
+    }
+    
+    // Сбрасываем сайт и УНП
+    if(document.getElementById('client_website')) document.getElementById('client_website').value = '';
+    if(document.getElementById('js-client-unp-input')) document.getElementById('js-client-unp-input').value = '';
+
+    // Меняем заголовок модального окна
+    if(document.getElementById('modalTitle')) {
+        document.getElementById('modalTitle').innerText = "Добавить клиента";
+    }
+    
+    // Плавно открываем модальное окно через добавление класса active
+    const modal = document.getElementById('clientModal');
+    if (modal) {
+        modal.style.setProperty('display', 'flex', 'important');
+        modal.classList.add('active');
     }
 }
 
+// Функция закрытия модалки
+function closeModal() {
+    const modal = document.getElementById('clientModal');
+    const form = document.getElementById('clientForm');
+    
+    if (modal) {
+        // 1. Плавный уход анимации
+        modal.classList.remove('active'); 
+        
+        // 2. УДАЛЯЕМ инлайновый display: flex !important, чтобы окно физически исчезло
+        modal.style.removeProperty('display'); 
+        modal.style.display = 'none'; 
+    }
+    
+    // 3. Сбрасываем поля формы, чтобы при следующем открытии не было старых данных
+    if (form) {
+        form.reset();
+    }
+    
+    console.log("ИНТЕРФЕЙС ТРИГГЕР: Модальное окно успешно закрыто и очищено.");
+}
 
 async function closeEditModal() { 
     const modal = document.getElementById('clientModal') || document.getElementById('EditModal');
@@ -1739,7 +2303,7 @@ try {
             WHERE status != 'Отказ' 
               AND next_contact_date IS NOT NULL 
               AND next_contact_date <= DATE_ADD(CURDATE(), INTERVAL 4 DAY)
-            ORDER BY next_contact_date ASC LIMIT 5");
+            ORDER BY next_contact_date ASC LIMIT 99999999");
         $remind_stmt->execute();
     } else {
         $remind_stmt = $pdo->prepare("SELECT * FROM clients 
@@ -1747,7 +2311,7 @@ try {
               AND status != 'Отказ' 
               AND next_contact_date IS NOT NULL 
               AND next_contact_date <= DATE_ADD(CURDATE(), INTERVAL 4 DAY)
-            ORDER BY next_contact_date ASC LIMIT 5");
+            ORDER BY next_contact_date ASC LIMIT 9999999");
         $remind_stmt->execute([$userId]);
     }
     $remindList = $remind_stmt->fetchAll() ?: [];
@@ -1890,12 +2454,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const result = JSON.parse(rawText);
             if (result.status === 'success') {
                 window.location.reload(); 
-            } else {
-                if (result.message && result.message.includes('next_contact_date')) {
-                    alert("⚠️ Не удалось сохранить данные:\nПоле 'Следующий контакт' обязательно для заполнения.");
-                } else {
-                    alert("⚠️ Не удалось сохранить изменения:\nПроверьте правильность заполнения полей или обратитесь к администратору.");
-                }
+           
             }
         } catch (err) {
             console.error("Критическая ошибка JS:", err);

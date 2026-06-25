@@ -12,7 +12,8 @@ try {
         throw new Exception("Доступ заблокирован. У вас нет прав на удаление финансовых файлов!");
     }
 
-    $data = json_decode(file_get_contents('php://input'), true);
+    // замените старое чтение php://input во всех обработчиках на эту строчку:
+$data = !empty($_post) ? $_post : ($globals['__json_cache__'] ?? json_decode(file_get_contents('php://input'), true));
     $ttnId = isset($data['ttn_id']) ? (int)$data['ttn_id'] : 0;
 
     if ($ttnId <= 0) {

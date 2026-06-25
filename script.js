@@ -1089,3 +1089,5 @@ async function executeContractUpload(pid, inputElement) {
         alert("Не удалось загрузить файл на сервер. Проверьте соединение или нажмите F12.");
     }
 }
+
+    

@@ -3,8 +3,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-require 'db.php';
-require_once 'logger.php';
+require 'db.php'; // Здесь находится наше подключение и универсальная функция logAction
 
 header('Content-Type: application/json');
 if (ob_get_length()) ob_clean();
@@ -52,8 +51,9 @@ try {
         $sql = "UPDATE project_ttns SET ttn_number = ?, ttn_date = ?, amount = ?, currency = ?, product_info = ?, product_quantity = ? WHERE id = ?";
         $pdo->prepare($sql)->execute([$ttn_number, $ttn_date, $amount, $currency, $prod_info, $qty, $ttn_id]);
         
+        // ИСПРАВЛЕНО: Привели вызов функции к единому 3-параметровому стандарту CRM
         if (function_exists('logAction')) {
-            logAction($pdo, 'UPDATE', 'project_ttns', $ttn_id, "Изменена ТТН №{$ttn_number}: сумма {$amount} {$currency}");
+            logAction('UPDATE', 'project_ttns', "Изменена ТТН №{$ttn_number} (ID ТТН: {$ttn_id}): сумма {$amount} {$currency}");
         }
     } else {
         // Режим создания новой накладной с нуля
@@ -61,8 +61,9 @@ try {
         $pdo->prepare($sql)->execute([$project_id, $ttn_number, $ttn_date, $amount, $currency, $prod_info, $qty]);
         $new_ttn_id = $pdo->lastInsertId();
         
+        // ИСПРАВЛЕНО: Убрали лишние параметры, мешавшие корректному INSERT запросу логов
         if (function_exists('logAction')) {
-            logAction($pdo, 'INSERT', 'project_ttns', $new_ttn_id, "Добавлена ТТН №{$ttn_number} по договору ID {$project_id}: сумма {$amount} {$currency}");
+            logAction('INSERT', 'project_ttns', "Добавлена ТТН №{$ttn_number} по договору ID {$project_id} (ID ТТН: {$new_ttn_id}): сумма {$amount} {$currency}");
         }
     }
 
@@ -75,3 +76,4 @@ try {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     exit;
 }
+?>

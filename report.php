@@ -1,187 +1,405 @@
 <?php
-// report.php — Глобальный номенклатурный анализ отгрузок Santeks CRM по категориям
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-require 'db.php';
+session_start();
+require 'db.php'; // Подключаем СУБД и авто-логгер действий
 
+// ЖЕСТКАЯ БЕЗОПАСНОСТЬ: Доступ только для авторизованных сотрудников
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
+    header("Location: auth.html");
     exit;
 }
 
-$u_role = $_SESSION['role'] ?? 'manager';
-
-// Временной интервал отгрузок ТТН
+// 1. ОБРАБОТКА И ФИЛЬТРАЦИЯ ПЕРИОДА ДАТ
+// По умолчанию ставим текущий месяц, если даты не переданы из формы
 $date_from = isset($_GET['date_from']) ? trim($_GET['date_from']) : date('Y-m-01');
 $date_to   = isset($_GET['date_to']) ? trim($_GET['date_to']) : date('Y-m-d');
 
+// 2. СБОР ДАННЫХ ДЛЯ МАТРИЦЫ ОТГРУЗОК
+// Запрос связывает ТТН, контракты и клиентов для распределения сумм по менеджерам, договорам и валютам
 try {
-    // ИСПРАВЛЕНО НАМЕРТВО: Берём эталонный тип продукции p.product_type напрямую из договора!
-    $sql = "SELECT 
-                p.product_type AS product_name,
-                u.login AS manager_name,
-                COUNT(t.id) AS ttn_count,
-                COALESCE(SUM(t.amount), 0) AS total_amount
-            FROM project_ttns t
-            LEFT JOIN projects p ON t.project_id = p.id
-            LEFT JOIN clients c ON p.client_id = c.id
-            LEFT JOIN users u ON c.manager_id = u.id
-            WHERE t.ttn_date BETWEEN ? AND ? 
-              AND p.product_type IS NOT NULL 
-              AND p.product_type != ''
-            GROUP BY p.product_type, u.id, u.login
-            ORDER BY p.product_type ASC, total_amount DESC";
+    $matrix_sql = "SELECT
+                        t.project_id AS project_id, 
+                        p.contract_number AS contract_number,
+                        p.contract_date AS contract_date,
+                        t.product_info AS product_name,
+                        t.currency AS ttn_currency,
+                        COALESCE(u.login, 'Не указан') AS manager_name,
+                        COUNT(t.id) AS ttn_count,
+                        SUM(t.amount) AS total_amount
+                        
+                   FROM project_ttns t
+                   LEFT JOIN projects p ON t.project_id = p.id
+                   LEFT JOIN clients c ON p.client_id = c.id
+                   LEFT JOIN users u ON c.manager_id = u.id 
+                   WHERE t.ttn_date BETWEEN :date_from AND :date_to
+                   GROUP BY 
+                        t.project_id, 
+                        p.contract_number, 
+                        p.contract_date,
+                        t.product_info, 
+                        t.currency, 
+                        COALESCE(u.login, 'Не указан')
+                   ORDER BY t.product_info ASC, total_amount DESC";
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$date_from, $date_to]);
-    $raw_matrix = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $matrix_stmt = $pdo->prepare($matrix_sql);
+    $matrix_stmt->execute([
+        ':date_from' => $date_from,
+        ':date_to'   => $date_to
+    ]);
+    $raw_matrix = $matrix_stmt->fetchAll();
 
-    // Пересчитываем глобальный максимум для идеального масштаба шкал-прогрессбаров
+    // Вычисляем максимальную сумму отгрузки для построения инфографического масштаба шкал
+    // (Для корректности шкалы сравниваем чистые суммы, так как вывод стал повалютным)
     $maxAmount = 1;
-    foreach ($raw_matrix as $row) {
-        if ((float)$row['total_amount'] > $maxAmount) {
-            $maxAmount = (float)$row['total_amount'];
+    foreach ($raw_matrix as $r) {
+        if ((float)$r['total_amount'] > $maxAmount) {
+            $maxAmount = (float)$r['total_amount'];
         }
     }
-
 } catch (Exception $e) {
-    die("Критический сбой СУБД при расчете матрицы: " . $e->getMessage());
+    $raw_matrix = [];
+    $maxAmount = 1;
+    error_log("Ошибка генерации матрицы отгрузок: " . $e->getMessage());
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Анализ номенклатуры отгрузок — Santeks</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Глобальный продуктовый анализ отгрузок — Santeks</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        body { background: #13131a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 0; margin: 0; display: flex; min-height: 100vh; }
-        aside { width: 240px; background: #1e1e2d; border-right: 1px solid #323248; flex-shrink: 0; }
-        main { flex: 1; min-width: 0; padding: 30px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; }
+        /* БАЗОВАЯ МОДУЛЬНАЯ СЕТКА СТРАНИЦЫ АНАЛИТИКИ */
+        body { background: #151521; color: #fff; font-family: 'Segoe UI', Roboto, sans-serif; padding: 30px; margin:0; display: flex; box-sizing: border-box; min-height: 100vh; }
+        aside { width: 250px; flex-shrink: 0; }
         
-        .card { background: #1e1e2d; border: 1px solid #323248; border-radius: 16px; padding: 25px; box-shadow: 0 15px 40px rgba(0,0,0,0.5); }
+        .main-content { flex: 1; padding-left: 25px; box-sizing: border-box; display: flex; flex-direction: column; min-width: 0; }
         
-        /* ИСПРАВЛЕНО: Премиум-панель фильтрации */
-        .filter-panel { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; background: #1e1e2d; border: 1px solid #323248; border-radius: 14px; padding: 18px 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        .f-input { height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; color-scheme: dark; transition: border-color 0.15s; }
-        .f-input:focus { border-color: #4f46e5; }
+        /* ШАПКА ФИЛЬТРАЦИИ ПЕРИОДА */
+        .report-header { background: #1e1e2d; padding: 20px 30px; border-radius: 12px; border: 1px solid #2b2b40; display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .filter-form { display: flex; gap: 15px; align-items: center; }
+        .filter-form label { font-size: 12px; color: #92929f; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+        .input-date { background: #151521; border: 1px solid #323248; color: #fff; padding: 8px 12px; border-radius: 6px; outline: none; font-size: 13px; font-weight: 600; }
+        .btn-submit { background: #4f46e5; color: white; border: none; padding: 9px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.15s; }
+        .btn-submit:hover { background: #4338ca; }
+        .btn-reset { color: #92929f; text-decoration: none; font-size: 13px; font-weight: 600; transition: color 0.15s; }
+        .btn-reset:hover { color: #fff; }
         
-        .table-wrapper { border-radius: 16px; border: 1px solid #323248; overflow: hidden; background: #1e1e2d; margin-bottom: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); }
-        table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        /* КОНТЕЙНЕР ТАБЛИЦЫ */
+        .table-wrapper { background: #1e1e2d; border-radius: 14px; border: 1px solid #323248; padding: 25px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); box-sizing: border-box; width: 100%; }
         
-        /* ИСПРАВЛЕНО: Просторная и литая шапка аналитики */
-        th { background: #161624; padding: 16px 14px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; border-bottom: 2px solid #323248; text-align: center; letter-spacing: 0.8px; }
+        /* СТИЛИЗАЦИЯ ИНТЕРАКТИВНОЙ ТАБЛИЦЫ */
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left; }
+        th { background: #242434; color: #92929f; padding: 14px; border-bottom: 2px solid #323248; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+        td { padding: 14px 12px; border-bottom: 1px solid #2b2b40; color: #cbd5e1; box-sizing: border-box; vertical-align: middle; }
         
-        /* ИСПРАВЛЕНО: Увеличенные отступы ячеек данных */
-        td { padding: 16px 14px; border-bottom: 1px solid #1c1c28; font-size: 13px; background: #1e1e2d; color: #cbd5e1; text-align: center; box-sizing: border-box; }
-        tr:hover td { background: #171725 !important; color: #fff; }
+        .category-header { background: #1c1c28 !important; font-weight: bold; color: #a855f7 !important; padding: 12px 15px; border-bottom: 1px solid #323248; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
         
-        /* ИСПРАВЛЕНО: Роскошный неоновый разделитель категорий продукции */
-        .category-header { background: rgba(99, 102, 241, 0.03) !important; color: #818cf8 !important; font-weight: 700; text-align: left; padding: 15px 20px; font-size: 13px; border-bottom: 2px solid #323248; border-left: 4px solid #4f46e5; letter-spacing: 0.5px; text-transform: uppercase; }
+        /* СТРОКИ МЕНЕДЖЕРОВ С ЭФФЕКТОМ НАВЕДЕНИЯ */
+        .clickable-manager-row { cursor: pointer; }
+        .clickable-manager-row:hover { background: #24243c !important; }
+        .clickable-manager-row:hover td:first-child { transform: translateX(6px); color: #fff !important; }
+        .clickable-manager-row td:first-child { transition: transform 0.2s ease, color 0.2s ease; }
         
-        /* ИСПРАВЛЕНО: Объёмный и неоновый прогресс-бар */
-        .bar-outer { width: 100%; height: 10px; background: #13131a; border-radius: 6px; overflow: hidden; margin-top: 8px; border: 1px solid #232334; position: relative; box-sizing: border-box; }
-        .bar-inner { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8); border-radius: 6px; box-shadow: 0 0 10px rgba(99, 102, 241, 0.5); }
-    </style>
-</head>
-<body>
+        /* НАДТИВНЫЙ ИНФОГРАФИЧЕСКИЙ ПРОГРЕСС-БАР */
+        .bar-outer { width: 100%; background: #151521; height: 6px; border-radius: 3px; position: relative; overflow: hidden; }
+        .bar-inner { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8); border-radius: 3px; transition: width 0.5s ease-in-out; }
+        
+        /* ИНДИКАТОР СТРЕЛКИ РАСКРЫТИЯ */
+        .arrow-icon { display: inline-block; transition: transform 0.2s ease; font-size: 9px; color: #6366f1; margin-left: 6px; }
+        
+        /* КОНТЕЙНЕР ПОДТАБЛИЦЫ ДЕТАЛИЗАЦИИ ТТН */
+        .details-content-box { padding: 0 30px; border-left: 4px solid #4f46e5; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding 0.3s ease-out; background: #11111a; }
+        .details-scroll-container { max-height: 300px; overflow-y: auto; padding-right: 5px; }
 
-    <aside>
-        <?php include 'sidebar.php'; ?>
-    </aside>
+        /* ИСПРАВЛЕНО: Стилизация кликабельных ссылок на договоры/проекты */
+        .project-link { color: #38bdf8; text-decoration: none; font-weight: 600; border-bottom: 1px dashed rgba(56,189,248,0.4); transition: all 0.15s ease; }
+        .project-link:hover { color: #7dd3fc; border-bottom-style: solid; }
 
-    <main>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 26px;">📦</span>
-                <h1 style="margin: 0; font-size: 24px; font-weight: bold; letter-spacing: -0.5px;">Глобальный продуктовый анализ отгрузок Santeks</h1>
-            </div>
-            <a href="index.php" style="color: #818cf8; text-decoration: none; font-size: 13px; font-weight: bold; padding: 8px 16px; background: rgba(129,140,248,0.1); border-radius: 8px;">← Вернуться в CRM</a>
+        /* ИСПРАВЛЕНО: Мультивалютные компактные бейджи */
+        .badge-currency { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-left: 6px; letter-spacing: 0.5px; }
+        .badge-byn { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-rub { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-eur { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-usd { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.3); }
+     /* Стилизация внутреннего скроллбара под дизайн вашей CRM */
+    .details-scroll-container::-webkit-scrollbar { width: 6px; }
+    .details-scroll-container::-webkit-scrollbar-track { background: #11111a; border-radius: 4px; }
+    .details-scroll-container::-webkit-scrollbar-thumb { background: #2b2b40; border-radius: 3px; }
+    .details-scroll-container::-webkit-scrollbar-thumb:hover { background: #4f46e5; }
+   </style>
+  
+
+    </head>
+    <body>
+    
+        <!-- ПОДКЛЮЧЕНИЕ САЙДБАРА CRM -->
+
+            <?php include 'sidebar.php'; ?>
+
+
+        <div class="main-content">
+            
+            <!-- ШАПКА ФИЛЬТРАЦИИ И КАНАЛЕНДАРНЫЙ ПЕРИОД -->
+            <div class="report-header">
+            <h2 style="margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 0.3px; display: flex; align-items: center; gap: 10px;">
+        📦 Глобальный продуктовый анализ отгрузок Santeks 
+        <span style="font-size: 12px; color: #818cf8; background: rgba(99,102,241,0.15); padding: 4px 8px; border-radius: 6px; font-family: monospace;">
+            Ваш сессионный ID: <?= $_SESSION['user_id'] ?? 'Не авторизован' ?> (<?= $_SESSION['role'] ?? 'нет роли' ?>)
+        </span>
+    </h2>
+            
+          <form method="GET" class="filter-form">
+                <label>Период отгрузок ТТН:</label>
+                <!-- Принудительно задаем id для корректного считывания движком JS -->
+                <input type="date" id="date_from" name="date_from" class="input-date" value="<?= htmlspecialchars($date_from) ?>">
+                <label style="text-transform:lowercase; font-weight:normal;">по</label>
+                <input type="date" id="date_to" name="date_to" class="input-date" value="<?= htmlspecialchars($date_to) ?>">
+                
+                <button type="submit" class="btn-submit">📊 Сформировать анализ номенклатуры</button>
+                <a href="report.php" class="btn-reset">Сбросить период</a>
+            </form>
         </div>
-
-        <!-- УПРАВЛЕНИЕ ВРЕМЕННЫМ ПЕРИОДОМ -->
-        <form method="GET" action="report.php" class="filter-panel">
-            <span style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Период отгрузок ТТН:</span>
-            <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" class="f-input">
-            <span style="color: #64748b; font-size: 13px; font-weight: bold;">по</span>
-            <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" class="f-input">
-            <button type="submit" style="height: 40px; padding: 0 22px; background: #4f46e5; border: none; color: #fff; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer;">
-                🔄 Сформировать анализ номенклатуры
-            </button>
-            <a href="report.php" style="color: #92929f; text-decoration: none; font-size: 13px; font-weight: bold; margin-left: 10px;">Сбросить период</a>
-        </form>
-
+        
         <!-- МАТРИЦА ВСЕХ ОТГРУЖЕННЫХ ТОВАРОВ И ИХ ОБЪЕМОВ -->
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
-                        <th style="text-align: left; width: 200px;">Менеджер</th>
-                        <th style="width: 140px;">Оформлено накладных</th>
-                        <th style="text-align: left; min-width: 350px;">Объем отгрузок (Инфографический масштаб)</th>
-                        <th style="width: 160px; text-align: right; color: #10b981;">Сумма (BYN)</th>
-                        <th style="width: 160px; text-align: right; color: #f59e0b;">Сумма (RUB)</th>
+                        <!-- ДОБАВЛЕНО: Колонка для ID и номера договора -->
+                        <th style="text-align: left; width: 140px;">Договор</th>
+                        <th style="text-align: left; width: 180px;">Менеджер</th>
+                        <th style="width: 120px; text-align: center;">Накладные</th>
+                        <th style="text-align: left; min-width: 300px;">Объем отгрузок (Инфографический масштаб)</th>
+                        <!-- ИСПРАВЛЕНО: Объединено в одну повалютную колонку -->
+                        <th style="width: 180px; text-align: right; color: #a855f7;">Сумма отгрузки</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php 
+                <?php 
                     if (!empty($raw_matrix)): 
                         $current_product = '';
                         foreach ($raw_matrix as $row): 
-                            $sumByn = (float)$row['total_amount'];
-                            $sumRub = $sumByn * 28.5;
-                            $percentWidth = min(100, max(3, round(($sumByn / $maxAmount) * 100)));
+                            // Сумма и валюта текущей строки отгрузки
+                            $total_amount = (float)$row['total_amount'];
+                            $currency     = strtoupper($row['ttn_currency'] ?? 'BYN');
+                            
+                            // Вычисляем процент шкалы прогрессбара на основе чистой суммы
+                            $percentWidth = min(100, max(3, round(($total_amount / $maxAmount) * 100)));
 
-                            // Если пошел новый вид продукции — отрисовываем красивый заголовок-разделитель категории
+                            // Подготавливаем CSS класс для валютного бейджа
+                            $badge_class = 'badge-byn';
+                            if ($currency === 'RUB') $badge_class = 'badge-rub';
+                            if ($currency === 'EUR') $badge_class = 'badge-eur';
+                            if ($currency === 'USD') $badge_class = 'badge-usd';
+
+                            // Если пошел новый вид продукции — отрисовываем заголовок-разделитель категории
                             if ($current_product !== $row['product_name']):
                                 $current_product = $row['product_name'];
                     ?>
                                 <tr>
                                     <td colspan="5" class="category-header">
-                                        📦 Категория продукции: <span style="color: #fff; font-size: 15px;"><?= htmlspecialchars($current_product) ?></span>
+                                        📁 Категория продукции: <span style="color: #fff; font-size: 14px; font-weight: bold; text-transform: none;"><?= htmlspecialchars($current_product) ?></span>
                                     </td>
                                 </tr>
                     <?php 
                             endif; 
                     ?>
-                            <tr>
-                                <!-- 1. Имя ответственного менеджера -->
-                                <td style="text-align: left; font-weight: bold; color: #fff; padding-left: 20px;">
-                                    👤 <?= htmlspecialchars($row['manager_name'] ?? 'Не указан') ?>
+                            <tr class="clickable-manager-row">
+                                <!-- 1. КОЛОНКА ДОГОВОРА: Выводим ID и Номер договора как ссылку -->
+                                <td>
+                                    <?php if (!empty($row['project_id'])): ?>
+                                        <a href="project_card.php?id=<?= intval($row['project_id']) ?>" class="project-link" title="Перейти в карточку договора">
+                                            #<?= intval($row['project_id']) ?> / <?= htmlspecialchars($row['contract_number'] ?? 'Б/Н') ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <span style="color: #62627a;">—</span>
+                                    <?php endif; ?>
                                 </td>
-                                
-                                <!-- 2. Количество накладных ТТН -->
-                                <td style="font-weight: bold; color: #e2e8f0;">
-                                    <?= (int)$row['ttn_count'] ?> ТТН
+
+                                <!-- 2. МЕНЕДЖЕР -->
+                                <td>
+                                    👤 <?= htmlspecialchars($row['manager_name']) ?>
                                 </td>
-                                
-                                <!-- 3. Инлайновый нативный график-прогрессбар -->
-                                <td style="text-align: left; padding-right: 20px;">
-                                    <div class="bar-outer">
-                                        <div class="bar-inner" style="width: <?= $percentWidth ?>%;"></div>
+
+                                <!-- 3. ОФОРМЛЕНО НАКЛАДНЫХ -->
+                                <td style="text-align: center; font-weight: bold; color: #a855f7;">
+                                    <?= intval($row['ttn_count']) ?> шт.
+                                </td>
+
+                                <!-- 4. ИНФОГРАФИЧЕСКИЙ ПРОГРЕСС-БАР -->
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div class="bar-outer" style="flex: 1;">
+                                            <div class="bar-inner" style="width: <?= $percentWidth ?>%;"></div>
+                                        </div>
+                                        <span style="font-size: 11px; color: #92929f; font-weight: 600; min-width: 30px; text-align: right;">
+                                            <?= $percentWidth ?>%
+                                        </span>
                                     </div>
                                 </td>
-                                
-                                <!-- 4. Сумма в BYN -->
-                                <td style="text-align: right; font-weight: bold; color: #10b981; font-size: 14px; white-space: nowrap;">
-                                    <?= number_format($sumByn, 2, '.', ' ') ?>
-                                </td>
-                                
-                                <!-- 5. Сумма в RUB -->
-                                <td style="text-align: right; font-weight: bold; color: #f59e0b; font-size: 14px; white-space: nowrap;">
-                                    <?= number_format($sumRub, 2, '.', ' ') ?>
+
+                                <!-- 5. СУММА ОТГРУЗКИ: Повалютный вывод с цветным индикатором -->
+                                <td style="text-align: right; font-weight: bold; font-family: monospace; font-size: 14px; color: #fff;">
+                                    <?= number_format($total_amount, 2, '.', ' ') ?>
+                                    <span class="badge-currency <?= $badge_class ?>"><?= htmlspecialchars($currency) ?></span>
                                 </td>
                             </tr>
                     <?php 
                         endforeach; 
                     else: 
                     ?>
-                        <tr><td colspan="5" style="padding: 40px; color: #64748b; font-weight: bold;">Отгрузки по номенклатуре за выбранный период дат отсутствуют в СУБД.</td></tr>
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 40px; color: #92929f; font-size: 14px;">
+                                📭 За выбранный период отгрузок по накладным не найдено.
+                            </td>
+                        </tr>
+                
+
+                        <tr>
+                            <td colspan="5" style="padding: 40px; color: #64748b; font-weight: bold; text-align: center;">
+                                Отгрузки по номенклатуре за выбранный период дат отсутствуют в СУБД.
+                            </td>
+                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
         </div>
-    </main>
+        
+    </div> <!-- Закрытие основного тега .main-content -->
+<style>
+    /* Контейнер таблицы с фиксированной высотой и внутренним скроллом */
+.table-wrapper { 
+    background: #1e1e2d; 
+    border-radius: 14px; 
+    border: 1px solid #323248; 
+    padding: 25px; 
+    box-shadow: 0 15px 40px rgba(0,0,0,0.4); 
+    box-sizing: border-box; 
+    width: 100%; 
+    max-height: 700px;    /* ИСПРАВЛЕНО: Ограничиваем высоту всего отчета */
+    overflow-y: auto;     /* ИСПРАВЛЕНО: Включаем скролл внутри wrapper */
+}
+
+/* Кастомизация скроллбара самого отчета */
+.table-wrapper::-webkit-scrollbar { width: 8px; }
+.table-wrapper::-webkit-scrollbar-track { background: #1e1e2d; }
+.table-wrapper::-webkit-scrollbar-thumb { background: #2b2b40; border-radius: 4px; }
+.table-wrapper::-webkit-scrollbar-thumb:hover { background: #4f46e5; }
+
+/* ИСПРАВЛЕНО: Новый стиль для интерактивного заголовка категории */
+.category-header-row {
+    cursor: pointer;
+    background: #1c1c28 !important;
+    transition: background 0.2s ease;
+}
+.category-header-row:hover {
+    background: #242434 !important;
+}
+.category-header { 
+    font-weight: bold; 
+    color: #a855f7 !important; 
+    padding: 14px 15px; 
+    border-bottom: 1px solid #323248; 
+    text-transform: uppercase; 
+    font-size: 13px; 
+    letter-spacing: 0.5px; 
+}
+
+/* Стрелочка для раскрытия самой категории */
+.category-arrow {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    font-size: 11px;
+    color: #a855f7;
+    margin-left: 8px;
+}
+
+/* Скрытые по умолчанию строки договоров внутри категории */
+.manager-data-row {
+    display: none; /* ИСПРАВЛЕНО: По умолчанию всё свернуто */
+}
+</style>
+<!-- АВТОНОМНЫЙ JS СКРИПТ ПОТОКОВОЙ ВЫГРУЗКИ ПОДРОБНОСТЕЙ -->
+<script>
+// ИСПРАВЛЕНО: Функция теперь принимает project_id и валюту из строки таблицы
+async function toggleTtnDetails(rowElement, managerName, productName, projectId, currency) {
+    const detailsRow = rowElement.nextElementSibling;
+    const contentBox = detailsRow.querySelector('.details-content-box');
+    const arrow = rowElement.querySelector('.arrow-icon');
+    
+    // Переключатель сворачивания/разворачивания
+    if (detailsRow.style.display === 'table-row') {
+        contentBox.style.maxHeight = '0px';
+        contentBox.style.padding = '0px 30px';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+        setTimeout(() => { detailsRow.style.display = 'none'; }, 300);
+        return;
+    }
+    
+    // Анимированно открываем ячейку
+    detailsRow.style.display = 'table-row';
+    contentBox.style.padding = '15px 30px';
+    contentBox.style.maxHeight = '600px'; 
+    if (arrow) {
+        arrow.style.transform = 'rotate(180deg)';
+        arrow.style.transition = 'transform 0.2s ease';
+    }
+    
+    // Блокируем повторный AJAX-запрос, если массив ТТН уже отрисован в этой строке
+    if (contentBox.dataset.loaded === 'true') return;
+    
+    try {
+        // Забираем текущие значения дат из календарей шапки страницы
+        const dateFromInput = document.getElementById('date_from');
+        const dateToInput = document.getElementById('date_to');
+        
+        const dateFrom = dateFromInput ? dateFromInput.value : '';
+        const dateTo = dateToInput ? dateToInput.value : '';
+
+        // ИСПРАВЛЕНО: Отправляем асинхронный POST-пакет с точными параметрами договора и валюты
+        const response = await fetch('get_matrix_details.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                manager: managerName, 
+                category: productName,
+                project_id: projectId,   // Передаем ID договора
+                currency: currency,       // Передаем конкретную валюту
+                date_from: dateFrom,
+                date_to: dateTo
+            })
+        });
+        
+        const data = await response.json();
+        
+       data.ttns.forEach(ttn => {
+                // ИСПРАВЛЕНО: Приводим валюту к верхнему регистру для точного совпадения с CSS-классами
+                const curr = (ttn.currency || 'BYN').toUpperCase();
+                let badgeClass = 'badge-byn';
+                if (curr === 'RUB') badgeClass = 'badge-rub';
+                if (curr === 'EUR') badgeClass = 'badge-eur';
+                if (curr === 'USD') badgeClass = 'badge-usd';
+
+                // ИСПРАВЛЕНО: Красиво форматируем сумму на лету с разделением тысяч
+                const formattedAmount = parseFloat(ttn.amount).toLocaleString('ru-RU', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+
+              
+            html += `</tbody></table>`;
+            contentBox.innerHTML = html;
+            contentBox.dataset.loaded = 'true';
+        } else if (data.status === 'error') {
+            contentBox.innerHTML = `<div style="color: #ef4444; font-size: 12px; font-weight: bold; padding: 10px 0;">${data.message}</div>`;
+        } else {
+            contentBox.innerHTML = `<div style="color: #707084; font-size: 12px; font-style: italic; padding: 10px 0;">Подробные накладные по выбранным критериям за данный период дат отсутствуют в СУБД.</div>`;
+        }
+    } catch (error) {
+        contentBox.innerHTML = `<div style="color: #ef4444; font-size: 12px; padding: 10px 0;">Критический сбой ответа сервера. Убедитесь в стабильности подключения СУБД.</div>`;
+    }
+}
+</script>
 </body>
 </html>
