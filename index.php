@@ -344,7 +344,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_mode']) && $_POST['action_mode'] === 'check_unp_duplicate_live') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
 
+    try {
+        $unp = trim($_POST['unp'] ?? '');
+
+        if (empty($unp)) {
+            echo json_encode(['status' => 'clean']); exit;
+        }
+
+        // Ищем компанию с таким же УНП в таблице clients
+        $stmt = $pdo->prepare("SELECT client_name FROM clients WHERE unp = ? LIMIT 1");
+        $stmt->execute([$unp]);
+        $existingClient = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingClient) {
+            // Если нашли — отдаем JSON с флагом дубликата и именем компании
+            echo json_encode([
+                'status' => 'duplicate',
+                'client_name' => htmlspecialchars($existingClient['client_name'])
+            ]);
+            exit;
+        } else {
+            echo json_encode(['status' => 'clean']); 
+            exit;
+        }
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]); 
+        exit;
+    }
+} 
 $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -596,9 +627,20 @@ async function saveComplexFormDirectly(event, formElement) {
                 <option value="Холодный поиск" <?= $sourceFilter === 'Холодный поиск' ? 'selected' : '' ?>>Холодный поиск</option>
                 <option value="Закупки" <?= $sourceFilter === 'Закупки' ? 'selected' : '' ?>>Закупки</option>
             </select>
+            <style>
+                select[name="lead_source"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://w3.org' width='12' height='12' fill='%2392929f' viewBox='0 0 16 16'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>") !important;
+    background-repeat: no-repeat !important;
+    background-position: calc(100% - 12px) center !important;
+}
+
+select[name="lead_source"]:focus {
+    border-color: #4f46e5 !important;
+    box-shadow: 0 0 8px rgba(79, 70, 229, 0.3) !important;
+}
+            </style>
         </div>
        
-
             <div style="display: flex; flex-direction: column; gap: 4px; width: 300 px;">
     <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Быстрый поиск компании:</label>
     <input type="text" 
@@ -734,8 +776,7 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Вид продукции<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Контракт<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Действие<div class="resizer"></div></th>
-         <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Веб-сайт<div class="resizer"></div></th>
-        
+       
         </tr>
       
         
@@ -987,8 +1028,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 ?>
             </td>
-          <td class="website" style="padding: 14px 10px; text-align: center; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['website'] ?: '—') ?></td>
-    </td>  
+           </td>  
        <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
  <!--   <td class="cell-comment js-comment-preview"</td>
     data-client-name="<?= htmlspecialchars($c['client_name'], ENT_QUOTES, 'UTF-8') ?>"
@@ -1370,7 +1410,77 @@ async function openProtectedEditModal(id) {
                     </div>
                     <div class="form-group">
                         <label>УНП контрагента <span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="js-client-unp-input" name="unp" required class="crm-input" placeholder="9 знаков">
+                        <input type="text" 
+           id="js_client_unp_input" 
+           name="unp" 
+           required 
+           maxlength="9"
+           placeholder="9 знаков" 
+           oninput="checkUnpDuplicateLive(this.value);"
+           style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; transition: all 0.2s;">
+           <script>
+            async function checkUnpDuplicateLive(unpValue) {
+    const unpInput = document.getElementById('add_client_unp');
+    const errorMsg = document.getElementById('add_unp_error_msg');
+    
+    // Ищем кнопку отправки формы добавления (замени id или класс, если у тебя другие)
+    const submitBtn = document.querySelector('#bugReportForm button[type="submit"]') 
+                    || document.querySelector('form button[type="submit"]');
+
+    const cleanUnp = unpValue.trim();
+
+    // Валидация запускается только когда введены все 9 цифр
+    if (cleanUnp.length !== 9) {
+        if (unpInput) unpInput.style.borderColor = '#323248';
+        if (errorMsg) errorMsg.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+    }
+
+    console.log("=== ЖИВАЯ ПРОВЕРКА УНП НА ДУБЛИКАТЫ: " + cleanUnp + " ===");
+
+    const fd = new FormData();
+    fd.append('action_mode', 'check_unp_duplicate_live');
+    fd.append('unp', cleanUnp);
+
+    try {
+        // Шлём быстрый фоновый запрос на текущий файл бэкенда страницы клиентов (напр. index.php)
+        const res = await fetch('index.php', { method: 'POST', body: fd });
+        const result = await res.json();
+
+        if (result.status === 'duplicate') {
+            // Мгновенная красная неоновая блокировка
+            if (unpInput) {
+                unpInput.style.borderColor = '#ef4444';
+                unpInput.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.3)';
+            }
+            if (errorMsg) {
+                errorMsg.innerText = `⚠️ Такой УНП уже привязан к компании "${result.client_name}"!`;
+                errorMsg.style.display = 'block';
+            }
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+        } else {
+            // Всё чисто — подсвечиваем зелёным успехом
+            if (unpInput) {
+                unpInput.style.borderColor = '#10b981';
+                unpInput.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.2)';
+            }
+            if (errorMsg) errorMsg.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+            }
+        }
+    } catch (err) {
+        console.error("Ошибка проверки УНП:", err);
+    }
+}
+           </script>
                         <div id="js-unp-error-block" style="display:none; font-size:10px; color:#ef4444; font-weight:600;"></div>
                     </div>
                     <div class="form-group">
@@ -1402,6 +1512,10 @@ async function openProtectedEditModal(id) {
                             <option value="ЕКМ">ЕКМ</option>
                             <option value="Сантехника">Сантехника</option>
                             <option value="Посуда">Посуда</option>
+                            <option value="МПДУ">МПДУ</option>
+                            <option value="Эмалированные таблички">Эмалированные таблички</option>
+                            <option value="УОКТ">УОКТ</option>
+                            <option value="Другое">Другое</option>
                         </select>
                     </div>
                 </div>
@@ -1419,13 +1533,14 @@ async function openProtectedEditModal(id) {
                 </div>
 
                 <!-- РЯД 5: МЕНЕДЖМЕНТ -->
-                <div class="crm-grid-2">
+              
                     <div class="form-group">
                         <label>Источник привлечения <span style="color:#ef4444;">*</span></label>
                         <select id="source" name="source" class="crm-select">
                             <option value="Холодный поиск">Холодный поиск</option>
-                            <option value="Входящий запрос">Входящий запрос</option>
-                            <option value="Рекомендация">Рекомендация</option>
+                            <option value="Запрос">Запрос</option>
+                            <option value="Закупки">Закупки</option>
+                            
                         </select>
                     </div>
                     <div class="form-group">
@@ -1436,7 +1551,7 @@ async function openProtectedEditModal(id) {
                             <option value="Потенциальный">Потенциальный</option>
                         </select>
                     </div>
-                </div>
+                
 
                 <!-- РЯД 6: КОММЕНТАРИЙ -->
                 <div class="form-group">
@@ -1727,6 +1842,40 @@ async function openProtectedEditModal(id) {
     transition: background 0.15s;
 }
 .btn-crm-save:hover { background: #0086d1; }
+/* Жесткий фикс для самих полей выбора в форме добавления/редактирования */
+form select, 
+select[name="product_type"], 
+select[name="status"], 
+select[name="lead_source"] {
+    color-scheme: dark !important; /* Принудительно заставляет движок Chrome включать ночную схему */
+    background-color: #151521 !important;
+    color: #ffffff !important;
+    border: 1px solid #323248 !important;
+    border-radius: 6px !important;
+    outline: none !important;
+    font-size: 13px !important;
+    cursor: pointer !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+}
+
+/* Хирургический фикс внутренних пунктов списка (option) при выпадении меню */
+form select option,
+select[name="product_type"] option, 
+select[name="status"] option, 
+select[name="lead_source"] option {
+    background-color: #1e1e2d !important; /* Глубокий графитовый фон плашки */
+    color: #ffffff !important; /* Белый читаемый текст наименований */
+    padding: 10px 14px !important;
+}
+
+/* Красивая неоновая подсветка рамок индиго при фокусе на селекте */
+form select:focus,
+select[name="product_type"]:focus,
+select[name="status"]:focus,
+select[name="lead_source"]:focus {
+    border-color: #4f46e5 !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+}
 </style>
 <script>
 window.isUnpBlocked = false;
@@ -1758,6 +1907,7 @@ function addContactField(data = null) {
                 <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Должность</label>
                 <input type="text" name="contacts[${contactIndex}][position]" value="${data ? data.position : ''}" placeholder="Напр: Директор / Снабженец" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
             </div>
+
         </div>
         <div style="display: flex; gap: 15px; margin-bottom: 10px;">
             <div style="flex: 1; text-align: left;">
@@ -1768,6 +1918,13 @@ function addContactField(data = null) {
                 <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Email</label>
                 <input type="email" name="contacts[${contactIndex}][email]" value="${data ? data.email : ''}" placeholder="example@mail.com" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
             </div>
+        </div>
+        <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+            <div style="flex: 1; text-align: left;">
+                <la bel style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Почтовый адрес</label>
+                <input type="text" name="contacts[${contactIndex}][phone]" value="${data ? data.phone : ''}" placeholder="246000" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
+            </div>
+        
         </div>
         <div style="text-align: left;">
             <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Примечания по функциям / Обязанности</label>

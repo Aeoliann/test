@@ -1,0 +1,85 @@
+Date : 2026-06-25 15:23:55
+Directory : c:\xampp\htdocs\test
+Total : 52 files,  9813 codes, 1036 comments, 1868 blanks, all 12717 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| PHP        |         44 |      8,473 |        892 |      1,576 |     10,941 |
+| JavaScript |          2 |        817 |        101 |        201 |      1,119 |
+| PostCSS    |          1 |        444 |         40 |         76 |        560 |
+| HTML       |          1 |         44 |          0 |          8 |         52 |
+| XML        |          1 |         21 |          0 |          1 |         22 |
+| Batch      |          1 |         11 |          3 |          4 |         18 |
+| Markdown   |          1 |          2 |          0 |          2 |          4 |
+| JSON       |          1 |          1 |          0 |          0 |          1 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                   |         52 |      9,813 |      1,036 |      1,868 |     12,717 |
+| . (Files)                                           |         51 |      9,792 |      1,036 |      1,867 |     12,695 |
+| xlsx_files                                          |          1 |         21 |          0 |          1 |         22 |
++-----------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                            | language   | code       | comment    | blank      | total      |
++-----------------------------------------------------+------------+------------+------------+------------+------------+
+| c:\xampp\htdocs\test\README.md                      | Markdown   |          2 |          0 |          2 |          4 |
+| c:\xampp\htdocs\test\activity_logs.php              | PHP        |        277 |         18 |         35 |        330 |
+| c:\xampp\htdocs\test\add_row.php                    | PHP        |         19 |          4 |          5 |         28 |
+| c:\xampp\htdocs\test\add_user.php                   | PHP        |         10 |          1 |          1 |         12 |
+| c:\xampp\htdocs\test\auth.html                      | HTML       |         44 |          0 |          8 |         52 |
+| c:\xampp\htdocs\test\backup.bat                     | Batch      |         11 |          3 |          4 |         18 |
+| c:\xampp\htdocs\test\bug_reports.php                | PHP        |      1,118 |        127 |        160 |      1,405 |
+| c:\xampp\htdocs\test\check_dublicate.php            | PHP        |         18 |          1 |          5 |         24 |
+| c:\xampp\htdocs\test\check_unp.php                  | PHP        |         27 |          2 |          6 |         35 |
+| c:\xampp\htdocs\test\contracts.php                  | PHP        |      2,022 |        217 |        473 |      2,712 |
+| c:\xampp\htdocs\test\create_client.php              | PHP        |         65 |          9 |         13 |         87 |
+| c:\xampp\htdocs\test\db.php                         | PHP        |        161 |         15 |         25 |        201 |
+| c:\xampp\htdocs\test\delete_contract_file.php       | PHP        |         27 |          5 |          8 |         40 |
+| c:\xampp\htdocs\test\delete_project_ttns.php        | PHP        |         38 |          6 |         11 |         55 |
+| c:\xampp\htdocs\test\delete_row.php                 | PHP        |         14 |          1 |          2 |         17 |
+| c:\xampp\htdocs\test\delete_ttn_pdf.php             | PHP        |         30 |          6 |          9 |         45 |
+| c:\xampp\htdocs\test\delete_user.php                | PHP        |         29 |          6 |          7 |         42 |
+| c:\xampp\htdocs\test\directory.php                  | PHP        |        200 |         25 |         33 |        258 |
+| c:\xampp\htdocs\test\export_contracts_excel.php     | PHP        |         95 |          5 |         12 |        112 |
+| c:\xampp\htdocs\test\export_excel.php               | PHP        |        118 |         13 |         16 |        147 |
+| c:\xampp\htdocs\test\force-fix.php                  | PHP        |         16 |          1 |          5 |         22 |
+| c:\xampp\htdocs\test\get_client.php                 | PHP        |         38 |          6 |          9 |         53 |
+| c:\xampp\htdocs\test\get_matrix_details.php         | PHP        |         57 |          6 |         12 |         75 |
+| c:\xampp\htdocs\test\get_ttns.php                   | PHP        |         91 |         18 |         23 |        132 |
+| c:\xampp\htdocs\test\index.php                      | PHP        |      1,968 |        165 |        334 |      2,467 |
+| c:\xampp\htdocs\test\logger.php                     | PHP        |        100 |         18 |         20 |        138 |
+| c:\xampp\htdocs\test\login.php                      | PHP        |         21 |          5 |          7 |         33 |
+| c:\xampp\htdocs\test\logout.php                     | PHP        |         19 |          7 |          5 |         31 |
+| c:\xampp\htdocs\test\ping.php                       | PHP        |         18 |          3 |          3 |         24 |
+| c:\xampp\htdocs\test\rates.php                      | PHP        |         23 |          4 |          3 |         30 |
+| c:\xampp\htdocs\test\rates_cache.json               | JSON       |          1 |          0 |          0 |          1 |
+| c:\xampp\htdocs\test\register_user.php              | PHP        |        199 |         18 |         35 |        252 |
+| c:\xampp\htdocs\test\report.php                     | PHP        |        318 |         35 |         52 |        405 |
+| c:\xampp\htdocs\test\save.php                       | PHP        |        112 |         20 |         32 |        164 |
+| c:\xampp\htdocs\test\save_multiple_ttns.php         | PHP        |         33 |          4 |          5 |         42 |
+| c:\xampp\htdocs\test\save_new_contract.php          | PHP        |         33 |          5 |          6 |         44 |
+| c:\xampp\htdocs\test\save_ttn.php                   | PHP        |         60 |          7 |         12 |         79 |
+| c:\xampp\htdocs\test\script.js                      | JavaScript |        794 |        100 |        200 |      1,094 |
+| c:\xampp\htdocs\test\sidebar.php                    | PHP        |        138 |         10 |         21 |        169 |
+| c:\xampp\htdocs\test\style.css                      | PostCSS    |        444 |         40 |         76 |        560 |
+| c:\xampp\htdocs\test\suggestions.php                | PHP        |        126 |          7 |         15 |        148 |
+| c:\xampp\htdocs\test\tasks.php                      | PHP        |        379 |         38 |         57 |        474 |
+| c:\xampp\htdocs\test\update_cell.php                | PHP        |         54 |         14 |         11 |         79 |
+| c:\xampp\htdocs\test\update_client.php              | PHP        |         75 |          4 |         13 |         92 |
+| c:\xampp\htdocs\test\update_contract_cell.php       | PHP        |         26 |          2 |          4 |         32 |
+| c:\xampp\htdocs\test\update_user.php                | PHP        |         14 |          2 |          1 |         17 |
+| c:\xampp\htdocs\test\upload_contract.php            | PHP        |         69 |         11 |         16 |         96 |
+| c:\xampp\htdocs\test\upload_scan.php                | PHP        |         68 |         14 |         21 |        103 |
+| c:\xampp\htdocs\test\upload_ttn_pdf.php             | PHP        |         39 |          4 |         11 |         54 |
+| c:\xampp\htdocs\test\users_admin.php                | PHP        |        111 |          3 |         22 |        136 |
+| c:\xampp\htdocs\test\xlsx.full.min.js               | JavaScript |         23 |          1 |          1 |         25 |
+| c:\xampp\htdocs\test\xlsx_files\1pixel-down__1_.svg | XML        |         21 |          0 |          1 |         22 |
+| Total                                               |            |      9,813 |      1,036 |      1,868 |     12,717 |
++-----------------------------------------------------+------------+------------+------------+------------+------------+
