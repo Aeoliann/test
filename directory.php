@@ -93,20 +93,25 @@ try {
 
     <!-- ПРАВАЯ КОЛОНКА: Справочник контента (весь твой код теперь живет внутри этого main) -->
     <main style="flex: 1; min-width: 0; height: 100%; padding: 30px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
-            <a href="index.php" style="background: #242434; border: 1px solid #323248; color: #92929f; text-decoration: none; padding: 10px 15px; border-radius: 6px; font-size: 13px; font-weight: bold; transition: 0.15s;" onmouseover="this.style.color='#fff'; this.style.background='#2b2b3d';" onmouseout="this.style.color='#92929f'; this.style.background='#242434';">← В CRM</a>
-              <div class="table-scroll-box" style="display:flex;">
-            <input type="text" 
-       id="directory_live_search" 
-       placeholder="Быстрый фильтр по названию или УНП..." 
-       oninput="runLiveDirectoryFilter(this.value)"
-       style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
-   <?php if ($search !== ''): ?>
-    <a href="directory.php" style="color: #ef4444; text-decoration: none; font-size: 13px; padding-left: 8px; font-weight: bold;">Сбросить</a>
-<?php endif; ?> 
-        </div>
+
         <div style="background: #1e1e2d; border: 1px solid #323248; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; box-sizing: border-box; width: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+
+                Общий справочник клиентов CRM
+</div>
+     <!-- ТАБЛИЦА СПРАВОЧНИКА В НЕЗАВИСИМОМ СКРОЛЛ-КОНТЕЙНЕРЕ -->
     
-    <!-- Поле ввода поискового запроса -->
+            <table>
+                
+                <thead>
+                    <tr>
+                        <th>п/п</th>
+                        <th style="text-align: left;">Название организации</th>
+                        <th>УНП</th>
+                        <th>Вид продукции</th>
+                        <th>Текущий статус</th>
+                        <th>Ответственный менеджер</th>
+                    </tr>
+                       <!-- Поле ввода поискового запроса -->
     <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; position: relative;">
         <input type="text" 
                id="js-crm-search-input" 
@@ -120,10 +125,6 @@ try {
         <span style="position: absolute; right: 14px; top: 13px; color: #71717a; pointer-events: none; font-size: 14px;">🔍</span>
     </div>
 
-    <!-- Индикатор количества найденных строк -->
-    <div style="background: #151521; border: 1px solid #323248; height: 42px; padding: 0 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #92929f; font-weight: bold; font-family: monospace; white-space: nowrap; box-sizing: border-box;">
-        Найдено строк: <span id="js-search-counter" style="color: #10b981; margin-left: 6px; font-size: 13px;">--</span>
-    </div>
 <script>
     function filterCrmDatabaseInline() {
     console.log("=== СТАРТ ЖИВОЙ ФИЛЬТРАЦИИ БАЗЫ ===");
@@ -173,19 +174,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-</div>
-     <!-- ТАБЛИЦА СПРАВОЧНИКА В НЕЗАВИСИМОМ СКРОЛЛ-КОНТЕЙНЕРЕ -->
-    
-            <table>
-                <thead>
-                    <tr>
-                        <th>п/п</th>
-                        <th style="text-align: left;">Название организации</th>
-                        <th>УНП</th>
-                        <th>Вид продукции</th>
-                        <th>Текущий статус</th>
-                        <th>Ответственный менеджер</th>
-                    </tr>
                 </thead>
                 <tbody>
 

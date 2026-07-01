@@ -433,91 +433,140 @@ $stmt = $pdo->prepare($sql);
 
     <button type="button" onclick="openComplexModal();" style="background: #818cf8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#6366f1';" onmouseout="this.style.background='#818cf8';">
     💎 Добавить клиента и договор
-</button>
-<div id="complexModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); justify-content: center; align-items: center; z-index: 99999; box-sizing: border-box; padding: 15px;">
-    <div style="background: #1e1e2d; border-radius: 8px; border: 1px solid #323248; padding: 25px; width: 550px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-        
-        <h3 style="margin-top: 0; color: #fff; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #323248; padding-bottom: 10px; margin-bottom: 20px;">
-            🗂 Создание контрагента и договора в одной связке
-        </h3>
-
-        <!-- ИСПРАВЛЕНО: Убрали action="index.php", привязали JS обработчик на событие onsubmit -->
-        <form id="jointClientContractForm" onsubmit="return saveComplexFormDirectly(event, this);" style="margin: 0; padding: 0;">
-            <input type="hidden" name="action_type" value="create_client_with_contract">
-
-            <!-- БЛОК 1: ДАННЫЕ ОРГАНИЗАЦИИ -->
-            <div style="margin-bottom: 15px; display: flex; gap: 15px;">
-                <div style="flex: 2; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Название компании</label>
-                    <input type="text" name="client_name" id="complex_client_name" required placeholder="ООО СантехМонтаж" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
-                </div>
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">УНП / ИНН</label>                    
-                    <input type="text" name="unp" id="complex_unp" placeholder="123456789" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
-                <script> document.getElementById('complex_unp').addEventListener('blur', function() {
-    let unpValue = this.value.trim();
-    
-    // Проверяем, что поле не пустое и длина не равна 9
-    if (unpValue.length > 0 && unpValue.length !== 9) {
-        alert('Внимание: УНП должен содержать 9 знаков. Проверьте корректность данных (для иностранных партнеров допускается другое количество).');
-    }
-});</script>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 15px; display: flex; gap: 15px;">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Телефон связи</label>
-                    <input type="text" name="phone" id="complex_phone" placeholder="+375 (...)" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
-                </div>
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Контактное лицо</label>
-                    <input type="text" name="contact_person" id="complex_contact_person" placeholder="Иванов И.И." style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px;">
-                </div>
-            </div>
-
-            <!-- БЛОК 2: ДАННЫЕ ДОГОВОРА -->
-            <div style="border-top: 1px dashed #323248; padding-top: 15px; margin-bottom: 15px; display: flex; gap: 15px;">
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #818cf8; font-weight: bold; text-transform: uppercase;">№ Нового договора</label>
-                    <input type="text" name="contract_number" id="complex_contract_number" required placeholder="Напр: 240/Т" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; border-color: #4f46e5;">
-                </div>
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 10px; color: #818cf8; font-weight: bold; text-transform: uppercase;">Дата заключения</label>
-                    <input type="date" name="contract_date" id="complex_contract_date" value="<?= date('Y-m-d') ?>" style="height: 38px; padding: 0 10px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; color-scheme: dark; border-color: #4f46e5;">
-                </div>
-            </div>
-
-            <!-- БЛОК 3: ТИП ПРОДУКЦИИ -->
-            <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 15px; text-align: left;">
-                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Тип продукции:</label>
-                <!-- ИСПРАВЛЕНО: Полностью удален атрибут form="newClientForm", ломавший отправку значения -->
-                <select name="product_type" id="complex_product_select" style="width: 100%; height: 40px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; cursor: pointer; font-size: 13px; box-sizing: border-box;">
-                    <option value="Сантехника">Сантехника</option>
-                    <option value="Посуда">Посуда</option>
-                    <option value="Резервуары">Резервуары</option>
-                    <option value="ЕКМ">ЕКМ</option>
-                    <option value="МПДУ">МПДУ</option>
-                    <option value="Эмалированные таблички">Эмалированные таблички</option>
-                    <option value="УОКТ">УОКТ</option>
-                    <option value="другое">другое</option>
-                </select>
-            </div>
-
-            <!-- ПОДВАЛ МОДАЛКИ: КНОПКИ -->
-            <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #323248; padding-top: 15px; background: transparent !important;">
-                <button type="button" onclick="closeComplexModal();" style="height: 40px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">Отмена</button>
-                <!-- ИСПРАВЛЕНО: Сменили тип на submit, убрали onclick="this.form.submit()" ломавший асинхронность -->
-                <button type="submit" class="btn-contract-save" style="height: 40px; padding: 0 20px; background: #10b981; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">🚀 Создать связку</button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <script>
+document.addEventListener("DOMContentLoaded", function() {
+    // ЖЕЛЕЗНЫЙ ХИКС ID: Находим инпут по любому из двух возможных ID в твоей системе
+    const unpInputElement = document.getElementById('complex_unp') || document.getElementById('add_client_unp');
+    const errorMsg = document.getElementById('complex_unp_error_msg');
+
+    if (!unpInputElement) {
+        console.error("Крит: Инпут УНП не найден ни по ID 'complex_unp', ни по 'add_client_unp'!");
+        return;
+    }
+
+    // Навешиваем живую проверку дубликата при вводе
+    unpInputElement.addEventListener('input', async function() {
+        const unpValue = this.value.trim();
+        
+        // Находим форму и кнопку сохранения динамически
+        const currentForm = document.getElementById('clientForm') || this.closest('form') || document.querySelector('form');
+        const submitBtn = currentForm ? currentForm.querySelector('button[type="submit"]') : document.querySelector('button[type="submit"]');
+
+        // Отключаем блокировку, если это режим РЕДАКТИРОВАНИЯ существующего клиента
+        const clientIdInput = document.getElementById('client_id');
+        if (clientIdInput && parseInt(clientIdInput.value, 10) > 0) return;
+
+        // Если символов не 9, возвращаем дефолтные стили и тушим ошибку
+        if (unpValue.length !== 9) {
+            this.style.borderColor = '#323248';
+            this.style.boxShadow = 'none';
+            if (errorMsg) errorMsg.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+            }
+            return;
+        }
+
+        console.log("=== ЖИВАЯ ПРОВЕРКА УНП НА ДУБЛИКАТЫ ЧЕРЕЗ SAVE.PHP: " + unpValue + " ===");
+
+        const fd = new FormData();
+        fd.append('action_mode', 'check_unp_duplicate_live');
+        fd.append('unp', unpValue);
+
+        try {
+            const res = await fetch('save.php', { method: 'POST', body: fd });
+            const result = await res.json();
+
+            if (result.status === 'duplicate') {
+                // Красная неоновая блокировка поля и кнопки
+                this.style.borderColor = '#ef4444';
+                this.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.3)';
+                
+                if (errorMsg) {
+                    errorMsg.innerText = `⚠️ Такой УНП уже зарегистрирован за компанией "${result.client_name}"!`;
+                    errorMsg.style.display = 'block';
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                    submitBtn.style.cursor = 'not-allowed';
+                }
+            } else {
+                // Изумрудный успех — УНП чист!
+                this.style.borderColor = '#10b981';
+                this.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.2)';
+                if (errorMsg) errorMsg.style.display = 'none';
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                }
+            }
+        } catch (err) {
+            console.error("Ошибка асинхронной проверки УНП:", err);
+        }
+    });
+
+    // Проверка корректности длины при потере фокуса (blur)
+    unpInputElement.addEventListener('blur', function() {
+        const unpValue = this.value.trim();
+        
+        if (errorMsg && errorMsg.style.display === 'block' && errorMsg.innerText.includes('зарегистрирован')) return;
+
+        if (unpValue.length > 0 && unpValue.length !== 9) {
+            this.style.borderColor = '#ef4444';
+            if (errorMsg) {
+                errorMsg.innerText = '⚠️ Внимание: УНП должен содержать 9 знаков. Проверьте корректность данных.';
+                errorMsg.style.display = 'block';
+            }
+        }
+    });
+});
+</script>
     
-function openComplexModal() {
-    document.getElementById('complexModal').style.display = 'flex';
+
+          
+
+<script>
+    function openComplexModal() {
+    console.log("=== ПОПЫТКА ОТКРЫТИЯ МОДАЛКИ СВЯЗКИ КОНТРАГЕНТА И ДОГОВОРА ===");
+    
+    // Всеядный поиск контейнера модалки по ID
+    const modal = document.getElementById('complexModal');
+    
+    if (!modal) {
+        console.error("🚨 КРИТ: Элемент с id='complexModal' физически не найден в DOM-дереве файла index.php!");
+        alert("Ошибка интерфейса: Модальное окно связки не найдено на странице. Проверьте ID контейнера внизу файла.");
+        return;
+    }
+
+    // 1. Красиво разворачиваем оверлей по центру экрана
+    modal.style.setProperty('display', 'flex', 'important');
+    
+    // 2. СИНХРОНИЗАЦИЯ: Автоматически ставим сегодняшнюю дату в календарь заключения договора
+    const complexDateInput = document.getElementById('complex_contract_date');
+    if (complexDateInput) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        
+        complexDateInput.value = `${yyyy}-${mm}-${dd}`;
+        console.log("📅 АВТО-ДАТА: В инпут успешно установлена текущая дата:", complexDateInput.value);
+    }
+
+    // 3. Вычищаем старые ошибки дубликатов УНП при новом открытии
+    const errorMsg = document.getElementById('complex_unp_error_msg');
+    if (errorMsg) errorMsg.style.display = 'none';
+    
+    const unpInput = document.getElementById('complex_unp');
+    if (unpInput) {
+        unpInput.style.borderColor = '#323248';
+        unpInput.style.boxShadow = 'none';
+    }
 }
 function closeComplexModal() {
     const modal = document.getElementById('complexModal');
@@ -602,6 +651,7 @@ async function saveComplexFormDirectly(event, formElement) {
                 <option value="Резервуары" <?= $productFilter === 'Резервуары' ? 'selected' : '' ?>>Резервуары</option>
                 <option value="ЕКМ" <?= $productFilter === 'ЕКМ' ? 'selected' : '' ?>>ЕКМ</option>
                 <option value="МПДУ" <?= $productFilter === 'МПДУ'? 'selected' : '' ?>>МПДУ</option> 
+                <option value="Резервуар"<?= $productFilter === 'Резервуары'? 'selected' : '' ?>>Резервуар</option>
                 <option value = "Эмалированные таблички" <?= $productFilter === 'Эмалированные таблички' ? 'selected' : '' ?>>Эмалированные таблички</option>
                 <option value = "УОКТ" <?= $productFilter === "УОКТ" ? 'selected' : ''?>>УОКТ</option>
                 <option value = "Другое" <?= $productFilter === "Другое" ? 'selected' : '' ?>>Другое</option>                
@@ -963,8 +1013,44 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="cell-phone" style="padding: 14px 10px; text-align: center; color: #cbd5e1; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['phone'] ?: '—') ?></td>
             
             <!-- 7. Email -->
-            <td class="cell-email" style="padding: 14px 10px; text-align: left; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['email'] ?: '—') ?></td>
+ <!-- НАМЕРТВО ИСПРАВЛЕНО: Всеядный сбор ID внутри ячейки для вывода подсказок -->
+<td class="cell-email" style="padding: 14px 10px; text-align: left; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+    <?php
+    $hintText = '';
+    try {
+        // Жесткая проверка: ищем ID в переменной $c по всем регистрам
+        $currentClientId = (int)($c['id'] ?? ($c['client_id'] ?? 0));
+        
+        if ($currentClientId > 0) {
+            $stmtHint = $pdo->prepare("SELECT name, position, phone, email FROM client_contacts WHERE client_id = ?");
+            $stmtHint->execute([$currentClientId]);
+            $subContacts = $stmtHint->fetchAll(PDO::FETCH_ASSOC);
             
+            if (!empty($subContacts)) {
+                $lines = [];
+                foreach ($subContacts as $sc) {
+                    $line = "👤 " . trim($sc['name']);
+                    if (!empty($sc['position'])) $line .= " (" . trim($sc['position']) . ")";
+                    if (!empty($sc['phone']))    $line .= " 📞 " . trim($sc['phone']);
+                    if (!empty($sc['email']))    $line .= " ✉️ " . trim($sc['email']);
+                    $lines[] = $line;
+                }
+                $hintText = "Дополнительные контакты контрагента:\n" . implode("\n", $lines);
+            } else {
+                $hintText = "Дополнительных контактных лиц не зарегистрировано";
+            }
+        } else {
+            $hintText = "Ошибка фронтенда: ID клиента равен 0";
+        }
+    } catch (Exception $e) {
+        $hintText = "Ошибка СУБД: " . $e->getMessage();
+    }
+    ?>
+    <span style="cursor: help; border-bottom: 1px dashed rgba(203, 213, 225, 0.3); display: inline-block; width: 100%;" 
+          title="<?= htmlspecialchars($hintText, ENT_QUOTES, 'UTF-8') ?>">
+        <?= htmlspecialchars($c['email'] ?: '—') ?>
+    </span>
+</td>
             <!-- 8. Статус (ИНТЕЛЛЕКТУАЛЬНЫЕ НЕОНОВЫЕ БЕЙДЖИ) -->
             <td class="cell-status" style="padding: 14px 10px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                 <?php
@@ -1222,7 +1308,7 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
 <button type="button" 
         class="btn-edit"
         onclick="<?= $isComplexLock ? "alert('⚠️ Доступ ограничен: Карточка заблокирована для редактирования, так как по ней уже заключен договор! Обратитесь к Администратору.'); return false;" : "openProtectedEditModal(" . (int)$c['id'] . "); return false;" ?>"
-        style="ba  ckground: <?= $isComplexLock ? '#3f3f46' : '#4f46e5' ?>; color: <?= $isComplexLock ? '#92929f' : 'white' ?>; border: none; padding: 4px 10px; border-radius: 4px; cursor: <?= $isComplexLock ? 'not-allowed' : 'pointer' ?>; font-size: 12px; font-weight: bold;"
+        style="background: <?= $isComplexLock ? '#3f3f46' : '#4f46e5' ?>; color: <?= $isComplexLock ? '#92929f' : 'white' ?>; border: none; padding: 4px 10px; border-radius: 4px; cursor: <?= $isComplexLock ? 'not-allowed' : 'pointer' ?>; font-size: 12px; font-weight: bold;"
         title="<?= $isComplexLock ? 'Редактирование запрещено! Карточка создана в связке с договором.' : 'Редактировать личные данные клиента' ?>">
     <?= $isComplexLock ? '🔒 Ред.' : '✏️ Ред.' ?>
 
@@ -1244,9 +1330,18 @@ let ContactIndex = 0;
 /**
  * ГЛОБАЛЬНАЯ ФУНКЦИЯ ДОБАВЛЕНИЯ ПОЛЕЙ КОНТАКТА
  */
+// НАМЕРТВО ИСПРАВЛЕНО: Полная синхронизация имен переменных и структуры СУБД Santeks
 function addContactField(data = null) {
     const container = document.getElementById('contactsContainer');
     if (!container) return; 
+
+    // ЖЕЛЕЗНЫЙ ФИКС ИМЕН: Переменные строго соответствуют выводу в HTML-шаблоне!
+    let cPostal    = data ? (data.postal_address || '') : '';
+    let cNotes     = data ? (data.function_notes || '') : '';
+    let cName      = data ? (data.name || (data.contact_name || '')) : '';
+    let cPosition  = data ? (data.position || (data.contact_role || '')) : '';
+    let cPhone     = data ? (data.phone || (data.contact_phone || '')) : '';
+    let cEmail     = data ? (data.email || (data.contact_email || '')) : '';
 
     const contactRow = document.createElement('div');
     contactRow.className = 'contact-card';
@@ -1261,33 +1356,53 @@ function addContactField(data = null) {
         <div class="crm-grid-2" style="margin-bottom: 10px;">
             <div class="form-group">
                 <label>ФИО ответственного лица ${contactIndex === 0 ? '<span style="color:#ef4444;">*</span>' : ''}</label>
-                <input type="text" name="contacts[${contactIndex}][name]" ${contactIndex === 0 ? 'required' : ''} value="${data ? data.name : ''}" class="crm-input" placeholder="Иванов Иван Иванович">
+                <input type="text" name="contacts[${contactIndex}][name]" ${contactIndex === 0 ? 'required' : ''} value="${escapeHtmlQuotes(cName)}" class="crm-input" placeholder="Иванов Иван Иванович">
             </div>
             <div class="form-group">
                 <label>Должность лица</label>
-                <input type="text" name="contacts[${contactIndex}][position]" value="${data ? data.position : ''}" class="crm-input" placeholder="Напр: Главный снабженец">
+                <input type="text" name="contacts[${contactIndex}][position]" value="${escapeHtmlQuotes(cPosition)}" class="crm-input" placeholder="Напр: Главный снабженец">
             </div>
         </div>
         <div class="crm-grid-2" style="margin-bottom: 10px;">
             <div class="form-group">
                 <label>Телефон прямой</label>
-                <input type="text" name="contacts[${contactIndex}][phone]" value="${data ? data.phone : ''}" class="crm-input" placeholder="+375 (...)">
+                <input type="text" name="contacts[${contactIndex}][phone]" value="${escapeHtmlQuotes(cPhone)}" class="crm-input" placeholder="+375 (...)">
             </div>
             <div class="form-group">
                 <label>Email лица</label>
-                <input type="email" name="contacts[${contactIndex}][email]" value="${data ? data.email : ''}" class="crm-input" placeholder="ivanov@partner.com">
+                <input type="email" name="contacts[${contactIndex}][email]" value="${escapeHtmlQuotes(cEmail)}" class="crm-input" placeholder="ivanov@partner.com">
             </div>
         </div>
+        
+        <!-- Почтовый адрес контрагента -->
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label>Почтовый адрес</label>
+            <input type="text" name="contacts[${contactIndex}][postal_address]" value="${escapeHtmlQuotes(cPostal)}" class="crm-input" placeholder="246000">
+        </div>
+
+        <!-- Сфера ответственности и Примечания -->
         <div class="form-group">
             <label>Примечания по функциям / Сфера ответственности</label>
-            <textarea name="contacts[${contactIndex}][function_notes]" rows="1" class="crm-textarea" placeholder="ЛПР, принимает итоговые решения по отгрузкам...">${data ? data.function_notes : ''}</textarea>
+            <textarea name="contacts[${contactIndex}][function_notes]" rows="2" class="crm-textarea" placeholder="ЛПР, принимает итоговые решения по отгрузкам...">${escapeHtmlQuotes(cNotes)}</textarea>
         </div>
     `;
 
     container.appendChild(contactRow);
     contactIndex++;
     container.scrollTop = container.scrollHeight;
-}   
+}
+
+// Вспомогательная функция защиты от кавычек, ломающих атрибуты HTML-тегов
+function escapeHtmlQuotes(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 
 function removeContactField(index) {
     const row = document.querySelector(`.contact-item-row[data-index="${index}"]`);
@@ -1298,57 +1413,102 @@ function removeContactField(index) {
  * ФУНКЦИЯ РЕДАКТИРОВАНИЯ КЛИЕНТА (ВЫНЕСЕНА В ФИНАЛЬНЫЙ БЛОК)
  */
 async function openProtectedEditModal(id) {
-    console.log("=== ТЕСТ ЗАПУЩЕН ===");
+    console.log("=== ЗАПУСК ПАКЕТНОЙ ВЫГРУЗКИ ДАННЫХ ИЗ СУБД ДЛЯ КЛИЕНТА #" + id + " ===");
+    
     const modal = document.getElementById('clientModal');
     const form = document.getElementById('clientForm');
     
     try {
+        // Фоновый AJAX-запрос к API-контроллеру карточки
         const res = await fetch('get_client.php?id=' + parseInt(id, 10));
         const responseData = await res.json();
-        const c = responseData.data; 
-        console.log("CHECKPOINT 1: Данные получены из базы.");
-
-        // Базовые текстовые поля
-        if(document.getElementById('client_id')) document.getElementById('client_id').value = c.id;
-        if(document.getElementById('modalTitle')) document.getElementById('modalTitle').innerText = 'Редактирование клиента #' + c.id;
         
-        const nameField = document.getElementById('client_name') || document.getElementById('name');
+        if (responseData.status !== 'success' || !responseData.data) {
+            alert("🚨 Ошибка API СУБД: " + (responseData.message || "Не удалось получить данные клиента."));
+            return;
+        }
+
+        const c = responseData.data; 
+        console.log("CHECKPOINT 1: Данные успешно получены из базы данных.", c);
+
+        // 1. Инициализация базовых системных маркеров ID и Заголовка
+        if (document.getElementById('client_id')) {
+            document.getElementById('client_id').value = c.id;
+        }
+        if (document.getElementById('modalTitle')) {
+            document.getElementById('modalTitle').innerText = 'Редактирование клиента #' + c.id;
+        }
+        
+        // 2. Локальный поиск и заполнение Имени компании
+        const nameField = modal ? (modal.querySelector('#client_name') || modal.querySelector('#name') || modal.querySelector('input[name="client_name"]')) : null;
         if (nameField) nameField.value = c.client_name || '';
         
-        const unpInput = document.getElementById('js-client-unp-input') || document.getElementById('unp');
-        if (unpInput) unpInput.value = c.unp || '';
-        
-        console.log("CHECKPOINT 2: Базовые поля (Имя, УНП) заполнены.");
+        // 3. ХИРУРГИЧЕСКИЙ ФИКС УНП: Ищем строго внутри модалки, чтобы не путать с формой добавления!
+        if (modal) {
+            const modalUnpInput = modal.querySelector('#unp') 
+                               || modal.querySelector('#complex_unp') 
+                               || modal.querySelector('input[name="unp"]');
+            
+            if (modalUnpInput) {
+                // Приоритет заглавному ключу UNP из структуры СУБД Santeks
+                modalUnpInput.value = c.UNP || (c.unp || '');
+                
+                // Намертво тушим старые красные рамки ошибок от формы добавления
+                modalUnpInput.style.borderColor = '#323248';
+                modalUnpInput.style.boxShadow = 'none';
+            }
+            
+            // Скрываем текстовую подсказку ошибки дубликата в модалке правок
+            const errorMsg = modal.querySelector('#complex_unp_error_msg') || modal.querySelector('#add_unp_error_msg');
+            if (errorMsg) errorMsg.style.display = 'none';
+        }
+        console.log("CHECKPOINT 2: Базовые текстовые поля (Имя, УНП) заполнены.");
 
-        // 1. Проверяем поле сайта
-        const websiteField = document.getElementById('client_website');
+        // 4. Заполнение поля Сайта / Веб-ресурса
+        const websiteField = modal ? (modal.querySelector('#client_website') || modal.querySelector('input[name="website"]')) : null;
         if (websiteField) {
             websiteField.value = c.website || '';
         }
         console.log("CHECKPOINT 3: Поле сайта обработано.");
 
-        // 2. Проверяем функцию контактов
-        const contactsContainer = document.getElementById('contactsContainer');
+        // 5. Отрисовка динамических мульти-контактов из таблицы client_contacts
+         const contactsContainer = document.getElementById('contactsContainer');
         if (contactsContainer) {
-            contactsContainer.innerHTML = '';
-            contactIndex = 0;
+            contactsContainer.innerHTML = ''; // Вычищаем старые блоки
+            
+            // ВАЖНО: Намертво сбрасываем глобальный счетчик в ноль для новой карточки!
+            window.contactIndex = 0; 
+            
             if (c.contacts && Array.isArray(c.contacts) && c.contacts.length > 0) {
-                c.contacts.forEach(contact => { addContactField(contact); });
+                // Если контакты есть в базе — рендерим их по очереди
+                c.contacts.forEach(contact => { 
+                    addContactField(contact); 
+                });
             } else {
-                addContactField();
+                // Если контактов в базе ещё нет — создаем один пустой обязательный блок
+                addContactField(null);
             }
         }
-        console.log("CHECKPOINT 4: Динамические контакты отрисованы.");
+        console.log("CHECKPOINT 4: Динамические мульти-контакты отрисованы.");
 
-        // 3. Проверяем старые поля обратной совместимости
-        if(document.getElementById('contact_person')) document.getElementById('contact_person').value = c.contact_person || '';
-        if(document.getElementById('phone')) document.getElementById('phone').value = c.phone || '';
+       // 6. НАМЕРТВО ИСПРАВЛЕНО: Поля обратной совместимости пишут строго в главные инпуты компании
+        // Ищем инпуты компании строго вне контейнера контактов, чтобы не затирать динамические лица!
+        const mainForm = form || document.getElementById('clientForm');
         
-        const emailField = document.getElementById('e_mail') || document.getElementById('email');
-        if (emailField) emailField.value = c.email || '';
-        console.log("CHECKPOINT 5: Поля обратной совместимости пройдены.");
+        if (mainForm) {
+            const mainContactPerson = mainForm.querySelector('#contact_person') || document.getElementById('contact_person');
+            if (mainContactPerson) mainContactPerson.value = c.contact_person || '';
+            
+            // Ищем базовый телефон компании (проверяем, чтобы это не был инпут из контактов)
+            const mainPhone = mainForm.querySelector('#phone') || document.getElementById('phone');
+            if (mainPhone && !mainPhone.closest('#contactsContainer')) mainPhone.value = c.phone || '';
+            
+            const mainEmail = mainForm.querySelector('#e_mail') || mainForm.querySelector('#email') || document.getElementById('email');
+            if (mainEmail && !mainEmail.closest('#contactsContainer')) mainEmail.value = c.email || '';
+        }
+        console.log("CHECKPOINT 5: Поля обратной совместимости пройдены без затирания контактов.");
 
-        // 4. Проверяем даты и вызов фикса бага 104
+        // 7. Парсинг календаря и валидация даты следующего контакта (Фикс бага 104)
         const nextDateInput = document.getElementById('add_client_next_date') || document.getElementById('next_contact_date');
         if (nextDateInput) {
             let apiDateValue = (c.next_contact_date || '').toString().trim();
@@ -1358,47 +1518,64 @@ async function openProtectedEditModal(id) {
             } else {
                 nextDateInput.value = ''; 
             }
+            nextDateInput.style.borderColor = '#323248';
+            nextDateInput.style.boxShadow = 'none';
         }
         console.log("CHECKPOINT 6: Даты и календари зафиксированы.");
 
-        // 5. Проверяем статусы и системные селекты
-        if(document.getElementById('status')) document.getElementById('status').value = c.status || 'Новый';
-        if(document.getElementById('comment')) document.getElementById('comment').value = c.comment || '';
-        if(document.getElementById('source')) document.getElementById('source').value = c.source || '';
+        // 8. Синхронизация системных селектов Статуса и Комментария
+        if (document.getElementById('status')) document.getElementById('status').value = c.status || 'Новый';
+        if (document.getElementById('comment')) document.getElementById('comment').value = c.comment || '';
         
-        console.log("CHECKPOINT 7: Системные селекты записаны. Пытаемся открыть модалку...");
+        // 9. Фикс селекта вида продукции
+        const productTypeSelect = document.getElementById('product_type') || document.querySelector('select[name="product_type"]');
+        if (productTypeSelect) productTypeSelect.value = c.product_type || '';
 
-        // ФИНАЛЬНЫЙ СТАРТ
+        // 10. Фикс источника привлечения (Поддержка кастомного DIV-модуля Santeks)
+        const sourceValue = c.source || (c.lead_source || '');
+        const customSourceText = document.getElementById('js-custom-select-text');
+        const customSourceInput = document.getElementById('js-real-lead-source');
+        
+        if (customSourceInput && customSourceText) {
+            customSourceInput.value = sourceValue;
+            customSourceText.innerText = sourceValue ? sourceValue : 'Выберите источник...';
+            customSourceText.style.color = sourceValue ? '#ffffff' : '#64748b';
+        }
+        if (document.getElementById('source')) document.getElementById('source').value = sourceValue;
+        
+        console.log("CHECKPOINT 7: Системные выпадающие списки синхронизированы.");
+
+        // ФИНАЛЬНЫЙ ЗАПУСК И ОТКРЫТИЕ ОКНА МОДАТКИ
         if (modal) {
             modal.style.setProperty('display', 'flex', 'important');
             modal.classList.add('active');
-            console.log("CHECKPOINT ФИНАЛ: КЛАССЫ И СТИЛИ ДОБАВЛЕНЫ УСПЕШНО!");
+            
+            // Гарантированно возвращаем кнопку сохранения в рабочее состояние
+            const submitBtn = modal.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+                submitBtn.innerText = "Сохранить изменения";
+            }
+            console.log("CHECKPOINT ФИНАЛ: МОДАЛКА РЕАКТИВНО РАЗВЕРНУТА И ПОЛНОСТЬЮ ЗАПОЛНЕНА!");
         }
 
     } catch (err) {
-        console.error("КРИТИЧЕСКИЙ СБОЙ ВНУТРИ ТЕСТА:", err);
+        console.error("🚨 КРИТИЧЕСКИЙ СБОЙ ВНУТРИ ФУНКЦИИ openProtectedEditModal:", err);
     }
-}console.log("Данные успешно подтянуты из API без единого сбоя. Окно открыто.");
-
-
-
+}
     </script>
 </div>
 <!-- МОДАЛЬНОЕ ОКНО (ОДНО НА ВЕСЬ ФАЙЛ, ВНЕ ЦИКЛА!) -->
 <div id="clientModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:9999;">
-    <div class="stylish-modal" style="background:#1e1e2d; padding:25px; border-radius:12px; height: 800px; width:800px; color:#fff; font-family: sans-serif;">
-        <h2 id="modalTitle" style="margin-top:0; text-align: left;">Добавить клиента</h2>
+    <div class="stylish-modal" style="background:#1e1e2d; padding:25px; border-radius:12px; height:800px; width:800px; color:#fff; font-family:sans-serif;">
         
-        <form id="clientForm" style="margin: 0; padding: 0;">
-            <!-- Скрытое поле ID обязательно должно иметь name="id" -->
-            <input type="hidden" id="client_id" name="id">
-            
-             
-    <!-- РЯД 1: НАЗВАНИЕ И УНП -->
-   
+        <h2 id="modalTitle" style="margin-top:0; text-align:left;">Добавить клиента</h2>
         
-        <form id="clientForm" autocomplete="off">
-            <input type="hidden" id="client_id" name="id">
+        <!-- ОСТАВЛЯЕМ СТРОГО ОДИН ТЕГ ФОРМЫ С НАШИМ СКРЫТЫМ ИНПУТОМ ID -->
+        <form id="clientForm" autocomplete="off" style="margin: 0; padding: 0;">
+            <input type="hidden" id="client_id" name="id" value="0">
             
             <div class="modal-body">
                 
@@ -1419,43 +1596,60 @@ async function openProtectedEditModal(id) {
            oninput="checkUnpDuplicateLive(this.value);"
            style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; transition: all 0.2s;">
            <script>
-            async function checkUnpDuplicateLive(unpValue) {
-    const unpInput = document.getElementById('add_client_unp');
+          async function checkUnpDuplicateLive(unpValue) {
+    const unpInput = document.getElementById('add_client_unp') || document.getElementById('unp');
     const errorMsg = document.getElementById('add_unp_error_msg');
     
-    // Ищем кнопку отправки формы добавления (замени id или класс, если у тебя другие)
-    const submitBtn = document.querySelector('#bugReportForm button[type="submit"]') 
-                    || document.querySelector('form button[type="submit"]');
+    // ЖЕЛЕЗНЫЙ ПОИСК КНОПКИ: Ищем форму по ID или тегу, вытаскивая кнопку отправки
+    const currentForm = document.getElementById('clientForm') || document.querySelector('form');
+    const submitBtn = currentForm ? currentForm.querySelector('button[type="submit"]') : document.querySelector('button[type="submit"]');
 
-    const cleanUnp = unpValue.trim();
-
-    // Валидация запускается только когда введены все 9 цифр
-    if (cleanUnp.length !== 9) {
-        if (unpInput) unpInput.style.borderColor = '#323248';
+    // Проверяем: если мы РЕДАКТИРУЕМ старого клиента (в поле client_id лежит число > 0), то проверку дублей отключаем
+    const clientIdInput = document.getElementById('client_id');
+    const isEditing = clientIdInput && parseInt(clientIdInput.value, 10) > 0;
+    if (isEditing) {
+        if (unpInput) unpInput.style.borderColor = '';
         if (errorMsg) errorMsg.style.display = 'none';
-        if (submitBtn) submitBtn.disabled = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+        }
         return;
     }
 
-    console.log("=== ЖИВАЯ ПРОВЕРКА УНП НА ДУБЛИКАТЫ: " + cleanUnp + " ===");
+    const cleanUnp = unpValue.trim();
+
+    // Валидация запускается строго при вводе полных 9 цифр УНП
+    if (cleanUnp.length !== 9) {
+        if (unpInput) unpInput.style.borderColor = '';
+        if (errorMsg) errorMsg.style.display = 'none';
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+        }
+        return;
+    }
+
+    console.log("=== ЖИВАЯ ПРОВЕРКА УНП НА ДУБЛИКАТЫ ЧЕРЕЗ SAVE.PHP: " + cleanUnp + " ===");
 
     const fd = new FormData();
     fd.append('action_mode', 'check_unp_duplicate_live');
     fd.append('unp', cleanUnp);
 
     try {
-        // Шлём быстрый фоновый запрос на текущий файл бэкенда страницы клиентов (напр. index.php)
-        const res = await fetch('index.php', { method: 'POST', body: fd });
+        const res = await fetch('save.php', { method: 'POST', body: fd });
         const result = await res.json();
 
         if (result.status === 'duplicate') {
-            // Мгновенная красная неоновая блокировка
+            // Мгновенная красная неоновая блокировка интерфейса
             if (unpInput) {
                 unpInput.style.borderColor = '#ef4444';
                 unpInput.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.3)';
             }
             if (errorMsg) {
-                errorMsg.innerText = `⚠️ Такой УНП уже привязан к компании "${result.client_name}"!`;
+                errorMsg.innerText = `⚠️ Такой УНП уже зарегистрирован за компанией "${result.client_name}"!`;
                 errorMsg.style.display = 'block';
             }
             if (submitBtn) {
@@ -1464,7 +1658,7 @@ async function openProtectedEditModal(id) {
                 submitBtn.style.cursor = 'not-allowed';
             }
         } else {
-            // Всё чисто — подсвечиваем зелёным успехом
+            // Всё чисто — подсвечиваем изумрудным успехом
             if (unpInput) {
                 unpInput.style.borderColor = '#10b981';
                 unpInput.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.2)';
@@ -1477,7 +1671,7 @@ async function openProtectedEditModal(id) {
             }
         }
     } catch (err) {
-        console.error("Ошибка проверки УНП:", err);
+        console.error("Ошибка асинхронного транспорта УНП:", err);
     }
 }
            </script>
@@ -1489,16 +1683,290 @@ async function openProtectedEditModal(id) {
                     </div>
                 </div>
 
-                <!-- РЯД 2: ДИНАМИЧЕСКИЕ КОНТАКТНЫЕ ЛИЦА -->
-                <div class="contacts-section">
-                    <div class="contacts-section-header">
-                        <h3>Контактные лица компании</h3>
-                        <button type="button" class="btn-add-contact" onclick="addContactField()">+ Добавить лицо</button>
-                    </div>
-                    <div id="contactsContainer" class="contacts-scroll-container">
-                        <!-- Динамические строки добавляются через JS -->
-                    </div>
-                </div>
+             <!-- МОДУЛЬ МУЛЬТИ-КОНТАКТОВ С ДИНАМИЧЕСКИМ ПЕРЕКЛЮЧЕНИЕМ ГРИД / ФОРМА -->
+<div style="margin-top: 20px; border-top: 1px dashed #323248; padding-top: 15px; text-align: left;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; font-size: 14px; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Контактные лица компании</h3>
+        
+        <!-- КНОПКА-ПЕРЕКЛЮЧАТЕЛЬ -->
+        <button type="button" id="toggleContactViewBtn" onclick="toggleContactView();" class="btn-primary" style="background: #4f46e5; border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s;">
+            ➕ Добавить лицо
+
+        </button>
+            <script>
+        function toggleContactView(showForm = null) {
+    const grid = document.getElementById('contactsGrid');
+    const formArea = document.getElementById('contactsFormArea');
+    const btn = document.getElementById('toggleContactViewBtn');
+    
+    if (!grid || !formArea || !btn) return;
+
+    // Если режим не передан принудительно, переключаем по кругу
+    const isFormVisible = (showForm !== null) ? !showForm : (grid.style.display === 'none');
+
+    if (isFormVisible) {
+        // Показываем Грид, скрываем Форму
+        grid.style.display = 'grid';
+        formArea.style.display = 'none';
+        btn.innerText = "➕ Добавить лицо";
+        btn.style.background = "#4f46e5";
+        window.editingContactIndex = null;
+    } else {
+        // Скрываем Грид, показываем Форму
+        grid.style.display = 'none';
+        formArea.style.display = 'block';
+        btn.innerText = "⬅️ К списку лиц";
+        btn.style.background = "#323248";
+    }
+}
+         
+function openContactFormWithData(c = null) {
+    const formArea = document.getElementById('contactsFormArea');
+    if (!formArea) return;
+
+    const name = c ? (c.name || c.contact_name || '') : '';
+    const pos = c ? (c.position || c.contact_role || '') : '';
+    const phone = c ? (c.phone || '') : '';
+    const email = c ? (c.email || '') : '';
+    const postal = c ? (c.postal_address || '') : '';
+    const notes = c ? (c.function_notes || '') : '';
+
+    formArea.innerHTML = `
+        <h4 style="margin: 0 0 12px 0; font-size: 12px; color: #818cf8; text-transform: uppercase;">Параметры контактного лица</h4>
+        
+        <div class="crm-grid-2" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label>ФИО ответственного лица <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="tmp_contact_name" value="${escapeHtmlQuotes(name)}" class="crm-input" placeholder="Иванов Иван Иванович">
+            </div>
+            <div class="form-group">
+                <label>Должность лица</label>
+                <input type="text" id="tmp_contact_position" value="${escapeHtmlQuotes(pos)}" class="crm-input" placeholder="Напр: Главный снабженец">
+            </div>
+        </div>
+        <div class="crm-grid-2" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label>Телефон прямой</label>
+                <input type="text" id="tmp_contact_phone" value="${escapeHtmlQuotes(phone)}" class="crm-input" placeholder="+375 (...)">
+            </div>
+            <div class="form-group">
+                <label>Email лица</label>
+                <input type="email" id="tmp_contact_email" value="${escapeHtmlQuotes(email)}" class="crm-input" placeholder="ivanov@partner.com">
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label>Почтовый адрес</label>
+            <input type="text" id="tmp_contact_postal" value="${escapeHtmlQuotes(postal)}" class="crm-input" placeholder="246000">
+        </div>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label>Примечания по функциям / Сфера ответственности</label>
+            <textarea id="tmp_contact_notes" rows="2" class="crm-textarea" placeholder="ЛПР, принимает итоговые решения по отгрузкам...">${escapeHtmlQuotes(notes)}</textarea>
+        </div>
+
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button type="button" onclick="saveContactFormToGrid();" class="btn-success" style="background: #10b981; border: none; color:#fff; padding: 6px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;">Сохранить лицо</button>
+            
+            <button type="button" onclick="toggleContactView(false);" class="btn-secondary" style="background: rgba(255,255,255,0.05); border: 1px solid #323248; color:#fff; padding: 6px 15px; border-radius: 6px; cursor: pointer;">Отмена</button>
+        </div>
+    `;
+}
+
+// Перенос данных из временных инпутов формы обратно в массив Грида
+ 
+
+// Модифицируем триггер кнопки "+ Добавить лицо", чтобы он открывал ЧИСТУЮ форму
+const oldToggle = window.toggleContactView;
+window.toggleContactView = function(showForm = null) {
+    const grid = document.getElementById('contactsGrid');
+    // Если менеджер кликнул на "+ Добавить лицо" (когда грид виден и форма скрыта)
+    if (showForm === null && grid && grid.style.display !== 'none') {
+        openContactFormWithData(null); // Генерируем чистые пустые поля
+    }
+    oldToggle(showForm);
+}
+ async function saveContactFormToGrid() {
+    const nameInput = document.getElementById('tmp_contact_name');
+    if (!nameInput || !nameInput.value.trim()) {
+        alert("ФИО ответственного лица является обязательным полем!");
+        nameInput.focus();
+        return;
+    }
+
+    // Собираем чистый объект данных с инпутов формы
+    const contactData = {
+        name: nameInput.value.trim(),
+        position: document.getElementById('tmp_contact_position') ? document.getElementById('tmp_contact_position').value.trim() : '',
+        phone: document.getElementById('tmp_contact_phone') ? document.getElementById('tmp_contact_phone').value.trim() : '',
+        email: document.getElementById('tmp_contact_email') ? document.getElementById('tmp_contact_email').value.trim() : '',
+        postal_address: document.getElementById('tmp_contact_postal') ? document.getElementById('tmp_contact_postal').value.trim() : '',
+        function_notes: document.getElementById('tmp_contact_notes') ? document.getElementById('tmp_contact_notes').value.trim() : ''
+    };
+
+    // ЖЕЛЕЗНЫЙ ТРИГГЕР: Строго проверяем, что индекс — это число, а не null или undefined
+    if (typeof window.editingContactIndex === 'number' && window.editingContactIndex !== null && window.editingContactIndex >= 0) {
+        // Режим РЕДАКТИРОВАНИЯ существующего лица из списка
+        window.currentModalContacts[window.editingContactIndex] = contactData;
+        console.log("💬 ИНТЕРФЕЙС: Лицо успешно обновлено под индексом:", window.editingContactIndex);
+    } else {
+        // Режим СОЗДАНИЯ абсолютно нового лица
+        if (!Array.isArray(window.currentModalContacts)) {
+            window.currentModalContacts = [];
+        }
+        window.currentModalContacts.push(contactData);
+        console.log("💬 ИНТЕРФЕЙС: Создано новое лицо, добавлено в массив.");
+    }
+
+    // Сбрасываем индекс редактирования обратно в null для безопасности
+    window.editingContactIndex = null;
+
+    // Перерисовываем компактную сетку и возвращаем менеджера к списку лиц
+    renderContactsGrid(window.currentModalContacts);
+    toggleContactView(false); 
+}
+function deleteContactFromGrid(index) {
+    if (confirm("Удалить это контактное лицо из списка? Изменения вступят в силу после нажатия кнопки «Сохранить изменения».")) {
+        window.currentModalContacts.splice(index, 1);
+        renderContactsGrid(window.currentModalContacts);
+    }
+}
+function renderContactsGrid(contactsArray) {
+    const grid = document.getElementById('contactsGrid');
+    if (!grid) return;
+    
+    grid.innerHTML = '';
+    window.currentModalContacts = Array.isArray(contactsArray) ? contactsArray : [];
+
+    if (window.currentModalContacts.length === 0) {
+        grid.innerHTML = `<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 6px;">У этого контрагента пока нет зарегистрированных лиц. Нажмите «Добавить лицо» для создания.</div>`;
+        return;
+    }
+
+    window.currentModalContacts.forEach((c, idx) => {
+        const card = document.createElement('div');
+        card.style.cssText = "background: #151521; border: 1px solid #323248; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left;";
+        
+        card.innerHTML = `
+            <div style="font-weight: bold; color: #fff; font-size: 13px; padding-right: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">👤 ${escapeHtmlQuotes(c.name || c.contact_name || 'Без имени')}</div>
+            ${c.position ? `<div style="color: #92929f; font-size: 11px;">💼 ${escapeHtmlQuotes(c.position || c.contact_role)}</div>` : ''}
+            ${c.phone ? `<div style="color: #818cf8; font-family: monospace; font-size: 11px;">📞 ${escapeHtmlQuotes(c.phone)}</div>` : ''}
+            
+            <div style="position: absolute; right: 8px; top: 8px; display: flex; gap: 4px;">
+                <!-- Кнопка редактирования лица -->
+                <button type="button" onclick="editContactInForm(${idx});" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer;" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">⚙️</button>
+                <!-- Кнопка удаления лица -->
+                <button type="button" onclick="deleteContactFromGrid(${idx});" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer;" onmouseover="this.style.background='#ef4444';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.color='#ef4444'">×</button>
+            </div>
+            
+            <!-- Скрытые инпуты, чтобы FormData при сабмите всей формы забирала данные в update_client.php -->
+            <input type="hidden" name="contacts[${idx}][name]" value="${escapeHtmlQuotes(c.name || c.contact_name || '')}">
+            <input type="hidden" name="contacts[${idx}][position]" value="${escapeHtmlQuotes(c.position || c.contact_role || '')}">
+            <input type="hidden" name="contacts[${idx}][phone]" value="${escapeHtmlQuotes(c.phone || '')}">
+            <input type="hidden" name="contacts[${idx}][email]" value="${escapeHtmlQuotes(c.email || '')}">
+            <input type="hidden" name="contacts[${idx}][postal_address]" value="${escapeHtmlQuotes(c.postal_address || '')}">
+            <input type="hidden" name="contacts[${idx}][function_notes]" value="${escapeHtmlQuotes(c.function_notes || '')}">
+        `;
+        grid.appendChild(card);
+    });
+}
+    </script>    
+    </div>
+
+    <!-- 1. ГРИД-СПИСОК КОНТАКТОВ (Основной экран при открытии модалки) -->
+    <div id="contactsGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+        <!-- Сюда JS будет рендерить компактные карточки лиц -->
+    </div>
+
+    <!-- 2. ФОРМА РЕДАКТИРОВАНИЯ/ДОБАВЛЕНИЯ (Изначально скрыта) -->
+    <div id="contactsFormArea" style="display: none; background: rgba(255, 255, 255, 0.01); border: 1px solid #323248; border-radius: 8px; padding: 15px; position: relative;">
+        <!-- Сюда JS будет подставлять форму конкретного лица для редактирования или создания -->
+    </div>
+    <script>
+        // Глобальный массив для временного хранения контактов текущей модалки
+window.currentModalContacts = [];
+window.editingContactIndex = null; // Индекс контакта, который мы правим в данный момент
+
+// Переключатель отображения Грид / Форма
+
+// Отрисовка компактного грид-списка лиц
+
+
+// Открытие формы для редактирования конкретного лица из грида
+function editContactInForm(index) {
+    const c = window.currentModalContacts[index];
+    window.editingContactIndex = index;
+    
+    openContactFormWithData(c);
+    toggleContactView(true); // Форсируем показ формы
+}
+
+// Удаление контакта из локального грида
+
+function openContactFormWithData(c = null) {
+    const formArea = document.getElementById('contactsFormArea');
+    if (!formArea) return;
+
+    const name = c ? (c.name || c.contact_name || '') : '';
+    const pos = c ? (c.position || c.contact_role || '') : '';
+    const phone = c ? (c.phone || '') : '';
+    const email = c ? (c.email || '') : '';
+    const postal = c ? (c.postal_address || '') : '';
+    const notes = c ? (c.function_notes || '') : '';
+
+    formArea.innerHTML = `
+        <h4 style="margin: 0 0 12px 0; font-size: 12px; color: #818cf8; text-transform: uppercase;">Параметры контактного лица</h4>
+        
+        <div class="crm-grid-2" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label>ФИО ответственного лица <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="tmp_contact_name" value="${escapeHtmlQuotes(name)}" class="crm-input" placeholder="Иванов Иван Иванович">
+            </div>
+            <div class="form-group">
+                <label>Должность лица</label>
+                <input type="text" id="tmp_contact_position" value="${escapeHtmlQuotes(pos)}" class="crm-input" placeholder="Напр: Главный снабженец">
+            </div>
+        </div>
+        <div class="crm-grid-2" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label>Телефон прямой</label>
+                <input type="text" id="tmp_contact_phone" value="${escapeHtmlQuotes(phone)}" class="crm-input" placeholder="+375 (...)">
+            </div>
+            <div class="form-group">
+                <label>Email лица</label>
+                <input type="email" id="tmp_contact_email" value="${escapeHtmlQuotes(email)}" class="crm-input" placeholder="ivanov@partner.com">
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label>Почтовый адрес</label>
+            <input type="text" id="tmp_contact_postal" value="${escapeHtmlQuotes(postal)}" class="crm-input" placeholder="246000">
+        </div>
+        <div class="form-group" style="margin-bottom: 15px;">
+            <label>Примечания по функциям / Сфера ответственности</label>
+            <textarea id="tmp_contact_notes" rows="2" class="crm-textarea" placeholder="ЛПР, принимает итоговые решения по отгрузкам...">${escapeHtmlQuotes(notes)}</textarea>
+        </div>
+
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button type="button" onclick="saveContactFormToGrid();" class="btn-success" style="background: #10b981; border: none; color:#fff; padding: 6px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;">Сохранить лицо</button>
+           
+            <button type="button" onclick="toggleContactView(false);" class="btn-secondary" style="background: rgba(255,255,255,0.05); border: 1px solid #323248; color:#fff; padding: 6px 15px; border-radius: 6px; cursor: pointer;">Отмена</button>
+        </div>
+    `;
+}
+
+// Перенос данных из временных инпутов формы обратно в массив Грида
+
+
+// Модифицируем триггер кнопки "+ Добавить лицо", чтобы он открывал ЧИСТУЮ форму
+const oldToggle = window.toggleContactView;
+window.toggleContactView = function(showForm = null) {
+    const grid = document.getElementById('contactsGrid');
+    // Если менеджер кликнул на "+ Добавить лицо" (когда грид виден и форма скрыта)
+    if (showForm === null && grid && grid.style.display !== 'none') {
+        openContactFormWithData(null); // Генерируем чистые пустые поля
+    }
+    oldToggle(showForm);
+}
+    </script>
+</div>
 
                 <!-- РЯД 3: СВЯЗЬ И ПРОДУКЦИЯ -->
                 <div class="crm-grid-2">
@@ -1513,6 +1981,7 @@ async function openProtectedEditModal(id) {
                             <option value="Сантехника">Сантехника</option>
                             <option value="Посуда">Посуда</option>
                             <option value="МПДУ">МПДУ</option>
+                            <option value="Резервуар">Резервуар</option>
                             <option value="Эмалированные таблички">Эмалированные таблички</option>
                             <option value="УОКТ">УОКТ</option>
                             <option value="Другое">Другое</option>
@@ -1807,6 +2276,7 @@ async function openProtectedEditModal(id) {
     padding: 15px;
     border-radius: 10px;
     position: relative;
+    display: none;J
 }
 
 .modal-footer {
@@ -1885,58 +2355,81 @@ let contactIndex = 0;
 // Убедитесь, что функция объявлена глобально и без синтаксических ошибок
 function addContactField(data = null) {
     const container = document.getElementById('contactsContainer');
-    if (!container) return; // Защита: если контейнера нет, ничего не делаем
+    if (!container) return; 
+
+    // Инициализируем индекс, если он вдруг потерялся в DOM
+    if (typeof contactIndex === 'undefined' || contactIndex === null) {
+        window.contactIndex = 0;
+    }
+    const idx = window.contactIndex;
+
+    // Вытаскиваем значения, страхуясь от NULL
+    let cName         = data ? (data.name || '') : '';
+    let cPosition     = data ? (data.position || '') : '';
+    let cPhone        = data ? (data.phone || '') : '';
+    let cEmail        = data ? (data.email || '') : '';
+    let cPostal       = data ? (data.postal_address || '') : '';
+    let cNotes        = data ? (data.function_notes || '') : '';
 
     const contactRow = document.createElement('div');
-    contactRow.className = 'contact-item-row';
-    contactRow.setAttribute('data-index', contactIndex);
-    contactRow.style.cssText = "background: #151521; border: 1px solid #323248; padding: 15px; border-radius: 8px; position: relative; box-sizing: border-box; margin-bottom: 10px;";
+    contactRow.className = 'contact-card';
+    contactRow.setAttribute('data-index', idx);
 
-    const deleteBtn = contactIndex > 0 
-        ? `<button type="button" onclick="removeContactField(${contactIndex})" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: #ef4444; font-size: 20px; cursor: pointer; font-weight: bold; padding: 0; line-height: 1;">&times;</button>`
+    // Кнопка удаления для всех блоков, кроме самого первого
+    const deleteBtn = idx > 0 
+        ? `<button type="button" onclick="this.parentElement.remove();" style="position: absolute; top: 12px; right: 12px; background: none; border: none; color: #ef4444; font-size: 20px; cursor: pointer; font-weight: bold; padding: 0; line-height: 1;">&times;</button>`
         : '';
 
     contactRow.innerHTML = `
         ${deleteBtn}
-        <div style="display: flex; gap: 15px; margin-bottom: 10px;">
-            <div style="flex: 1; text-align: left;">
-                <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">ФИО лица ${contactIndex === 0 ? '<span style="color:red;">*</span>' : ''}</label>
-                <input type="text" name="contacts[${contactIndex}][name]" ${contactIndex === 0 ? 'required' : ''} value="${data ? data.name : ''}" placeholder="Иванов Иван Иванович" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
+        <div class="crm-grid-2" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label>ФИО ответственного лица ${idx === 0 ? '<span style="color:#ef4444;">*</span>' : ''}</label>
+                <input type="text" name="contacts[${idx}][name]" ${idx === 0 ? 'required' : ''} value="${escapeHtmlQuotes(cName)}" class="crm-input" placeholder="Иванов Иван Иванович">
             </div>
-            <div style="flex: 1; text-align: left;">
-                <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Должность</label>
-                <input type="text" name="contacts[${contactIndex}][position]" value="${data ? data.position : ''}" placeholder="Напр: Директор / Снабженец" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
-            </div>
-
-        </div>
-        <div style="display: flex; gap: 15px; margin-bottom: 10px;">
-            <div style="flex: 1; text-align: left;">
-                <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Телефон</label>
-                <input type="text" name="contacts[${contactIndex}][phone]" value="${data ? data.phone : ''}" placeholder="+375 (...)" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
-            </div>
-            <div style="flex: 1; text-align: left;">
-                <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Email</label>
-                <input type="email" name="contacts[${contactIndex}][email]" value="${data ? data.email : ''}" placeholder="example@mail.com" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
+            <div class="form-group">
+                <label>Должность лица</label>
+                <input type="text" name="contacts[${idx}][position]" value="${escapeHtmlQuotes(cPosition)}" class="crm-input" placeholder="Напр: Главный снабженец">
             </div>
         </div>
-        <div style="display: flex; gap: 15px; margin-bottom: 10px;">
-            <div style="flex: 1; text-align: left;">
-                <la bel style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Почтовый адрес</label>
-                <input type="text" name="contacts[${contactIndex}][phone]" value="${data ? data.phone : ''}" placeholder="246000" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px;">
+        <div class="crm-grid-2" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label>Телефон прямой</label>
+                <input type="text" name="contacts[${idx}][phone]" value="${escapeHtmlQuotes(cPhone)}" class="crm-input" placeholder="+375 (...)">
             </div>
+            <div class="form-group">
+                <label>Email лица</label>
+                <input type="email" name="contacts[${idx}][email]" value="${escapeHtmlQuotes(cEmail)}" class="crm-input" placeholder="ivanov@partner.com">
+            </div>
+        </div>
         
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label>Почтовый адрес</label>
+            <input type="text" name="contacts[${idx}][postal_address]" value="${escapeHtmlQuotes(cPostal)}" class="crm-input" placeholder="246000">
         </div>
-        <div style="text-align: left;">
-            <label style="display:block; font-size:11px; color:#92929f; margin-bottom:4px;">Примечания по функциям / Обязанности</label>
-            <textarea name="contacts[${contactIndex}][function_notes]" rows="1" placeholder="ЛПР, звонить после 14:00" style="width: 100%; padding: 8px 10px; background: #1e1e2d; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 13px; resize: vertical; font-family: sans-serif;">${data ? data.function_notes : ''}</textarea>
+
+        <div class="form-group">
+            <label>Примечания по функциям / Сфера ответственности</label>
+            <textarea name="contacts[${idx}][function_notes]" rows="2" class="crm-textarea" placeholder="ЛПР, принимает итоговые решения по отгрузкам...">${escapeHtmlQuotes(cNotes)}</textarea>
         </div>
-        </div style="display:flex; gap: 15px; margin-bottom:10px;">
-            <label style=
     `;
 
     container.appendChild(contactRow);
-    contactIndex++;
+    
+    // Инкрементируем глобальный счетчик для следующего клика по кнопке "+ Добавить лицо"
+    window.contactIndex++; 
     container.scrollTop = container.scrollHeight;
+}
+
+// Экранирование кавычек, чтобы названия компаний не рушили value=""
+function escapeHtmlQuotes(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 function removeContactField(index) {
@@ -2560,7 +3053,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Навешиваем событие отправки
-    clientForm.onsubmit = async function(e) {
+ clientForm.onsubmit = async function(e) {
         e.preventDefault();
         console.log("Сбор данных формы для отправки на save.php...");
         
@@ -2578,6 +3071,16 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
+        // ЖЕЛЕЗНЫЙ БЛОК: Ищем и тушим кнопку отправки, исключая задвоение в СУБД!
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.5';
+            submitBtn.style.cursor = 'not-allowed';
+            submitBtn.dataset.oldText = submitBtn.innerText;
+            submitBtn.innerText = "⌛ Сохранение...";
+        }
+
         const fd = new FormData(this);
         const safeAppend = (key, elementId) => {
             const el = document.getElementById(elementId);
@@ -2586,39 +3089,176 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         };
 
-        safeAppend('id', 'client_id');
+        // Забиваем поля (Синхронизировано под кастомные селекты без белых багов)
         safeAppend('client_name', 'client_name');
         safeAppend('unp', 'unp');
         safeAppend('contact_person', 'contact_person');
         safeAppend('phone', 'phone');
         safeAppend('product_type', 'product_type');
-        safeAppend('source', 'source');
         safeAppend('first_contact_date', 'first_contact_date');
         safeAppend('next_contact_date', 'next_contact_date');
         safeAppend('status', 'status');
         safeAppend('email', 'email');
         safeAppend('comment', 'comment');
 
+        // ЖЕЛЕЗНЫЙ ФИКС СИНХРОНИЗАЦИИ КЛЮЧЕЙ И ID КЛИЕНТА
+        const clientIdInput = document.getElementById('client_id');
+        const clientId = clientIdInput ? parseInt(clientIdInput.value, 10) : 0;
+        
+        if (clientId > 0) {
+            // Если редактируем старого — шлем явный маркер пакетного апдейта и дублируем ID в оба ключа для надежности бэкенда!
+            fd.set('action_mode', 'update_client_full_package');
+            fd.set('client_id', clientId);
+            fd.set('id', clientId);
+        } else {
+            // Если создаем нового — шлем маркер чистой вставки
+            fd.set('action_mode', 'create_new_client_package');
+        }
+
+        // Если у тебя на форме работает наш кастомный источник без выпадашек (Шаг 264)
+        const customSource = document.getElementById('js-real-lead-source');
+        if (customSource && customSource.value.trim() !== '') {
+            fd.set('source', customSource.value.trim());
+        } else {
+            safeAppend('source', 'source');
+        }
+
         try {
+            // Бьем точно в файл save.php
             const res = await fetch('save.php', { method: 'POST', body: fd });
             const rawText = await res.text();
             
             if (!rawText.trim().startsWith('{')) {
                 alert("🚨 КРИТИЧЕСКИЙ СБОЙ БЭКЕНДА!\nСервер вернул ошибку PHP вместо JSON:\n\n" + rawText);
+                
+                // Возвращаем кнопку в рабочее состояние при ошибке сервера
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                    submitBtn.innerText = submitBtn.dataset.oldText;
+                }
                 return;
             }
             
             const result = JSON.parse(rawText);
             if (result.status === 'success') {
                 window.location.reload(); 
-           
+            } else {
+                alert("Ошибка СУБД: " + result.message);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                    submitBtn.innerText = submitBtn.dataset.oldText;
+                }
             }
         } catch (err) {
             console.error("Критическая ошибка JS:", err);
             alert("🚨 Системный сбой JavaScript! Проверьте консоль F12.");
+            
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+                submitBtn.innerText = submitBtn.dataset.oldText;
+            }
         }
+        const result = JSON.parse(rawText);
+            if (result.status === 'success') {
+                // Если всё отлично — выводим твой стандартный алерт успеха
+                alert("🎉 Клиент и контактные лица успешно зарегистрированы!");
+                window.location.reload(); 
+            } else {
+                // НАМЕРТВО ИСПРАВЛЕНО: Если бэкенд save.php завернул дубликат УНП
+                alert("⚠️ ОТКАЗ В РЕГИСТРАЦИИ КЛИЕНТА:\n\n" + result.message);
+                
+                // ЖЕЛЕЗНЫЙ РЕАКТИВНЫЙ UI: Возвращаем кнопку "Сохранить" в рабочее состояние!
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                    submitBtn.innerText = submitBtn.dataset.oldText || "Сохранить изменения";
+                }
+                
+                // Подсвечиваем инпут УНП красным неоном, чтобы привлечь внимание
+                const unpInput = document.getElementById('add_client_unp') || document.getElementById('unp');
+                if (unpInput) {
+                    unpInput.style.borderColor = '#ef4444';
+                    unpInput.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.4)';
+                    unpInput.focus(); // Автоматически ставим курсор на ошибочный УНП
+                }
+            }
     };
-});
+   
 </script>
+<div id="complexModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); justify-content: center; align-items: center; z-index: 999999; box-sizing: border-box; padding: 15px;">
+    <div style="background: #1e1e2d; border-radius: 8px; border: 1px solid #323248; padding: 25px; width: 550px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); color: #fff; font-family: sans-serif;"> 
+        
+        <h3 style="margin-top: 0; color: #fff; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #323248; padding-bottom: 10px; margin-bottom: 20px;">
+            🗂 Создание контрагента и договора в одной связке
+        </h3>
+
+        <form id="jointClientContractForm" onsubmit="return saveComplexFormDirectly(event, this);" style="margin: 0; padding: 0;">
+            <input type="hidden" name="action_type" value="create_client_with_contract">
+
+            <!-- РЯД 1: ДАННЫЕ ОРГАНИЗАЦИИ -->
+            <div style="margin-bottom: 15px; display: flex; gap: 15px; width: 100%; box-sizing: border-box;">
+                <div style="flex: 3; display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Название компании</label>
+                    <input type="text" name="client_name" id="complex_client_name" required placeholder="ООО СантехМонтаж" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
+                </div>
+                <div style="flex: 2; display: flex; flex-direction: column; gap: 4px; min-width: 0; position: relative;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">УНП / ИНН</label>                    
+                    <input type="text" name="unp" id="complex_unp" placeholder="123456789" maxlength="9" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
+                    <span id="complex_unp_error_msg" style="display: none; font-size: 11px; color: #ef4444; font-weight: bold; margin-top: 4px; line-height: 1.3;"></span>
+                </div>
+            </div>
+
+            <!-- РЯД 2: ПЕРВИЧНЫЕ КОНТАКТЫ СВЯЗИ -->
+            <div style="margin-bottom: 15px; display: flex; gap: 15px; width: 100%; box-sizing: border-box;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: left;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Телефон связи</label>
+                    <input type="text" name="phone" id="complex_phone" placeholder="+375 (...)" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: left;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Контактное лицо</label>
+                    <input type="text" name="contact_person" id="complex_contact_person" placeholder="Иванов И.И." style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
+                </div>
+            </div>
+
+            <!-- РЯД 3: ПАРАМЕТРЫ НОВОГО ДОГОВОРА -->
+            <div style="margin-bottom: 20px; display: flex; gap: 15px; width: 100%; box-sizing: border-box;">
+                <div style="flex: 4; display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: left;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">№ Нового договора</label>
+                    <input type="text" name="contract_number" id="complex_contract_number" required placeholder="Напр: 240/Т" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
+                </div>
+                <div style="flex: 3; display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: left;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Дата заключения</label>
+                    <input type="date" name="contract_date" id="complex_contract_date" required style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box; color-scheme: dark;">
+                </div>
+                <div style="flex: 4; display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: left;">
+                    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase;">Тип продукции</label>
+                    <select name="product_type" id="complex_product_type" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box; cursor: pointer;">
+                        <option value="Сантехника">Сантехника</option>
+                        <option value="Оборудование">Оборудование</option>
+                        <option value="Трубопровод">Трубопровод</option>
+                        <option value="Кастом">Кастом</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- БЛОК КНОПОК УПРАВЛЕНИЯ -->
+            <div style="display: flex; gap: 10px; justify-content: flex-end; align-items: center; width: 100%; box-sizing: border-box; margin-top: 20px; border-top: 1px solid #323248; padding-top: 15px;">
+                <button type="button" onclick="document.getElementById('complexModal').style.display = 'none';" style="height: 38px; padding: 0 20px; background: rgba(255,255,255,0.05); border: 1px solid #323248; color: #fff; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer;">
+                    Отмена
+                </button>
+                <button type="submit" style="height: 38px; padding: 0 22px; background: #059669; border: none; color: #fff; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer;">
+                    🚀 Создать связку
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 </body>
 </html>

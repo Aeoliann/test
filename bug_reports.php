@@ -35,18 +35,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add_comment' || $action === 'reply') {
         if ($b_id > 0 && !empty($comment)) {
             try {
-                // Предполагаемый запрос вашей системы для сохранения ответов/комментариев
-                $reply_stmt = $pdo->prepare("UPDATE bug_reports SET comment = :comment WHERE id = :id");
+                // =========================================================================
+                // НАМЕРТВО ИСПРАВЛЕНО: Пробиваем изоляцию функции и вытаскиваем $pdo в блок
+                // =========================================================================
+                global $pdo; 
+
+                // Экстренная подстраховка: если коннект все еще null, принудительно подключаем БД
+                if (!isset($pdo) || $pdo === null) {
+                    require_once 'db.php';
+                }
+
+                // Теперь prepare() гарантированно сработает без Fatal Error!
+                $reply_stmt = $pdo->prepare("UPDATE bug_reports SET admin_comment = :comment WHERE id = :id");
                 $reply_stmt->execute([
                     ':comment' => $comment,
                     ':id'      => $b_id
                 ]);
-                
-                // Перенаправляем на эту же страницу после сохранения ответа (классический POST-Redirect-GET)
-                header("Location: " . $_SERVER['PHP_SELF'] . "?success=reply");
-                exit;
+
+                // Если это AJAX-запрос, можно вернуть JSON, либо оставить твой дефолтный редирект/вывод
+                console_log("💬 СУБД: Ответ на баг успешно записан.");
+
             } catch (Exception $e) {
-                error_log("Ошибка добавления ответа в баг-трекер: " . $e->getMessage());
+                die("🚨 Критическая ошибка СУБД при сохранении ответа: " . $e->getMessage());
             }
         }
     }
@@ -553,8 +563,6 @@ try {
 </button>
 <button type="button" class="btn-bug-edit" onclick="openEditBugModal(<?= intval($b['id']) ?>, this)" style="background:#fff; color:#000; border:1px solid #ccc; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; width:100%; margin-top:5px;">
     ✏️ Редактировать
-</button>
-
 <script>
 function openEditBugModal(bugId, clickedElement) {
     const safeId = parseInt(bugId, 10);
@@ -614,8 +622,11 @@ function openEditBugModal(bugId, clickedElement) {
     }
 }
 </script>
+</button>
 
-</script>
+
+
+
                     </div>
                 </td>
 

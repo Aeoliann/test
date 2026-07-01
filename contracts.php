@@ -150,7 +150,35 @@ if (isset($_POST['action_mode']) && $_POST['action_mode'] === 'update_contract_n
     echo json_encode(['status' => 'success']);
     exit;
 }
+// -----------------------------------------------------------------
+// АСИНХРОННОЕ ИНЛАЙН-ОБНОВЛЕНИЕ ДАТЫ ДОГОВОРА ИЗ ТАБЛИЦЫ ПРОЕКТОВ
+// -----------------------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_mode']) && $_POST['action_mode'] === 'update_contract_date_live') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
 
+    try {
+        $project_id    = (int)($_POST['project_id'] ?? 0);
+        $contract_date = trim($_POST['contract_date'] ?? '');
+
+        if ($project_id <= 0) {
+            throw new Exception("Некорректный системный ID проекта.");
+        }
+
+        // Если дату очистили — пишем NULL, иначе форматируем
+        $final_date = !empty($contract_date) ? $contract_date : null;
+
+        // Обновляем строго поле даты в таблице проектов (замени имя таблицы/колонки, если отличаются)
+        $stmt = $pdo->prepare("UPDATE projects SET contract_date = ? WHERE id = ?");
+        $stmt->execute([$final_date, $project_id]);
+
+        echo json_encode(['status' => 'success']);
+        exit;
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        exit;
+    }
+}
 ?>
 
 
@@ -319,78 +347,108 @@ function runLiveContractFilter(searchQuery) {
     </style>
 <!-- ИСПРАВЛЕНО: Полная двухкоординатная прокрутка масштабной таблицы -->
 <div style="width: 100%; height: 580px; max-height: 580px; overflow-y: auto; overflow-x: auto; position: relative; border-radius: 12px; border: 1px solid #323248; box-sizing: border-box; background: #151521; margin-top: 15px;">
-     <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; box-sizing: border-box; table-layout: fixed;">
-   <style>* Принудительно заставляем каждую ячейку в теле таблицы наследоваться от ширины заголовка th */
+    <table style="width: 100% !important; border-collapse: separate; border-spacing: 0; margin: 0; background: #13131a; table-layout: auto !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box;">
+  <style>* Принудительно заставляем каждую ячейку в теле таблицы наследоваться от ширины заголовка th */
 
 /* Наследуем процентную ширину шапки во все нижние ячейки автоматически */
+th, td {
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    overflow: hidden !important;
+}
+
+/* СТИЛЬ ДЛЯ СЛУЖЕБНЫХ И ЦИФРОВЫХ КОЛОНОК (Даты, Номера, Кнопки, Суммы)
+   Здесь текст обязан быть в одну строку и не прыгать вниз */
+.bug-table th:not(:first-child), 
+.bug-table td:not(:first-child),
+table th:not(:first-child),
+table td:not(:first-child) {
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+/* СТИЛЬ ДЛЯ ТЕКСТОВЫХ КОЛОНОК (Клиент / Договор / Описание бага)
+   Разрешаем тексту переноситься по словам, чтобы менеджеры видели полные имена компаний! */
+.bug-table th:first-child, 
+.bug-table td:first-child,
+table th:first-child,
+table td:first-child {
+    white-space: normal !important;      /* Разрешаем перенос строк */
+    word-break: break-word !important;   /* Переносим длинные слова по слогам */
+    line-height: 1.4 !important;         /* Комфортный межстрочный интервал */
+}
+
+/* Очищаем любые ломающие инлайн-ширины ячеек внутри tr */
 table tbody tr td {
     width: auto !important;
     max-width: 100% !important;
-    box-sizing: border-box !important;
 }
-
-/* Защита от переполнения ячеек: если текст шире колонки, он красиво уйдет в троеточие, не ломая верстку */
-th, td {
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
 }</style>
         
         <!-- ЖЕСТКАЯ СЕТКА КОЛОНОК (ЛИНИИ ШАПКИ И ТЕЛА СТАНУТ ИДЕАЛЬНО ПРЯМЫМИ) -->
-      <!-- ЖЕСТКАЯ СЕТКА КОЛОНОК (ФИКС СДВИГА) -->
-       <colgroup>
-    <col style="width: 420px;">   <!-- 1. Клиент / Договор -->
-    <col style="width: 130px;">   <!-- 2. № Договора -->
-    <col style="width: 110px;">   <!-- 3. Дата дог. -->
-    <col style="width: 130px;">   <!-- 4. Продукция -->
-    <col style="width: 100px;">   <!-- 5. Отгрузки -->
-    <col style="width: 130px;">   <!-- 6. Посл. отгрузка -->
-    <col style="width: 150px;">   <!-- 7. Сумма (BYN) -->
-    <col style="width: 80px;">
-  <!--  <col style="width: 180px;">   --> <!-- 8. Перерасчёт -->
-    <col style="width: 90px;">    <!-- 9. Скан -->
-</colgroup>
+   <!-- АДАПТИВНАЯ СЕТКА КОЛОНОК (ЖЕСТКИЙ ФИКС СДВИГА И РАСТЯЖЕНИЯ НА 100% ЭКРАНА) -->
+ <colgroup>
+        <col style="width: 26%;">   <!-- 1. Клиент / Договор (максимум места под длинные имена) -->
+        <col style="width: 12%;">   <!-- 2. № Договора -->
+        <col style="width: 10%;">   <!-- 3. Дата дог. -->
+        <col style="width: 10%;">   <!-- 4. Продукция -->
+        <col style="width: 8%;">    <!-- 5. Отгрузки (кнопка ТТН) -->
+        <col style="width: 10%;">   <!-- 6. Посл. отгрузка -->
+        <col style="width: 14%;">   <!-- 7. Сумма отгрузок по ТТН -->
+        <col style="width: 2%;">    <!-- 8. Скрытая микро-колонка (для цифры 123,00) -->
+        <col style="width: 8%;">    <!-- 9. Кнопка "В Скан" -->
+    </colgroup>
 
         <!-- РОСКОШНАЯ ЛИПКАЯ ШАПКА ТАБЛИЦЫ -->
                 <!-- РОСКОШНАЯ ЛИПКАЯ ШАПКА ТАБЛИЦЫ С ЖЕСТКИМ ПОПИКСЕЛЬНЫМ ПОЗИЦИОНИРОВАНИЕМ -->
                 <!-- АДАПТИВНАЯ ЛИПКАЯ ШАПКА ТАБЛИЦЫ (ПОДСТРАИВАЕТСЯ ПОД ЛЮБОЙ МОНИТОР И МАСШТАБ) -->
                 <thead style="background: #14141f; border-bottom: 2px solid #232334;">
-    <tr>
+   
+        <!-- 1. Клиент / Договор -->
+
         <!-- 1. Клиент / Договор -->
         <th style="padding: 14px 12px; text-align: left; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
             Клиент / Договор
         </th>
         
         <!-- 2. № договора -->
-        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important; width: 110px;">
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
             № Договора
         </th>
         
         <!-- 3. Дата дог. -->
-        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important; width: 100px;">
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
             Дата дог.
         </th>
         
         <!-- 4. Продукция -->
-        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important; width: 110px;">
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
             Продукция
         </th>
         
-        <!-- 5. Отгрузки (Кнопка ТТН) -->
-        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important; width: 80px;">
+        <!-- 5. Отгрузки -->
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
             Отгрузки
         </th>
         
         <!-- 6. Последняя отгрузка -->
-        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important; width: 110px;">
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
             Посл. отгрузка
         </th>
         
         <!-- 7. Сумма отгрузок по ТТН -->
-        <th style="padding: 14px 16px; text-align: right; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important; width: 160px;">
+        <th style="padding: 14px 16px; text-align: right; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
             Сумма отгрузок по ТТН
         </th>
         
+        <!-- 8. Резерв под маркер (Пустой th для скрытой колонки 2%) -->
+        <th style="border: none !important; padding: 0;"></th>
+        
+        <!-- 9. Кнопка Скан -->
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            Скан
+        </th>
+
    <!-- =========================================================================
      ЯЧЕЙКА 8: СКАН ДОГОВОРА С ВСТРОЕННЫМ КРЕСТИКОМ УДАЛЕНИЯ (МОНОЛИТ v3.5)
      ========================================================================= -->
@@ -427,14 +485,13 @@ $scanUrl = trim($r['scan_path'] ?? '');
         <?php if ($currentPid > 0): ?>
             <label for="contract_file_input_<?= $currentPid ?>" style="cursor: pointer; color: #818cf8; font-size: 12px; padding: 5px 12px; background: #151521; border: 1px solid #323248; border-radius: 6px; display: inline-block; transition: all 0.15s;" onmouseover="this.style.borderColor='#4f46e5';" onmouseout="this.style.borderColor='#323248';">
                 📎 Скан
-            </label>
+           
             <input type="file" 
                    id="contract_file_input_<?= $currentPid ?>" 
                    accept=".pdf,.jpg,.jpeg,.png" 
                    style="display: none;" 
                    onchange="uploadContractScanFast(<?= $currentPid ?>, this)">
-        <?php else: ?>
-            <span style="color: #4b5563;">—</span>
+                    </label>
         <?php endif; ?>
     <?php endif; ?>
     </div>
@@ -488,21 +545,13 @@ async function deleteContractScanInline(pid) {
 }
 
     </script>
-</td>
-        
-       
-
-        
+</td>  
         <!-- 9. ТЕХНИЧЕСКАЯ КОЛОНКА ПОД ПРАВУЮ КНОПКУ ДЕЙСТВИЯ (Добавить договор) -->
         <th style="padding: 14px 12px; border: none !important; width: 140px;"></th>
     </tr>
 </thead>
-
-
-
-
         <!-- БУФЕР КЛИЕНТСКИХ СТРОК С ЭФФЕКТАМИ ПОДСВЕТКИ -->
-<tbody style="background: rgba(255,255,255,0.01);">
+<tbody style="background: rgba(255,255,255,0.01); ">
             <?php 
             $lastClient = ""; 
             $totalByn = 0;
@@ -629,9 +678,53 @@ async function deleteContractScanInline(pid) {
 }</script>
 </td>
                 <!-- 3. Дата договора -->
-                <td style="padding: 14px 12px; color: #a1a1aa; font-size: 13px; text-align: center; font-family: monospace; font-weight: 500; border: none !important; box-sizing: border-box;">
-                    <?= htmlspecialchars($r['contract_date'] ?? '—') ?>
-                </td>
+              <td style="padding: 8px 12px; text-align: center; border: none !important; box-sizing: border-box; width: 150px;">
+    <input type="date" 
+           value="<?= !empty($r['contract_date']) ? date('Y-m-d', strtotime($r['contract_date'])) : '' ?>"
+           onchange="updateContractDateInline(<?= (int)$r['pid'] ?>, this.value);"
+           style="background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; padding: 4px 8px; font-family: monospace; font-size: 13px; outline: none; cursor: pointer; transition: all 0.2s ease-in-out; width: 100%; box-sizing: border-box; color-scheme: dark;">
+<script>
+    async function updateContractDateInline(projectId, newDateValue) {
+    if (!projectId || projectId <= 0) {
+        console.error("Ошибка: Неверный системный ID проекта.");
+        return;
+    }
+
+    // Находим наш инпут на странице, чтобы сделать красивую подсветку
+    const dateInput = event.target;
+    
+    console.log(`=== ЖИВАЯ ОБНОВЛЕНИЕ ДАТЫ ДОГОВОРА ДЛЯ ПРОЕКТА #${projectId}: ${newDateValue} ===`);
+
+    const fd = new FormData();
+    fd.append('action_mode', 'update_contract_date_live');
+    fd.append('project_id', projectId);
+    fd.append('contract_date', newDateValue);
+
+    try {
+        // Шлём быстрый фоновый запрос на текущий файл-обработчик сохранения (или save.php)
+        const res = await fetch('save.php', { method: 'POST', body: fd });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            // Успешная изумрудная вспышка рамки
+            if (dateInput) {
+                dateInput.style.borderColor = '#10b981';
+                dateInput.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.4)';
+                setTimeout(() => {
+                    dateInput.style.borderColor = '#323248';
+                    dateInput.style.boxShadow = 'none';
+                }, 1000);
+            }
+        } else {
+            alert("Ошибка СУБД: " + result.message);
+            if (dateInput) dateInput.style.borderColor = '#ef4444';
+        }
+    } catch (err) {
+        console.error("Ошибка асинхронного транспорта даты:", err);
+    }
+}
+</script>
+        </td>
                 
                 <!-- 4. Вид продукции (Премиальный полупрозрачный бейдж) -->
                 <td style="padding: 14px 12px; text-align: left; border: none !important; box-sizing: border-box;">
@@ -660,7 +753,6 @@ async function deleteContractScanInline(pid) {
     <script>// =========================================================================
 // НАПИСАННЫЙ С НУЛЯ, СВЕЖИЙ НАТИВНЫЙ JAVASCRIPT-ДВИЖОК ДЛЯ ТТН v3.0
 // =========================================================================
-
 // 1. ГЛАВНЫЙ ОБРАБОТЧИК КЛИКА КНОПКИ ТТН
 function openTtnManagerFromButton(buttonElement) {
     if (!buttonElement) return;
@@ -698,27 +790,22 @@ function openTtnManagerFromButton(buttonElement) {
         badge.style.color = bColor;
         badge.style.background = bColor + '20';
         badge.style.borderColor = bColor + '40';
-    }
-    
+    } 
     const label = document.getElementById('ttnContractLabel');
     if (label) label.innerText = 'Системный ID договора: №' + pid;
 
     // Выводим модалку на экран через Flexbox
     const modal = document.getElementById('ttnManagerModal');
     if (modal) modal.style.display = 'flex';
-    
     // Запускаем асинхронный рендерер списка ТТН
     loadProjectTtnsPremium(pid);
 }
-
 // 2. АСИНХРОННЫЙ РЕНДЕРЕР СПИСКА НАКЛАДНЫХ ИЗ БАЗЫ
 async function loadProjectTtnsPremium(pid) {
     const safePid = parseInt(pid, 10);
     const container = document.getElementById('projectTtnsListContainer');
     if (!container) return;
-
     container.innerHTML = '<span style="color:#818cf8; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">⏳ Синхронизация с СУБД Santeks...</span>';
-
     try {
         const response = await fetch('get_ttns.php?project_id=' + safePid);
         if (!response.ok) throw new Error("Статус ошибки: " + response.status);
@@ -728,7 +815,6 @@ async function loadProjectTtnsPremium(pid) {
             container.innerHTML = '<span style="color:#4b5563; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">Отгрузок в рамках контракта пока нет</span>';
             return;
         }
-
         let ttns = [];
         try {
             ttns = JSON.parse(textData);
@@ -736,7 +822,6 @@ async function loadProjectTtnsPremium(pid) {
             container.innerHTML = '<span style="color:#ef4444; font-size:12px; padding:15px; display:block; text-align:center;">⚠️ Сбой структуры данных СУБД.</span>';
             return;
         }
-
         let html = '';
         if (Array.isArray(ttns) && ttns.length > 0) {
             ttns.forEach(t => {
@@ -753,7 +838,6 @@ async function loadProjectTtnsPremium(pid) {
                 if (rawCurrency === 'USD') { curColor = '#6366f1'; currencyLabel = '$'; }
                 if (rawCurrency === 'EUR') { curColor = '#ec4899'; currencyLabel = '€'; }
                 if (rawCurrency === 'CNY') { curColor = '#a855f7'; currencyLabel = '¥'; }
-
                 html += `
 <div style="background: #151521; padding: 10px 12px; border-radius: 8px; border: 1px solid #323248; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box; margin-bottom: 2px;">
     <div style="flex: 1; min-width: 0; padding-right: 10px; text-align:left;">
@@ -769,15 +853,12 @@ async function loadProjectTtnsPremium(pid) {
             });
         } else {
             html += '<span style="color:#4b5563; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">Отгрузок в рамках контракта пока нет</span>';
-        }
-        
+        }      
         container.innerHTML = html;
-
     } catch (err) {
         container.innerHTML = '<span style="color:#ef4444; font-size:12px; padding:15px; display:block; text-align:center;">Критическая ошибка загрузки списка</span>';
     }
 }
-
 // 3. АСИНХРОННАЯ ОТПРАВКА НОВОЙ НАКЛАДНОЙ НА СЕРВЕР
 async function submitTtnFormPremium() {
     const pid = document.getElementById('ttn_pid_storage').value;
@@ -794,7 +875,6 @@ async function submitTtnFormPremium() {
         alert("Заполните номер накладной и сумму отгрузки!");
         return;
     }
-
     const fd = new FormData();
     fd.append('project_id', pid);
     fd.append('ttn_id', ttnId);
@@ -804,20 +884,16 @@ async function submitTtnFormPremium() {
     fd.append('new_ttn_amount', ttnAmount); 
     fd.append('ttn_currency_select', ttnCurrency); // ПЕРЕДАЕМ ВАЛЮТУ НА БЭКЕНД
     fd.append('product_info', ttnProd);
-
     try {
         const res = await fetch('save_ttn.php', { method: 'POST', body: fd });
-        const result = await res.json();
-        
+        const result = await res.json();      
         if (result.status === 'success') {
             document.getElementById('new_ttn_num').value = '';
             document.getElementById('new_ttn_quantity').value = '';
             document.getElementById('new_ttn_amount').value = '';
             document.getElementById('edit_ttn_id_storage').value = '';
-            
             document.getElementById('ttnFormTitle').innerText = 'Добавить новую отгрузку в рамках контракта:';
             document.getElementById('ttnSubmitBtn').innerText = 'Добавить в рамках контракта';
-            
             // Живое обновление верхнего списка ТТН в модалке и общего итога на странице
             loadProjectTtnsPremium(pid);
             if (typeof calculatePageGrandTotalFromScratch === 'function') {
@@ -830,7 +906,6 @@ async function submitTtnFormPremium() {
         alert("Ошибка сети при отправке формы ТТН");
     }
 }
-
 // 4. АКТИВАЦИЯ РЕДАКТИРОВАНИЯ СТАРОЙ ТТН
 function activateTtnEditMode(id, num, date, amount, qty, prod) {
     document.getElementById('edit_ttn_id_storage').value = id;
@@ -846,18 +921,16 @@ function activateTtnEditMode(id, num, date, amount, qty, prod) {
 </script>
     </button>
     
-</td>
-
-                
+</td>            
                 <!-- 6. Дата последней отгрузки (БЕЗ ИЗМЕНЕНИЙ) -->
-                <td style="padding: 14px 12px; text-align: center; font-size: 13px; color: #a1a1aa; font-family: monospace; border: none !important; box-sizing: border-box;">
-                    <?php 
-                        $ld = $pdo->prepare("SELECT MAX(ttn_date) FROM project_ttns WHERE project_id = ?"); 
-                        $ld->execute([$r['pid']]);
-                        $d = $ld->fetchColumn(); 
-                        echo $d ? date('d.m.Y', strtotime($d)) : '—';
-                    ?>
-                </td>
+<td style="padding: 14px 12px; text-align: center; font-size: 13px; color: #a1a1aa; font-family: monospace; border: none !important; box-sizing: border-box;">
+  <?php 
+        $ld = $pdo->prepare("SELECT MAX(ttn_date) FROM project_ttns WHERE project_id = ?"); 
+        $ld->execute([$r['pid']]);
+        $d = $ld->fetchColumn(); 
+        echo $d ? date('d.m.Y', strtotime($d)) : '—';
+    ?>
+</td>
                 
         <!-- 7. ИТОГОВАЯ ЧИСТАЯ СУММА ОТГРУЗОК (РАЗДЕЛЬНЫЕ ВАЛЮТЫ И СУММЫ ГРУПП КЛИЕНТА) -->
 <td style="padding: 14px 16px; text-align: right; font-size: 13px; font-family: monospace; font-weight: bold; border: none !important; box-sizing: border-box; white-space: nowrap; color: #ffffff;">
@@ -894,19 +967,14 @@ function activateTtnEditMode(id, num, date, amount, qty, prod) {
     }
     ?>
 </td>
-                
-                <!-- 8. ВСТАВЛЯЙ СЮДА: Новый плоский статус валютной синхронизации -->
              <!-- 8. СТАТУС ВАЛЮТНОЙ СИНХРОНИЗАЦИИ (НАМЕРТВО ИСПРАВЛЕНО: УБРАН ВАРНИНГ СТР. 872) -->
 <td style="padding: 14px 16px; text-align: left; font-size: 11px; color: #71717a; border: none !important; box-sizing: border-box; font-family: sans-serif; min-width: 140px;">
-  
 </td>
-                
               <!-- 9. Просмотр и загрузка PDF сканов (ФИНАЛЬНЫЙ ХОТФИКС СКРЕПКИ) -->
              <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box; white-space: nowrap;">
     <?php 
     $scanUrl = trim($r['scan_path'] ?? '');
     $currentPid = (int)($r['pid'] ?? 0);
-    
     if (!empty($scanUrl) && $scanUrl !== 'NULL' && $scanUrl !== '0'): 
         // Определяем расширение файла для вывода точного текста на кнопке
         $ext = strtolower(pathinfo($scanUrl, PATHINFO_EXTENSION));

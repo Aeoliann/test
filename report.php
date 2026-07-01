@@ -61,12 +61,13 @@ try {
     error_log("Ошибка генерации матрицы отгрузок: " . $e->getMessage());
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Глобальный продуктовый анализ отгрузок — Santeks</title>
+    <title>Матрица отгрузок</title>
     <link rel="stylesheet" href="style.css">
     <style>
         /* БАЗОВАЯ МОДУЛЬНАЯ СЕТКА СТРАНИЦЫ АНАЛИТИКИ */
@@ -143,7 +144,7 @@ try {
             <!-- ШАПКА ФИЛЬТРАЦИИ И КАНАЛЕНДАРНЫЙ ПЕРИОД -->
             <div class="report-header">
             <h2 style="margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 0.3px; display: flex; align-items: center; gap: 10px;">
-        📦 Глобальный продуктовый анализ отгрузок Santeks 
+        📦  Продуктовый анализ отгрузок Santeks 
         <span style="font-size: 12px; color: #818cf8; background: rgba(99,102,241,0.15); padding: 4px 8px; border-radius: 6px; font-family: monospace;">
             Ваш сессионный ID: <?= $_SESSION['user_id'] ?? 'Не авторизован' ?> (<?= $_SESSION['role'] ?? 'нет роли' ?>)
         </span>
@@ -197,11 +198,103 @@ try {
                             if ($current_product !== $row['product_name']):
                                 $current_product = $row['product_name'];
                     ?>
-                                <tr>
-                                    <td colspan="5" class="category-header">
-                                        📁 Категория продукции: <span style="color: #fff; font-size: 14px; font-weight: bold; text-transform: none;"><?= htmlspecialchars($current_product) ?></span>
-                                    </td>
-                                </tr>
+                              <tr>
+    <td colspan="5" class="category-header js-category-header-row" style="padding: 10px 14px; vertical-align: middle;">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+            
+            <!-- Левая часть: Твоё оригинальное название категории продукции -->
+            <div>
+                📁 Категория продукции: <span style="color: #fff; font-size: 14px; font-weight: bold; text-transform: none;"><?= htmlspecialchars($current_product) ?></span>
+            </div>
+
+            <!-- Правая часть: Контейнер для вывода промежуточных повалютных сумм этой группы -->
+            <div class="js-category-totals-holder" style="display: flex; gap: 8px; align-items: center; padding-right: 5px;">
+             <script>
+// РЕАКТИВНЫЙ КАЛЬКУЛЯТОР КАТЕГОРИЙ: Считает промежуточные итоги между строками заголовков
+document.addEventListener("DOMContentLoaded", function() {
+    // Находим все наши новые заголовочные ячейки категорий
+    const categoryHeaders = document.querySelectorAll('.js-category-header-row');
+
+    categoryHeaders.forEach((headerTd, index) => {
+        const totalsHolder = headerTd.querySelector('.js-category-totals-holder');
+        if (!totalsHolder) return;
+
+        const catTotals = { 'BYN': 0, 'RUB': 0, 'USD': 0, 'EUR': 0 };
+        let hasData = false;
+
+        // Ищем родительскую строку текущего заголовка
+        const currentHeaderRow = headerTd.closest('tr');
+        if (!currentHeaderRow) return;
+
+        // Запускаем перебор следующих строк таблицы, чтобы собрать суммы до следующей категории
+        let nextRow = currentHeaderRow.nextElementSibling;
+
+        while (nextRow) {
+            // Если наткнулись на заголовок следующей категории — останавливаем сбор данных для текущей
+            if (nextRow.querySelector('.js-category-header-row')) {
+                break;
+            }
+
+            // Ищем плашку валюты в самой последней ячейке текущей строки контракта
+            const badge = nextRow.querySelector('.badge-currency');
+            if (badge) {
+                const currencyText = badge.textContent.trim().toUpperCase();
+                const td = badge.parentElement;
+
+                if (td && ['BYN', 'RUB', 'USD', 'EUR'].includes(currencyText)) {
+                    // Клонируем ячейку, убираем спан валюты и парсим чистое число
+                    const tdClone = td.cloneNode(true);
+                    const badgeInClone = tdClone.querySelector('.badge-currency');
+                    if (badgeInClone) badgeInClone.remove();
+
+                    // Очищаем число от разделителей тысяч (пробелов)
+                    const rawAmountText = tdClone.textContent.replace(/\s/g, '').replace(/,/g, '.').trim();
+                    const amountValue = parseFloat(rawAmountText) || 0;
+
+                    if (amountValue > 0) {
+                        catTotals[currencyText] += amountValue;
+                        hasData = true;
+                    }
+                }
+            }
+
+            // Переходим к следующей строке таблицы <tr>
+            nextRow = nextRow.nextElementSibling;
+        }
+
+        // Генерируем компактные микро-модули для вывода в желтую строку
+        let htmlContent = '';
+        for (const [curr, sum] of Object.entries(catTotals)) {
+            if (sum <= 0) continue;
+
+            let neonColor = '#10b981'; // BYN
+            if (curr === 'RUB') neonColor = '#ef4444';
+            if (curr === 'USD') neonColor = '#3b82f6';
+            if (curr === 'EUR') neonColor = '#eab308';
+
+            const formattedSum = sum.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            htmlContent += `
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid ${neonColor}30; padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: normal; letter-spacing: 0px; font-family: sans-serif;">
+                    <span style="font-family: monospace; font-weight: bold; color: #fff;">${formattedSum}</span>
+                    <span style="color: ${neonColor}; font-weight: 800; font-size: 10px; text-transform: uppercase;">${curr}</span>
+                </div>
+            `;
+        }
+
+        if (hasData) {
+            totalsHolder.innerHTML = htmlContent;
+        } else {
+            totalsHolder.innerHTML = `<span style="color: #64748b; font-size: 11px; font-weight: normal;">Нет отгрузок</span>`;
+        }
+    });
+});
+</script>
+            </div>
+
+        </div>
+    </td>
+</tr>
                     <?php 
                             endif; 
                     ?>
@@ -263,10 +356,135 @@ try {
                         </tr>
                     <?php endif; ?>
                 </tbody>
+                
             </table>
         </div>
-        
-    </div> <!-- Закрытие основного тега .main-content -->
+        <?php
+// НАМЕРТВО ИСПРАВЛЕНО: Массив для накопления глобальных итогов по каждой валюте
+$globalCurrencyTotals = [
+    'BYN' => 0.00,
+    'RUB' => 0.00,
+    'USD' => 0.00,
+    'EUR' => 0.00
+];
+?>
+<?php
+// Автоматический перехват валюты и суммы из текущей строки контракта
+$loopCurrency = strtoupper(trim($r['currency'] ?? 'BYN'));
+if (empty($loopCurrency) || $loopCurrency === 'NULL') {
+    $loopCurrency = 'BYN';
+}
+
+$loopAmount = (float)($r['total_amount'] ?? ($r['amount'] ?? 0));
+
+// Плюсуем строго в глобальную область видимости
+$globalCurrencyTotals[$loopCurrency] = ($globalCurrencyTotals[$loopCurrency] ?? 0.00) + $loopAmount;
+?>
+<?php
+// НАМЕРТВО ИСПРАВЛЕНО: Сборка строки из заполненного массива
+$totalsParts = [];
+foreach ($globalCurrencyTotals as $curr => $sum) {
+    if ($sum <= 0) continue; // Пропускаем пустые валюты
+
+    $color = '#10b981'; // BYN
+    if ($curr === 'RUB') $color = '#ef4444';
+    if ($curr === 'USD') $color = '#3b82f6';
+    if ($curr === 'EUR') $color = '#eab308';
+
+    $formattedSum = number_format($sum, 2, '.', ' ');
+    $totalsParts[] = "<span style='font-family: monospace; font-weight: bold; color: #fff;'>{$formattedSum}</span> <span style='color: {$color}; font-weight: bold; margin-right: 12px;'>{$curr}</span>";
+}
+
+$globalTotalsString = !empty($totalsParts) ? implode(' / ', $totalsParts) : "0.00 BYN";
+?>
+<!-- ПАРЯЩИЙ МУЛЬТИВАЛЮТНЫЙ ФУТЕР СТРАНИЦЫ (БЕЗ КОНВЕРТЕРОВ И JAVASCRIPT) -->
+
+<div style="background: #1e1e2d; border: 1px solid #323248; border-radius: 12px; padding: 24px; margin-top: 30px; box-sizing: border-box; width: 100%; clear: both;">
+    
+    <!-- Заголовок блока аналитики -->
+    <div style="text-align: left; margin-bottom: 20px; border-bottom: 1px dashed #323248; padding-bottom: 15px;">
+        <div style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px;">Финансовая аналитика</div>
+        <h3 style="margin: 0; font-size: 18px; color: #fff; font-weight: 600; letter-spacing: -0.3px;">Глобальный итог отгрузок</h3>
+    </div>
+
+    <!-- КОНТЕНТНЫЙ ГРИД: Автоматическая адаптивная сетка карточек валют -->
+    <div id="js-premium-currency-dashboard" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box;">
+        <div style="color: #64748b; font-size: 13px; font-family: sans-serif; grid-column: 1/-1; text-align: center; padding: 20px;">⌛ Вычисление финансовых итогов...</div>
+    </div>
+
+</div>
+<script>
+// ВСЕЯДНЫЙ ДАШБОРД: Парсит отформатированные ячейки со 100% точностью
+document.addEventListener("DOMContentLoaded", function() {
+    const dashboard = document.getElementById('js-premium-currency-dashboard');
+    if (!dashboard) return;
+
+    // 1. Инициализируем объект накопителя для валют
+    const currencyTotals = { 'BYN': 0, 'RUB': 0, 'USD': 0, 'EUR': 0 };
+    let hasData = false;
+
+    // 2. Находим ячейки по селектору твоего класса спана валюты
+    const badges = document.querySelectorAll('.badge-currency');
+    
+    if (badges.length > 0) {
+        badges.forEach(badge => {
+            const currencyText = badge.textContent.trim().toUpperCase(); // Получаем USD, BYN и т.д.
+            const td = badge.parentElement; // Поднимаемся к ячейке <td> [1]
+            
+            if (td && ['BYN', 'RUB', 'USD', 'EUR'].includes(currencyText)) {
+                // Клонируем ячейку, чтобы временно удалить спан и забрать только число
+                const tdClone = td.cloneNode(true);
+                const badgeInClone = tdClone.querySelector('.badge-currency');
+                if (badgeInClone) badgeInClone.remove();
+                
+                // Очищаем строку от ЛЮБЫХ пробелов (разделителей тысяч) и переносов строк
+                // Заменяем запятые на точки на случай дробных сумм
+                const rawAmountText = tdClone.textContent.replace(/\s/g, '').replace(/,/g, '.').trim();
+                const amountValue = parseFloat(rawAmountText) || 0;
+                
+                if (amountValue > 0) {
+                    currencyTotals[currencyText] += amountValue;
+                    hasData = true;
+                }
+            }
+        });
+    }
+
+    // 3. Генерируем новое модульное представление
+    let htmlContent = '';
+
+    for (const [curr, sum] of Object.entries(currencyTotals)) {
+        if (sum <= 0) continue; // Пропускаем нулевые валюты
+
+        // Настройка неоновых градиентов под стиль CRM [1]
+        let neonColor = '#10b981'; // BYN
+        let bgGlow = 'rgba(16, 185, 129, 0.04)';
+        if (curr === 'RUB') { neonColor = '#ef4444'; bgGlow = 'rgba(239, 68, 68, 0.04)'; }
+        if (curr === 'USD') { neonColor = '#3b82f6'; bgGlow = 'rgba(59, 130, 246, 0.04)'; }
+        if (curr === 'EUR') { neonColor = '#eab308'; bgGlow = 'rgba(234, 179, 8, 0.04)'; }
+
+        // Форматируем сумму по стандартам бухучета (с разделением тысяч пробелами)
+        const formattedSum = sum.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        htmlContent += `
+            <div style="background: ${bgGlow}; border: 1px solid ${neonColor}40; padding: 10px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px; min-width: 150px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s; box-sizing: border-box;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="text-align: left;">
+                    <span style="font-size: 10px; color: #64748b; font-weight: bold; display: block; margin-bottom: 2px; text-transform: uppercase;">ИТОГО ${curr}</span>
+                    <span style="font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; color: #ffffff; letter-spacing: -0.5px;">${formattedSum}</span>
+                </div>
+                <div style="background: ${neonColor}; color: #1e1e2d; font-size: 10px; font-weight: 900; padding: 3px 6px; border-radius: 4px; line-height: 1; height: fit-content; text-transform: uppercase;">
+                    ${curr}
+                </div>
+            </div>
+        `;
+    }
+
+    dashboard.innerHTML = hasData ? htmlContent : `<div style="color: #64748b; font-size: 13px; padding: 5px;">Пока нет данных для расчета итогов</div>`;
+});
+</script>
+
+</div>
+
 <style>
     /* Контейнер таблицы с фиксированной высотой и внутренним скроллом */
 .table-wrapper { 
@@ -322,6 +540,7 @@ try {
 </style>
 <!-- АВТОНОМНЫЙ JS СКРИПТ ПОТОКОВОЙ ВЫГРУЗКИ ПОДРОБНОСТЕЙ -->
 <script>
+
 // ИСПРАВЛЕНО: Функция теперь принимает project_id и валюту из строки таблицы
 async function toggleTtnDetails(rowElement, managerName, productName, projectId, currency) {
     const detailsRow = rowElement.nextElementSibling;
