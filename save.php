@@ -4,6 +4,39 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require_once 'db.php';
+
+// =========================================================================
+// ЖЕЛЕЗНЫЙ ИЗОЛИРОВАННЫЙ ПЕРЕХВАТЧИК ИНЛАЙН-ОБНОВЛЕНИЯ ДАТЫ ДОГОВОРА
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_mode']) && $_POST['action_mode'] === 'update_contract_date_live') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
+
+    try {
+        $project_id    = (int)($_POST['project_id'] ?? 0);
+        $contract_date = trim($_POST['contract_date'] ?? '');
+
+        if ($project_id <= 0) {
+            echo json_encode(['status' => 'error', 'message' => 'Некорректный системный ID проекта']);
+            exit;
+        }
+
+        // Если дату стерли в календаре — пишем NULL, иначе сохраняем выбранную
+        $final_date = !empty($contract_date) ? $contract_date : null;
+
+        // Обновляем строго поле в таблице проектов (убедись, что таблица называется projects)
+        $stmt = $pdo->prepare("UPDATE projects SET contract_date = ? WHERE id = ?");
+        $stmt->execute([$final_date, $project_id]);
+
+        // Возвращаем фронтенду статус успеха и прерываем выполнение всего save.php!
+        echo json_encode(['status' => 'success']);
+        exit;
+
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => 'Ошибка СУБД: ' . $e->getMessage()]);
+        exit;
+    }
+}
 require_once 'logger.php'; // НАМЕРТВО ИСПРАВЛЕНО: Подключаем логгер для предотвращения Fatal Error
 
 header('Content-Type: application/json');
@@ -13,7 +46,72 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+
 $userId = (int)$_SESSION['user_id'];
+
+$unp = isset($_POST['unp']) ? trim($_POST['unp']) : '';
+$role = $_SESSION['role'] ?? 'manager';
+
+// Проверяем уникальность УНП только если оно заполнено и пользователь НЕ админ
+// =========================================================================
+// 1. ЖИВАЯ АСИНХРОННАЯ ПРОВЕРКА УНП НА ДУБЛИКАТЫ (СИНХРОНИЗИРОВАНО С UNP)
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_mode']) && $_POST['action_mode'] === 'check_unp_duplicate_live') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
+
+    try {
+        $unp = trim($_POST['unp'] ?? '');
+        if (empty($unp)) {
+            echo json_encode(['status' => 'clean']); 
+            exit;
+        }
+
+        // ЖЕЛЕЗНЫЙ ФИКС: Ищем строго по имени колонки UNP из твоей структуры БД
+        $stmt = $pdo->prepare("SELECT client_name FROM clients WHERE UNP = ? LIMIT 1");
+        $stmt->execute([$unp]);
+        $existingClient = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingClient) {
+            echo json_encode([
+                'status' => 'duplicate',
+                'client_name' => htmlspecialchars($existingClient['client_name'])
+            ]);
+            exit;
+        } else {
+            echo json_encode(['status' => 'clean']); 
+            exit;
+        }
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]); 
+        exit;
+    }
+}
+// =========================================================================
+// 2. ЖЕСТКИЙ БАРЬЕР СУБД ПЕРЕД КЛИЕНТСКИМ INSERT (БЛОКИРОВКА НАМЕРТВО)
+// =========================================================================
+$current_unp = trim($_POST['unp'] ?? '');
+$current_id  = (int)($_POST['client_id'] ?? ($_POST['id'] ?? 0));
+
+// Защищаем только СОЗДАНИЕ (когда id нового клиента равен 0)
+if ($current_id === 0 && !empty($current_unp)) {
+    // Проверяем наличие дубликата по точной колонке UNP
+    $checkDbUnp = $pdo->prepare("SELECT COUNT(*) FROM clients WHERE UNP = ?");
+    $checkDbUnp->execute([$current_unp]);
+    $unpCount = (int)$checkDbUnp->fetchColumn();
+
+    if ($unpCount > 0) {
+        header('Content-Type: application/json');
+        if (ob_get_length()) ob_clean();
+        
+        // Прерываем сохранение, выкидываем ошибку и не пускаем код к алерту "Успешно зарегистрирован"
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Критическая блокировка дубликата! Контрагент с УНП ' . htmlspecialchars($current_unp) . ' уже существует.'
+        ]);
+        exit;
+    }
+}
 
 try {
     $action_mode = $_POST['action'] ?? '';

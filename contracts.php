@@ -1,95 +1,187 @@
 <?php
-session_start();
-require 'db.php';
-require 'rates.php';
-
+// contracts.php — Главный интерфейс и контроллер управления договорами
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'db.php';
+require_once 'logger.php'; // НАМЕРТВО ИСПРАВЛЕНО: Явно подключаем логгер, чтобы не падал бэкенд
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php"); exit;
+    header("Location: login.php"); 
+    exit;
 }
+
 // =========================================================================
-// АВТОНОМНОЕ СОХРАНЕНИЕ ПРОДУКЦИИ ДЛЯ ДОГОВОРА ВНУТРИ CONTRACTS.PHP
+// АВТОНОМНОЕ СОХРАНЕНИЕ ДАННЫХ ВНУТРИ CONTRACTS.PHP (POST-КОНТРОЛЛЕР)
 // =========================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contract_number'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        $client_id       = (int)($_POST['client_id'] ?? 0);
-        $contract_number = trim($_POST['contract_number'] ?? '');
-        $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
-        $product_type    = isset($_POST['product_type']) ? trim($_POST['product_type']) : '';
         
-        // ---- НАШ ВАЛЮТНЫЙ ХОТФИКС ----
-        $currency        = trim($_POST['currency'] ?? 'BYN');
-        // ------------------------------
-        
-        // Твоя оригинальная проверка вида продукции по карточке клиента
-        if (empty($product_type) && $client_id > 0) {
-            $getProdStmt = $pdo->prepare("SELECT product_type FROM clients WHERE id = ?");
-            $getProdStmt->execute([$client_id]);
-            $product_type = $getProdStmt->fetchColumn() ?: 'Прочее';
+        // 1. НАМЕРТВО ИСПРАВЛЕНО: Фоновый перехватчик инлайн-изменения номеров договоров (AJAX)
+        if (isset($_POST['action_mode']) && $_POST['action_mode'] === 'update_contract_number_fast') {
+            $project_id      = (int)($_POST['project_id'] ?? 0);
+            $contract_number = trim($_POST['contract_number'] ?? '');
+            
+            if ($project_id > 0 && !empty($contract_number)) {
+                $stmt = $pdo->prepare("UPDATE projects SET contract_number = ? WHERE id = ?");
+                $stmt->execute([$contract_number, $project_id]);
+                
+                if (function_exists('logAction')) {
+                    logAction($pdo, 'UPDATE', 'projects', $project_id, "Быстрое инлайн-изменение номера договора на №{$contract_number}");
+                }
+            }
+            // Отдаем чистый JSON успеха фоновому JS и намертво тушим скрипт, чтобы не перезагружать экран!
+            echo json_encode(['status' => 'success']);
+            exit;
         }
 
-        if ($client_id > 0 && !empty($contract_number)) {
-            // Активируем транзакцию, чтобы данные не зависли на полпути
-            $pdo->beginTransaction();
-
-            // 1. ИСПРАВЛЕНО: Записываем валюту в новую колонку projects
-            $sql = "INSERT INTO projects (client_id, contract_number, contract_date, product_type, currency) VALUES (?, ?, ?, ?, ?)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([$client_id, $contract_number, $contract_date, $product_type, $currency]);
-            $new_project_id = $pdo->lastInsertId();
+        // 2. СТАНДАРТНОЕ СОХРАНЕНИЕ НОВОГО ДОГОВОРА ИЗ МОДАЛКИ (РЕЖИМ А)
+        if (isset($_POST['contract_number'])) {
+            $client_id       = (int)($_POST['client_id'] ?? 0);
+            $contract_number = trim($_POST['contract_number'] ?? '');
+            $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
+            $product_type    = isset($_POST['product_type']) ? trim($_POST['product_type']) : '';
+            $currency        = trim($_POST['currency'] ?? 'BYN');
             
-            // 2. Твое оригинальное обновление флага контракта у клиента
-            $uClient = $pdo->prepare("UPDATE clients SET is_contract_signed = 1 WHERE id = ?");
-            $uClient->execute([$client_id]);
-
-            // 3. ИСПРАВЛЕНО: Пишем операцию в логгер на 5 параметров (logger.php)
-            if (function_exists('logAction')) {
-                // Параметры: $pdo, $actionType, $targetTable, $recordId, $description
-                logAction($pdo, 'INSERT', 'projects', $new_project_id, "Создан договор №{$contract_number} (Валюта: {$currency}, Продукция: {$product_type}) для клиента ID {$client_id}");
+            if (empty($product_type) && $client_id > 0) {
+                $getProdStmt = $pdo->prepare("SELECT product_type FROM clients WHERE id = ?");
+                $getProdStmt->execute([$client_id]);
+                $product_type = $getProdStmt->fetchColumn() ?: 'Прочее';
             }
 
-            $pdo->commit();
+            if ($client_id > 0 && !empty($contract_number)) {
+                $pdo->beginTransaction();
+
+                $sql = "INSERT INTO projects (client_id, contract_number, contract_date, product_type, currency) VALUES (?, ?, ?, ?, ?)";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$client_id, $contract_number, $contract_date, $product_type, $currency]);
+                $new_project_id = (int)$pdo->lastInsertId();
+                
+                $uClient = $pdo->prepare("UPDATE clients SET is_contract_signed = 1 WHERE id = ?");
+                $uClient->execute([$client_id]);
+
+                if (function_exists('logAction')) {
+                    logAction($pdo, 'INSERT', 'projects', $new_project_id, "Создан договор №{$contract_number} (Валюта: {$currency}, Продукция: {$product_type}) для клиента ID {$client_id}");
+                }
+
+                $pdo->commit();
+            }
+            
+            header("Location: contracts.php");
+            exit;
         }
-        
-        // ЧИСТЫЙ ПЕРЕЗАПУСК СТРАНИЦЫ: Браузер сам закроет модалку и обновит таблицу
-        header("Location: contracts.php");
-        exit;
 
     } catch (Exception $e) {
         if (isset($pdo) && $pdo->inTransaction()) {
-            $pdo->rollBack(); // Откатываем базу, если что-то сломалось
+            $pdo->rollBack(); // Откатываем базу в случае сбоя
         }
-        die("Критический сбой СУБД при создании договора: " . $e->getMessage());
+        die("Критический сбой СУБД в POST-контроллере: " . $e->getMessage());
     }
 }
 
-
+// =========================================================================
+// ЧАСТЬ 2: УМНАЯ СЕТКА ДОГОВОРОВ (ПРОДОЛЖЕНИЕ ВЫБОРКИ ДАННЫХ ИЗ СУБД)
+// =========================================================================
 $userId = (int)$_SESSION['user_id'];
 $userRole = $_SESSION['role'] ?? 'manager';
-
 if ($userRole === 'admin') {
-    $sql = "SELECT c.id as cid, c.client_name, p.product_type, 
-                   p.id as pid, p.contract_number, p.contract_date, p.scan_path 
-            FROM clients c 
-            LEFT JOIN projects p ON c.id = p.client_id 
-            WHERE c.is_contract_signed = 1 
-            ORDER BY c.client_name ASC, p.id DESC";
+    // ВЫБОРКА ДЛЯ АДМИНИСТРАТОРА (Каждый контракт — отдельная строка таблицы!)
+    $sql = "SELECT c.id as cid, c.client_name,
+                   p.id as pid, p.contract_number, p.contract_date, p.product_type, p.scan_path,
+                   IFNULL(NULLIF(TRIM(p.currency), ''), 'BYN') as main_contract_currency,
+                   
+                   -- СУБД-АВТОМАТ: Считает суммы ТТН строго для ЭТОГО конкретного договора (p.id)
+                   IFNULL((
+                       SELECT GROUP_CONCAT(CONCAT(FORMAT(sum_amt, 2, 'ru_RU'), ' ', currency) SEPARATOR ' / ')
+                       FROM (
+                           SELECT project_id, currency, SUM(amount) as sum_amt
+                           FROM project_ttns
+                           GROUP BY project_id, currency
+                       ) as ttn_sub
+                       WHERE ttn_sub.project_id = p.id
+                   ), '0.00 BYN') as ttn_currency_totals
+                   
+            FROM clients c
+            LEFT JOIN projects p ON c.id = p.client_id
+            WHERE c.is_contract_signed = 1
+            ORDER BY c.client_name ASC, p.id DESC"; // ИСПРАВЛЕНО: Лишняя запятая убрана, запрос цельный!
+            
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
 } else {
-    $sql = "SELECT c.id as cid, c.client_name, p.product_type, 
-                   p.id as pid, p.contract_number, p.contract_date, p.scan_path 
-            FROM clients c 
-            LEFT JOIN projects p ON c.id = p.client_id 
+    // ВЫБОРКА ДЛЯ МЕНЕДЖЕРА (Каждый контракт — отдельная строка таблицы!)
+    $sql = "SELECT c.id as cid, c.client_name,
+                   p.id as pid, p.contract_number, p.contract_date, p.product_type, p.scan_path,
+                   IFNULL(NULLIF(TRIM(p.currency), ''), 'BYN') as main_contract_currency,
+                   
+                   -- СУБД-АВТОМАТ: Считает суммы ТТН строго для ЭТОГО конкретного договора (p.id)
+                   IFNULL((
+                       SELECT GROUP_CONCAT(CONCAT(FORMAT(sum_amt, 2, 'ru_RU'), ' ', currency) SEPARATOR ' / ')
+                       FROM (
+                           SELECT project_id, currency, SUM(amount) as sum_amt
+                           FROM project_ttns
+                           GROUP BY project_id, currency
+                       ) as ttn_sub
+                       WHERE ttn_sub.project_id = p.id
+                   ), '0.00 BYN') as ttn_currency_totals
+                   
+            FROM clients c
+            LEFT JOIN projects p ON c.id = p.client_id
             WHERE c.is_contract_signed = 1 AND c.manager_id = ?
-            ORDER BY c.client_name ASC, p.id DESC";
+            ORDER BY c.client_name ASC, p.id DESC"; // НАМЕРТВО ИСПРАВЛЕНО: Лишняя запятая убрана!
+            
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$userId]);
 }
 
 $rows = $stmt->fetchAll();
-$savedCurrency = 'RUB';
 ?>
+
+<?php
+if (isset($_POST['action_mode']) && $_POST['action_mode'] === 'update_contract_number_fast') {
+    $project_id      = (int)($_POST['project_id'] ?? 0);
+    $contract_number = trim($_POST['contract_number'] ?? '');
+    
+    if ($project_id > 0 && !empty($contract_number)) {
+        $stmt = $pdo->prepare("UPDATE projects SET contract_number = ? WHERE id = ?");
+        $stmt->execute([$contract_number, $project_id]);
+    }
+    // Отдаем JSON успеха фоновому JS и гасим скрипт
+    echo json_encode(['status' => 'success']);
+    exit;
+}
+// -----------------------------------------------------------------
+// АСИНХРОННОЕ ИНЛАЙН-ОБНОВЛЕНИЕ ДАТЫ ДОГОВОРА ИЗ ТАБЛИЦЫ ПРОЕКТОВ
+// -----------------------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_mode']) && $_POST['action_mode'] === 'update_contract_date_live') {
+    header('Content-Type: application/json');
+    if (ob_get_length()) ob_clean();
+
+    try {
+        $project_id    = (int)($_POST['project_id'] ?? 0);
+        $contract_date = trim($_POST['contract_date'] ?? '');
+
+        if ($project_id <= 0) {
+            throw new Exception("Некорректный системный ID проекта.");
+        }
+
+        // Если дату очистили — пишем NULL, иначе форматируем
+        $final_date = !empty($contract_date) ? $contract_date : null;
+
+        // Обновляем строго поле даты в таблице проектов (замени имя таблицы/колонки, если отличаются)
+        $stmt = $pdo->prepare("UPDATE projects SET contract_date = ? WHERE id = ?");
+        $stmt->execute([$final_date, $project_id]);
+
+        echo json_encode(['status' => 'success']);
+        exit;
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        exit;
+    }
+}
+?>
+
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -254,83 +346,212 @@ function runLiveContractFilter(searchQuery) {
     
     </style>
 <!-- ИСПРАВЛЕНО: Полная двухкоординатная прокрутка масштабной таблицы -->
-<div style="width: 100% !important; max-width: 100% !important; height: calc(100vh - 200px); max-height: 1000px; overflow-y: auto !important; overflow-x: auto !important; border: 1px solid #2e2a47; border-radius: 16px; background: #13131a; box-shadow: 0 20px 50px rgba(0,0,0,0.6); box-sizing: border-box; position: relative;">
-
-  <table>
-<style>* Принудительно заставляем каждую ячейку в теле таблицы наследоваться от ширины заголовка th */
-table {
-    table-layout: fixed !important;
-    width: 100% !important;
-    border-collapse: collapse !important;
-}
+<div style="width: 100%; height: 580px; max-height: 580px; overflow-y: auto; overflow-x: auto; position: relative; border-radius: 12px; border: 1px solid #323248; box-sizing: border-box; background: #151521; margin-top: 15px;">
+    <table style="width: 100% !important; border-collapse: separate; border-spacing: 0; margin: 0; background: #13131a; table-layout: auto !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box;">
+  <style>* Принудительно заставляем каждую ячейку в теле таблицы наследоваться от ширины заголовка th */
 
 /* Наследуем процентную ширину шапки во все нижние ячейки автоматически */
+th, td {
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    overflow: hidden !important;
+}
+
+/* СТИЛЬ ДЛЯ СЛУЖЕБНЫХ И ЦИФРОВЫХ КОЛОНОК (Даты, Номера, Кнопки, Суммы)
+   Здесь текст обязан быть в одну строку и не прыгать вниз */
+.bug-table th:not(:first-child), 
+.bug-table td:not(:first-child),
+table th:not(:first-child),
+table td:not(:first-child) {
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+/* СТИЛЬ ДЛЯ ТЕКСТОВЫХ КОЛОНОК (Клиент / Договор / Описание бага)
+   Разрешаем тексту переноситься по словам, чтобы менеджеры видели полные имена компаний! */
+.bug-table th:first-child, 
+.bug-table td:first-child,
+table th:first-child,
+table td:first-child {
+    white-space: normal !important;      /* Разрешаем перенос строк */
+    word-break: break-word !important;   /* Переносим длинные слова по слогам */
+    line-height: 1.4 !important;         /* Комфортный межстрочный интервал */
+}
+
+/* Очищаем любые ломающие инлайн-ширины ячеек внутри tr */
 table tbody tr td {
     width: auto !important;
     max-width: 100% !important;
-    box-sizing: border-box !important;
 }
-
-/* Защита от переполнения ячеек: если текст шире колонки, он красиво уйдет в троеточие, не ломая верстку */
-th, td {
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
 }</style>
         
         <!-- ЖЕСТКАЯ СЕТКА КОЛОНОК (ЛИНИИ ШАПКИ И ТЕЛА СТАНУТ ИДЕАЛЬНО ПРЯМЫМИ) -->
-      <!-- ЖЕСТКАЯ СЕТКА КОЛОНОК (ФИКС СДВИГА) -->
-       <colgroup>
-    <col style="width: 420px;">   <!-- 1. Клиент / Договор -->
-    <col style="width: 130px;">   <!-- 2. № Договора -->
-    <col style="width: 110px;">   <!-- 3. Дата дог. -->
-    <col style="width: 130px;">   <!-- 4. Продукция -->
-    <col style="width: 100px;">   <!-- 5. Отгрузки -->
-    <col style="width: 130px;">   <!-- 6. Посл. отгрузка -->
-    <col style="width: 150px;">   <!-- 7. Сумма (BYN) -->
-  <!--  <col style="width: 180px;">   --> <!-- 8. Перерасчёт -->
-    <col style="width: 90px;">    <!-- 9. Скан -->
-</colgroup>
+   <!-- АДАПТИВНАЯ СЕТКА КОЛОНОК (ЖЕСТКИЙ ФИКС СДВИГА И РАСТЯЖЕНИЯ НА 100% ЭКРАНА) -->
+ <colgroup>
+        <col style="width: 26%;">   <!-- 1. Клиент / Договор (максимум места под длинные имена) -->
+        <col style="width: 12%;">   <!-- 2. № Договора -->
+        <col style="width: 10%;">   <!-- 3. Дата дог. -->
+        <col style="width: 10%;">   <!-- 4. Продукция -->
+        <col style="width: 8%;">    <!-- 5. Отгрузки (кнопка ТТН) -->
+        <col style="width: 10%;">   <!-- 6. Посл. отгрузка -->
+        <col style="width: 14%;">   <!-- 7. Сумма отгрузок по ТТН -->
+        <col style="width: 2%;">    <!-- 8. Скрытая микро-колонка (для цифры 123,00) -->
+        <col style="width: 8%;">    <!-- 9. Кнопка "В Скан" -->
+    </colgroup>
 
         <!-- РОСКОШНАЯ ЛИПКАЯ ШАПКА ТАБЛИЦЫ -->
                 <!-- РОСКОШНАЯ ЛИПКАЯ ШАПКА ТАБЛИЦЫ С ЖЕСТКИМ ПОПИКСЕЛЬНЫМ ПОЗИЦИОНИРОВАНИЕМ -->
                 <!-- АДАПТИВНАЯ ЛИПКАЯ ШАПКА ТАБЛИЦЫ (ПОДСТРАИВАЕТСЯ ПОД ЛЮБОЙ МОНИТОР И МАСШТАБ) -->
-                <thead style="position: sticky; top: 0; z-index: 10; background: #161624;">
-            <tr style="background: #161624; border-bottom: 2px solid #323248;">
-                <!-- 1. : -->
-                <th style="padding: 18px 16px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: left; background: #161624; width: 30% !important; min-width: 250px; box-sizing: border-box;">Клиент / Договор</th>
-                
-                <!-- 2. № -->
-                <th style="padding: 18px 12px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: center; background: #161624; width: 9% !important; min-width: 90px; box-sizing: border-box;">№ Договора</th>
-                
-                <!-- 3. -->
-                <th style="padding: 18px 12px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: center; background: #161624; width: 8% !important; min-width: 80px; box-sizing: border-box;">Дата дог.</th>
-                
-                <!-- 4. -->
-                <th style="padding: 18px 12px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: left; background: #161624; width: 9% !important; min-width: 100px; box-sizing: border-box;">Продукция</th>
-                
-                <!-- 5. -->
-                <th style="padding: 18px 12px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: center; background: #161624; width: 7% !important; min-width: 75px; box-sizing: border-box;">Отгрузки</th>
-                
-                <!-- 6. . -->
-                <th style="padding: 18px 12px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: center; background: #161624; width: 9% !important; min-width: 95px; box-sizing: border-box;">Посл. отгрузка</th>
-                
-                <!-- 7. (BYN) -->
-                <th style="padding: 18px 16px; color: #10b981; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: right; background: #161624; width: 11% !important; min-width: 110px; box-sizing: border-box;">Сумма (BYN)</th>
-                
-                <!-- 8. -->
-                <!--<th style="padding: 18px 16px; color: #f59e0b; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: right; background: #161624; width: 11% !important; min-width: 120px; box-sizing: border-box;">Перерасчёт</th>-->
-                
-                <!-- 9. -->
-                <th style="padding: 18px 12px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 1px; border: none !important; border-bottom: 2px solid #323248 !important; text-align: center; background: #161624; width: 6% !important; min-width: 70px; box-sizing: border-box;">Скан</th>
-            </tr>
-        </thead>
+                <thead style="background: #14141f; border-bottom: 2px solid #232334;">
+   
+        <!-- 1. Клиент / Договор -->
 
+        <!-- 1. Клиент / Договор -->
+        <th style="padding: 14px 12px; text-align: left; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            Клиент / Договор
+        </th>
+        
+        <!-- 2. № договора -->
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            № Договора
+        </th>
+        
+        <!-- 3. Дата дог. -->
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            Дата дог.
+        </th>
+        
+        <!-- 4. Продукция -->
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            Продукция
+        </th>
+        
+        <!-- 5. Отгрузки -->
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            Отгрузки
+        </th>
+        
+        <!-- 6. Последняя отгрузка -->
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            Посл. отгрузка
+        </th>
+        
+        <!-- 7. Сумма отгрузок по ТТН -->
+        <th style="padding: 14px 16px; text-align: right; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            Сумма отгрузок по ТТН
+        </th>
+        
+        <!-- 8. Резерв под маркер (Пустой th для скрытой колонки 2%) -->
+        <th style="border: none !important; padding: 0;"></th>
+        
+        <!-- 9. Кнопка Скан -->
+        <th style="padding: 14px 12px; text-align: center; font-size: 11px; color: #71717a; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: none !important;">
+            Скан
+        </th>
 
+   <!-- =========================================================================
+     ЯЧЕЙКА 8: СКАН ДОГОВОРА С ВСТРОЕННЫМ КРЕСТИКОМ УДАЛЕНИЯ (МОНОЛИТ v3.5)
+     ========================================================================= -->
+<?php 
+// ИСПРАВЛЕНО НАМЕРТВО: Инициализируем ID проекта в самом верху, чтобы id ячейки не обнулялся!
+$currentPid = (int)($r['pid'] ?? 0);
+$scanUrl = trim($r['scan_path'] ?? '');
+?>
+<td id="js-scan-cell-<?= $currentPid ?>" style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box; white-space: nowrap;">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; box-sizing: border-box;">
+    <?php 
+    if (!empty($scanUrl) && $scanUrl !== 'NULL' && $scanUrl !== '0'): 
+        $ext = strtolower(pathinfo($scanUrl, PATHINFO_EXTENSION));
+        $btnLabel = ($ext === 'pdf') ? '👁 PDF' : '👁 ФОТО';
+        $bColor = ($ext === 'pdf') ? '#ef4444' : '#6366f1'; // PDF - красный, ФОТО - индиго
+    ?>
+        <!-- 1. Кнопка просмотра прикрепленного документа (ИСПРАВЛЕНО: Полностью изолирована) -->
+        <a href="<?= htmlspecialchars($scanUrl, ENT_QUOTES, 'UTF-8') ?>" 
+           target="_blank" 
+           style="color: <?= $bColor ?>; text-decoration: none; font-size: 11px; font-weight: bold; background: <?= $bColor ?>15; padding: 5px 10px; border-radius: 6px; border: 1px solid <?= $bColor ?>30; display: inline-block; transition: all 0.15s;">
+            <?= $btnLabel ?>
+        </a>
+        
+        <!-- 2. КНОПКА УДАЛЕНИЯ СКАНА (ИСПРАВЛЕНО: Стоит рядом, не ломает верстку) -->
+        <button type="button" 
+                onclick="deleteContractScanInline(<?= $currentPid ?>); return false;" 
+                title="Удалить этот документ из базы данных и с диска"
+                style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); color: #ef4444; cursor: pointer; font-size: 11px; font-weight: bold; padding: 4px 6px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; outline: none; box-sizing: border-box; line-height: 1;">
+            ❌
+        </button>
+        
+    <?php else: ?>
+        <!-- 3. Кнопка быстрой инлайн-загрузки (Если скана в базе еще нет) -->
+        <?php if ($currentPid > 0): ?>
+            <label for="contract_file_input_<?= $currentPid ?>" style="cursor: pointer; color: #818cf8; font-size: 12px; padding: 5px 12px; background: #151521; border: 1px solid #323248; border-radius: 6px; display: inline-block; transition: all 0.15s;" onmouseover="this.style.borderColor='#4f46e5';" onmouseout="this.style.borderColor='#323248';">
+                📎 Скан
+           
+            <input type="file" 
+                   id="contract_file_input_<?= $currentPid ?>" 
+                   accept=".pdf,.jpg,.jpeg,.png" 
+                   style="display: none;" 
+                   onchange="uploadContractScanFast(<?= $currentPid ?>, this)">
+                    </label>
+        <?php endif; ?>
+    <?php endif; ?>
+    </div>
+    <script>
 
+async function deleteContractScanInline(pid) {
+    const safePid = parseInt(pid, 10);
+    if (isNaN(safePid) || safePid <= 0) return;
 
+    if (!confirm("Вы действительно хотите полностью удалить этот документ и стереть его с сервера?")) {
+        return;
+    }
+
+    console.log("=== ЗАПУСК УДАЛЕНИЯ СКАНА ДОГОВОРА ===");
+    
+    // Находим ячейку в DOM дереве по её четкому валидному ID
+    const cellContainer = document.getElementById('js-scan-cell-' + safePid);
+    if (cellContainer) {
+        cellContainer.innerHTML = '<span style="color:#ef4444; font-size:12px; font-style:italic;">🗑️ Стирание...</span>';
+    }
+
+    const fd = new FormData();
+    fd.append('action_mode', 'delete_contract_scan_full');
+    fd.append('project_id', safePid);
+
+    try {
+        const res = await fetch('upload_scan.php', { method: 'POST', body: fd });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            console.log("Документ проекта №" + safePid + " успешно удалён с сервера.");
+            
+            // РЕАКТИВНЫЙ UI: Возвращаем скрепку на место без перезагрузки всей страницы!
+            if (cellContainer) {
+                cellContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; box-sizing: border-box;">
+                        <label for="contract_file_input_${safePid}" style="cursor: pointer; color: #818cf8; font-size: 12px; padding: 5px 12px; background: #151521; border: 1px solid #323248; border-radius: 6px; display: inline-block; transition: all 0.15s;">
+                            📎 Скан
+                        </label>
+                        <input type="file" id="contract_file_input_${safePid}" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="uploadContractScanFast(${safePid}, this)">
+                    </div>`;
+            }
+        } else {
+            alert("Ошибка СУБД: " + result.message);
+            window.location.reload();
+        }
+    } catch (err) {
+        alert("Критическая ошибка сети при удалении файла.");
+        window.location.reload();
+    }
+}
+
+    </script>
+</td>  
+        <!-- 9. ТЕХНИЧЕСКАЯ КОЛОНКА ПОД ПРАВУЮ КНОПКУ ДЕЙСТВИЯ (Добавить договор) -->
+        <th style="padding: 14px 12px; border: none !important; width: 140px;"></th>
+    </tr>
+</thead>
         <!-- БУФЕР КЛИЕНТСКИХ СТРОК С ЭФФЕКТАМИ ПОДСВЕТКИ -->
-        <tbody>
+<tbody style="background: rgba(255,255,255,0.01); ">
             <?php 
             $lastClient = ""; 
             $totalByn = 0;
@@ -354,22 +575,24 @@ th, td {
 
             <?php if ($isNewGroup): ?>
                 <!-- ГРУППИРОВОЧНЫЙ ЗАГРУЗОЧНЫЙ ДАШБОРД КОНТРАГЕНТА -->
-                <tr style="background: rgba(99, 102, 241, 0.03); border-left: 4px solid #4f46e5;">
-                    <td colspan="9" style="padding: 16px 20px; color: #fff; font-size: 14px; text-align: left; border: none !important; border-bottom: 2px solid #323248 !important; background: rgba(99, 102, 241, 0.02); box-sizing: border-box;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                 <tr class="client-row" style="background: rgba(30, 30, 45, 0.2); transition: background 0.15s;">
+                    <td colspan="9" style="padding: 16px 12px; text-align: left; vertical-align: middle; border-top: 2px solid rgba(129, 140, 248, 0.35) !important; box-sizing: border-box;">
+                       <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="color: #818cf8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🏢 Клиент:</span>
-                                <span style="color: #ffffff; font-size: 14px; font-weight: 700; letter-spacing: 0.3px;"><?= htmlspecialchars($r['client_name']) ?></span>
-                                <span style="color: #4b5a75; font-size: 11px; font-weight: normal; margin-left: 4px;">(Все активные договора компании)</span>
-                            </div>
+                    <span style="color: #818cf8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🏢 Клиент:</span>
+                    <span style="color: #ffffff; font-size: 14px; font-weight: 700; letter-spacing: 0.3px;"><?= htmlspecialchars($r['client_name']) ?></span>
+                    <span style="color: #4b5a75; font-size: 11px; font-weight: normal; margin-left: 4px;">(Все активные договора компании)</span>
+                </div>
                             
-                            <button type="button" 
-                                    onclick="openNewContractModal(<?= (int)$r['cid'] ?>); return false;" 
-                                    style="background: rgba(79, 70, 229, 0.12); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.2); padding: 7px 16px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; transition: all 0.15s; font-family: sans-serif;"
-                                    onmouseover="this.style.background='#4f46e5'; this.style.color='#fff'; this.style.borderColor='#4f46e5';"
-                                    onmouseout="this.style.background='rgba(79, 70, 229, 0.12)'; this.style.color='#818cf8'; this.style.borderColor='rgba(129, 140, 248, 0.2)';">
-                                ➕ Добавить договор
-                            </button>
+                          <button type="button" 
+        data-client-id="<?= (int)($r['cid'] ?? 0) ?>" 
+        data-client-name="<?= htmlspecialchars($r['client_name'] ?? 'Контрагент', ENT_QUOTES, 'UTF-8') ?>"
+        onclick="openContractModalFromRow(this); return false;"
+        style="background: #1e1e2d; border: 1px solid #323248; color: #818cf8; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; transition: background 0.15s;"
+        onmouseover="this.style.background='#242434';"
+        onmouseout="this.style.background='#1e1e2d';">
+    + Добавить договор
+</button>
                         </div>
                     </td>
                 </tr> <!-- ИСПРАВЛЕНО: Тег закрыт корректно, лишний текстовый скрипт полностью удален -->
@@ -386,22 +609,122 @@ th, td {
                 </td>
                 
                 <!-- 2. № Договора инлайн -->
-                <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box;">
-                    <div class="editable" 
-                         contenteditable="<?= (!empty($r['contract_number']) && $r['contract_number'] !== '—') ? 'false' : 'true' ?>" 
-                         data-f="contract_number" 
-                         data-id="<?= $projectId ?>" 
-                         style="min-height: 22px; color: #ffffff; font-weight: 700; background: #13131a; padding: 5px 10px; border-radius: 6px; border: 1px solid #232334; outline: none; display: inline-block; min-width: 90px; box-sizing: border-box; font-size: 13px;"
-                         onfocus="this.style.background='#fff'; this.style.color='#000'; this.style.borderColor='#4f46e5';"
-                         onblur="this.style.background='#13131a'; this.style.color='#fff'; this.style.borderColor='#232334';">
-                        <?= htmlspecialchars($r['contract_number'] ?: '—') ?>
-                    </div>
-                </td>
-                
+               <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box;">
+    <?php 
+    $inlinePid = (int)($r['pid'] ?? 0);
+    $currentNum = trim($r['contract_number'] ?? '');
+    if (empty($currentNum) || $currentNum === '—') {
+        $currentNum = '—';
+    }
+    ?>
+    <div class="editable" 
+         contenteditable="true" 
+         data-f="contract_number" 
+         data-id="<?= $inlinePid ?>" 
+         onfocus="this.style.background='#ffffff'; this.style.color='#000000'; this.style.borderColor='#4f46e5';" 
+         onblur="this.style.background='#13131a'; this.style.color='#ffffff'; this.style.borderColor='#232334'; saveInlineContractNumber(this);" 
+         style="min-height: 22px; color: #ffffff; font-weight: 700; background: #13131a; padding: 5px 10px; border-radius: 6px; border: 1px solid #232334; outline: none; display: inline-block; min-width: 90px; box-sizing: border-box; font-size: 13px; transition: all 0.2s ease-in-out; cursor: text;">
+        <?= htmlspecialchars($currentNum, ENT_QUOTES, 'UTF-8') ?>
+    </div>
+    <script>async function saveInlineContractNumber(element) {
+    if (!element) return;
+
+    const pid = element.getAttribute('data-id');
+    // Забираем чистый текст, который менеджер вбил руками внутрь тега div
+    let newNumber = element.innerText.trim();
+
+    console.log("=== ИНЛАЙН ОБНОВЛЕНИЕ CONTENTEDITABLE ===");
+    console.log("ID проекта:", pid, "Новый введённый номер:", newNumber);
+
+    if (!pid || pid === "0") {
+        console.error("Потерялся системный ID проекта на элементе.");
+        return;
+    }
+
+    // Если менеджер стёр всё — возвращаем прочерк
+    if (newNumber === "" || newNumber === "—") {
+        element.innerText = "—";
+        newNumber = "—";
+    }
+
+    const fd = new FormData();
+    fd.append('action_mode', 'update_contract_number_fast');
+    fd.append('project_id', pid);
+    fd.append('contract_number', newNumber);
+
+    try {
+        // Отправляем асинхронный POST-запрос на эту же страницу
+        const res = await fetch('contracts.php', { method: 'POST', body: fd });
+        
+        if (res.ok) {
+            // Эффект успешного неонового сохранения (зелёная вспышка границ)
+            element.style.borderColor = '#10b981';
+            element.style.boxShadow = '0 0 8px rgba(16,185,129,0.4)';
+            
+            setTimeout(() => {
+                element.style.borderColor = '#232334';
+                element.style.boxShadow = 'none';
+            }, 1000);
+            
+            console.log("Номер договора успешно обновлен на №" + newNumber);
+        } else {
+            throw new Error("Код ответа: " + res.status);
+        }
+    } catch (err) {
+        element.style.borderColor = '#ef4444';
+        element.style.boxShadow = '0 0 8px rgba(239,68,68,0.4)';
+        alert("Не удалось сохранить изменённый номер договора на сервере XAMPP.");
+    }
+}</script>
+</td>
                 <!-- 3. Дата договора -->
-                <td style="padding: 14px 12px; color: #a1a1aa; font-size: 13px; text-align: center; font-family: monospace; font-weight: 500; border: none !important; box-sizing: border-box;">
-                    <?= htmlspecialchars($r['contract_date'] ?? '—') ?>
-                </td>
+              <td style="padding: 8px 12px; text-align: center; border: none !important; box-sizing: border-box; width: 150px;">
+    <input type="date" 
+           value="<?= !empty($r['contract_date']) ? date('Y-m-d', strtotime($r['contract_date'])) : '' ?>"
+           onchange="updateContractDateInline(<?= (int)$r['pid'] ?>, this.value);"
+           style="background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; padding: 4px 8px; font-family: monospace; font-size: 13px; outline: none; cursor: pointer; transition: all 0.2s ease-in-out; width: 100%; box-sizing: border-box; color-scheme: dark;">
+<script>
+    async function updateContractDateInline(projectId, newDateValue) {
+    if (!projectId || projectId <= 0) {
+        console.error("Ошибка: Неверный системный ID проекта.");
+        return;
+    }
+
+    // Находим наш инпут на странице, чтобы сделать красивую подсветку
+    const dateInput = event.target;
+    
+    console.log(`=== ЖИВАЯ ОБНОВЛЕНИЕ ДАТЫ ДОГОВОРА ДЛЯ ПРОЕКТА #${projectId}: ${newDateValue} ===`);
+
+    const fd = new FormData();
+    fd.append('action_mode', 'update_contract_date_live');
+    fd.append('project_id', projectId);
+    fd.append('contract_date', newDateValue);
+
+    try {
+        // Шлём быстрый фоновый запрос на текущий файл-обработчик сохранения (или save.php)
+        const res = await fetch('save.php', { method: 'POST', body: fd });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            // Успешная изумрудная вспышка рамки
+            if (dateInput) {
+                dateInput.style.borderColor = '#10b981';
+                dateInput.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.4)';
+                setTimeout(() => {
+                    dateInput.style.borderColor = '#323248';
+                    dateInput.style.boxShadow = 'none';
+                }, 1000);
+            }
+        } else {
+            alert("Ошибка СУБД: " + result.message);
+            if (dateInput) dateInput.style.borderColor = '#ef4444';
+        }
+    } catch (err) {
+        console.error("Ошибка асинхронного транспорта даты:", err);
+    }
+}
+</script>
+        </td>
                 
                 <!-- 4. Вид продукции (Премиальный полупрозрачный бейдж) -->
                 <td style="padding: 14px 12px; text-align: left; border: none !important; box-sizing: border-box;">
@@ -415,87 +738,315 @@ th, td {
                     }
                     ?>
                 </td>
-                <!-- 5. Кнопка отгрузок ТТН (В тон общего плоского дизайна) -->
-               <!-- 5. Кнопка отгрузок ТТН -->
-            <!-- 5. Кнопка отгрузок ТТН (ИСПРАВЛЕНО: Убран конфликтующий вызов, синтаксис чист) -->
-                <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box;">
-                    <?php $line324_pid = (int)($r['pid'] ?? 0); ?>
-                    <button type="button" 
-                            data-id="<?= $line324_pid ?>"
-                            onclick="window.currentTtnProjectId = <?= $line324_pid ?>; const modal = document.getElementById('ttnManagerModal'); if(modal){ modal.style.display = 'flex'; } const label = document.getElementById('ttnContractLabel'); if(label){ label.innerText = 'Системный ID договора: №' + <?= $line324_pid ?>; label.setAttribute('data-pid', <?= $line324_pid ?>); } loadProjectTtnsPremium(<?= $line324_pid ?>); return false;" 
-                            style="background: #4f46e5; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; transition: background 0.15s; font-family: sans-serif;">
-                        📦 ТТН
-                    </button>
-                </td>
+       <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box;">
+    <?php 
+    $line324_pid = (int)($r['pid'] ?? 0); 
+    // Считываем чистую валюту договора, которую нам отдает SQL-запрос
+    $contractCurrency = trim($r['main_contract_currency'] ?? 'BYN'); 
+    ?>
+    <button type="button" 
+            data-id="<?= $line324_pid ?>"
+            data-currency="<?= $contractCurrency ?>"
+            onclick="openTtnManagerFromButton(this); return false;" 
+            style="background: #4f46e5; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; transition: background 0.15s; font-family: sans-serif; position: relative; z-index: 10;">
+        📦 ТТН
+    <script>// =========================================================================
+// НАПИСАННЫЙ С НУЛЯ, СВЕЖИЙ НАТИВНЫЙ JAVASCRIPT-ДВИЖОК ДЛЯ ТТН v3.0
+// =========================================================================
+// 1. ГЛАВНЫЙ ОБРАБОТЧИК КЛИКА КНОПКИ ТТН
+function openTtnManagerFromButton(buttonElement) {
+    if (!buttonElement) return;
+    
+    const pid = parseInt(buttonElement.getAttribute('data-id'), 10);
+    const contractCurrency = (buttonElement.getAttribute('data-currency') || 'BYN').trim().toUpperCase();
+    
+    if (isNaN(pid) || pid <= 0) {
+        alert("Критическая ошибка: Договор не имеет валидного системного ID!");
+        return;
+    }
+    
+    // Записываем параметры в скрытые поля модалки
+    document.getElementById('ttn_pid_storage').value = pid;
+    document.getElementById('edit_ttn_id_storage').value = '';
+    document.getElementById('ttn_currency_hidden').value = contractCurrency;
+    
+    // Очищаем форму для новой записи
+    document.getElementById('new_ttn_num').value = '';
+    document.getElementById('new_ttn_quantity').value = '';
+    document.getElementById('new_ttn_amount').value = '';
+    document.getElementById('ttnFormTitle').innerText = 'Добавить новую отгрузку в рамках контракта:';
+    document.getElementById('ttnSubmitBtn').innerText = 'Добавить в рамках контракта';
+    
+    // Динамически перекрашиваем и подставляем бейдж валюты договора
+    const badge = document.getElementById('js-ttn-currency-badge');
+    if (badge) {
+        badge.innerText = contractCurrency;
+        let bColor = '#10b981'; // BYN
+        if (contractCurrency === 'RUB') bColor = '#f59e0b';
+        if (contractCurrency === 'USD') bColor = '#6366f1';
+        if (contractCurrency === 'EUR') bColor = '#ec4899';
+        if (contractCurrency === 'CNY') bColor = '#a855f7';
+        
+        badge.style.color = bColor;
+        badge.style.background = bColor + '20';
+        badge.style.borderColor = bColor + '40';
+    } 
+    const label = document.getElementById('ttnContractLabel');
+    if (label) label.innerText = 'Системный ID договора: №' + pid;
+
+    // Выводим модалку на экран через Flexbox
+    const modal = document.getElementById('ttnManagerModal');
+    if (modal) modal.style.display = 'flex';
+    // Запускаем асинхронный рендерер списка ТТН
+    loadProjectTtnsPremium(pid);
+}
+// 2. АСИНХРОННЫЙ РЕНДЕРЕР СПИСКА НАКЛАДНЫХ ИЗ БАЗЫ
+async function loadProjectTtnsPremium(pid) {
+    const safePid = parseInt(pid, 10);
+    const container = document.getElementById('projectTtnsListContainer');
+    if (!container) return;
+    container.innerHTML = '<span style="color:#818cf8; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">⏳ Синхронизация с СУБД Santeks...</span>';
+    try {
+        const response = await fetch('get_ttns.php?project_id=' + safePid);
+        if (!response.ok) throw new Error("Статус ошибки: " + response.status);
+
+        const textData = await response.text();
+        if (!textData || textData.trim() === "") {
+            container.innerHTML = '<span style="color:#4b5563; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">Отгрузок в рамках контракта пока нет</span>';
+            return;
+        }
+        let ttns = [];
+        try {
+            ttns = JSON.parse(textData);
+        } catch (jsonErr) {
+            container.innerHTML = '<span style="color:#ef4444; font-size:12px; padding:15px; display:block; text-align:center;">⚠️ Сбой структуры данных СУБД.</span>';
+            return;
+        }
+        let html = '';
+        if (Array.isArray(ttns) && ttns.length > 0) {
+            ttns.forEach(t => {
+                const safeNum = (t.ttn_number || '').replace(/'/g, "\\'");
+                const safeDate = t.ttn_date ? t.ttn_date.split('-').reverse().join('.') : '—';
+                const safeQty = parseInt(t.product_quantity || 0, 10);
+                const safeProd = (t.product_info || 'Сантехника').replace(/'/g, "\\'");
+                const safeAmt = parseFloat(t.amount || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const rawCurrency = (t.currency || 'BYN').toString().trim().toUpperCase();
+
+                let curColor = '#10b981';
+                let currencyLabel = 'BYN';
+                if (rawCurrency === 'RUB') { curColor = '#f59e0b'; currencyLabel = '₽'; }
+                if (rawCurrency === 'USD') { curColor = '#6366f1'; currencyLabel = '$'; }
+                if (rawCurrency === 'EUR') { curColor = '#ec4899'; currencyLabel = '€'; }
+                if (rawCurrency === 'CNY') { curColor = '#a855f7'; currencyLabel = '¥'; }
+                html += `
+<div style="background: #151521; padding: 10px 12px; border-radius: 8px; border: 1px solid #323248; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box; margin-bottom: 2px;">
+    <div style="flex: 1; min-width: 0; padding-right: 10px; text-align:left;">
+        <div style="font-weight: bold; color: #fff; font-size: 13px;">ТТН № ${safeNum}</div>
+        <div style="color: #71717a; font-size: 11px; margin-top: 2px;">Дата: ${safeDate} | Кол-во: <strong style="color:#f59e0b; font-family: monospace;">${safeQty} шт.</strong></div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+        <!-- ВОТ ОНА, СТРОКА-ПОБЕДИТЕЛЬ: Заменили статичный знак $ на ${currencyLabel} -->
+        <div style="font-weight: 700; color: ${curColor}; font-size: 13px; font-family: monospace;">${safeAmt} ${currencyLabel}</div>
+        <button type="button" onclick="activateTtnEditMode(${t.id}, '${safeNum}', '${t.ttn_date}', ${t.amount}, ${safeQty}, '${safeProd}')" style="background:none; border:none; color:#f59e0b; cursor:pointer; font-size:13px; padding:4px;">✏️</button>
+    </div>
+</div>`;
+            });
+        } else {
+            html += '<span style="color:#4b5563; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">Отгрузок в рамках контракта пока нет</span>';
+        }      
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = '<span style="color:#ef4444; font-size:12px; padding:15px; display:block; text-align:center;">Критическая ошибка загрузки списка</span>';
+    }
+}
+// 3. АСИНХРОННАЯ ОТПРАВКА НОВОЙ НАКЛАДНОЙ НА СЕРВЕР
+async function submitTtnFormPremium() {
+    const pid = document.getElementById('ttn_pid_storage').value;
+    const ttnId = document.getElementById('edit_ttn_id_storage').value;
+    const ttnNum = document.getElementById('new_ttn_num').value.trim();
+    const ttnDate = document.getElementById('new_ttn_date').value;
+    const ttnQty = document.getElementById('new_ttn_quantity').value;
+    const ttnAmount = document.getElementById('new_ttn_amount').value;
+    // ЛОВИМ ВЫБРАННУЮ РУКАМИ ВАЛЮТУ ИЗ СЕЛЕКТА
+    const ttnCurrency = document.getElementById('ttn_currency_select').value;
+    const ttnProd = document.getElementById('new_ttn_prod').value.trim();
+
+    if (!ttnNum || !ttnAmount) {
+        alert("Заполните номер накладной и сумму отгрузки!");
+        return;
+    }
+    const fd = new FormData();
+    fd.append('project_id', pid);
+    fd.append('ttn_id', ttnId);
+    fd.append('ttn_number', ttnNum);
+    fd.append('ttn_date', ttnDate);
+    fd.append('product_quantity', ttnQty);
+    fd.append('new_ttn_amount', ttnAmount); 
+    fd.append('ttn_currency_select', ttnCurrency); // ПЕРЕДАЕМ ВАЛЮТУ НА БЭКЕНД
+    fd.append('product_info', ttnProd);
+    try {
+        const res = await fetch('save_ttn.php', { method: 'POST', body: fd });
+        const result = await res.json();      
+        if (result.status === 'success') {
+            document.getElementById('new_ttn_num').value = '';
+            document.getElementById('new_ttn_quantity').value = '';
+            document.getElementById('new_ttn_amount').value = '';
+            document.getElementById('edit_ttn_id_storage').value = '';
+            document.getElementById('ttnFormTitle').innerText = 'Добавить новую отгрузку в рамках контракта:';
+            document.getElementById('ttnSubmitBtn').innerText = 'Добавить в рамках контракта';
+            // Живое обновление верхнего списка ТТН в модалке и общего итога на странице
+            loadProjectTtnsPremium(pid);
+            if (typeof calculatePageGrandTotalFromScratch === 'function') {
+                calculatePageGrandTotalFromScratch();
+            }
+        } else {
+            alert("Ошибка сохранения: " + result.message);
+        }
+    } catch (err) {
+        alert("Ошибка сети при отправке формы ТТН");
+    }
+}
+// 4. АКТИВАЦИЯ РЕДАКТИРОВАНИЯ СТАРОЙ ТТН
+function activateTtnEditMode(id, num, date, amount, qty, prod) {
+    document.getElementById('edit_ttn_id_storage').value = id;
+    document.getElementById('new_ttn_num').value = num;
+    document.getElementById('new_ttn_date').value = date;
+    document.getElementById('new_ttn_quantity').value = qty;
+    document.getElementById('new_ttn_amount').value = amount;
+    document.getElementById('new_ttn_prod').value = prod;
+
+    document.getElementById('ttnFormTitle').innerText = 'Редактировать параметры накладной №' + num + ':';
+    document.getElementById('ttnSubmitBtn').innerText = 'Сохранить изменения ТТН';
+}
+</script>
+    </button>
+    
+</td>            
+                <!-- 6. Дата последней отгрузки (БЕЗ ИЗМЕНЕНИЙ) -->
+<td style="padding: 14px 12px; text-align: center; font-size: 13px; color: #a1a1aa; font-family: monospace; border: none !important; box-sizing: border-box;">
+  <?php 
+        $ld = $pdo->prepare("SELECT MAX(ttn_date) FROM project_ttns WHERE project_id = ?"); 
+        $ld->execute([$r['pid']]);
+        $d = $ld->fetchColumn(); 
+        echo $d ? date('d.m.Y', strtotime($d)) : '—';
+    ?>
+</td>
                 
-                <!-- 6. Дата последней отгрузки -->
-                <td style="padding: 14px 12px; text-align: center; font-size: 13px; color: #a1a1aa; font-family: monospace; border: none !important; box-sizing: border-box;">
-                    <?php 
-                        $ld = $pdo->prepare("SELECT MAX(ttn_date) FROM project_ttns WHERE project_id = ?"); 
-                        $ld->execute([$r['pid']]);
-                        $d = $ld->fetchColumn(); 
-                        echo $d ? date('d.m.Y', strtotime($d)) : '—';
-                    ?>
-                </td>
+        <!-- 7. ИТОГОВАЯ ЧИСТАЯ СУММА ОТГРУЗОК (РАЗДЕЛЬНЫЕ ВАЛЮТЫ И СУММЫ ГРУПП КЛИЕНТА) -->
+<td style="padding: 14px 16px; text-align: right; font-size: 13px; font-family: monospace; font-weight: bold; border: none !important; box-sizing: border-box; white-space: nowrap; color: #ffffff;">
+    <?php 
+    $rawTotals = trim($r['ttn_currency_totals'] ?? '');
+    
+    if (empty($rawTotals) || $rawTotals === '0.00' || $rawTotals === '0.00 BYN') {
+        echo '<span style="color: #ffffff;">0.00</span> <span style="color: #4b5563; font-size: 10px; font-weight: 800; background: rgba(75,85,99,0.1); padding: 2px 5px; border-radius: 5px; border: 1px solid rgba(75,85,99,0.2); vertical-align: middle;">BYN</span>';
+    } else {
+        $parts = explode(' / ', $rawTotals);
+        $formattedParts = [];
+        
+        foreach ($parts as $part) {
+            $part = trim($part);
+            $lastSpacePos = strrpos($part, ' ');
+            if ($lastSpacePos !== false) {
+                $valNumeric = substr($part, 0, $lastSpacePos);
+                $curCode = strtoupper(substr($part, $lastSpacePos + 1));
                 
-                <!-- 7. Базовая сумма в BYN -->
-                <td style="padding: 14px 16px; text-align: right; font-size: 14px; font-family: monospace; font-weight: bold; border: none !important; box-sizing: border-box;">
-                    <span class="js-byn-base" data-id="<?= $projectId ?>" style="color: #e4e4e7;"><?= number_format($totalBynSum, 2, '.', ' ') ?></span>
-                    <span style="color: #4b5563; font-size: 11px; font-weight: normal; margin-left: 2px;">BYN</span>
-                </td>
+                $cColor = '#10b981'; // BYN
+                $displayLabel = 'BYN';
                 
-                <!-- 8. Мультивалютный перерасчет -->
-              <!--  <td style="padding: 14px 16px; text-align: right; white-space: nowrap; border: none !important; box-sizing: border-box;">
-                    <strong class="js-converted-value" data-id="<?= $projectId ?>" style="color: #10b981; font-size: 14px; margin-right: 6px; font-family: monospace;">
-                        <?= number_format($convertedSum, 2, '.', ' ') ?>
-                    </strong>
-                    <select class="js-target-currency" data-id="<?= $projectId ?>" style="padding: 4px 6px; background: #13131a; border: 1px solid #232334; color: #10b981; border-radius: 6px; font-size: 12px; cursor: pointer; outline: none; font-weight: bold; font-family: sans-serif;">
-                        <option value="RUB" <?= $savedCurrency === 'RUB' ? 'selected' : '' ?>>RUB</option>
-                        <option value="USD" <?= $savedCurrency === 'USD' ? 'selected' : '' ?>>USD</option>
-                        <option value="EUR" <?= $savedCurrency === 'EUR' ? 'selected' : '' ?>>EUR</option>
-                        <option value="CNY" <?= $savedCurrency === 'CNY' ? 'selected' : '' ?>>CNY</option>
-                        <option value="BYN" <?= $savedCurrency === 'BYN' ? 'selected' : '' ?>>BYN</option>
-                    </select>
-                </td> -->
+                if ($curCode === 'RUB') { $cColor = '#f59e0b'; $displayLabel = '₽ RUB'; }
+                else if ($curCode === 'USD') { $cColor = '#6366f1'; $displayLabel = '$ USD'; }
+                else if ($curCode === 'EUR') { $cColor = '#ec4899'; $displayLabel = '€ EUR'; }
+                else if ($curCode === 'CNY') { $cColor = '#a855f7'; $displayLabel = '¥ CNY'; }
                 
+                $formattedParts[] = "<span style='color: #ffffff;'>{$valNumeric}</span> <span style='color: {$cColor}; font-size: 10px; font-weight: 800; letter-spacing: 0.2px; background: {$cColor}15; padding: 2px 5px; border-radius: 5px; border: 1px solid {$cColor}30; vertical-align: middle; margin-left: 2px;'>{$displayLabel}</span>";
+            } else {
+                $formattedParts[] = $part;
+            }
+        }
+        echo implode(' <span style="color: #323248; margin: 0 6px;">/</span> ', $formattedParts);
+    }
+    ?>
+</td>
+             <!-- 8. СТАТУС ВАЛЮТНОЙ СИНХРОНИЗАЦИИ (НАМЕРТВО ИСПРАВЛЕНО: УБРАН ВАРНИНГ СТР. 872) -->
+<td style="padding: 14px 16px; text-align: left; font-size: 11px; color: #71717a; border: none !important; box-sizing: border-box; font-family: sans-serif; min-width: 140px;">
+</td>
               <!-- 9. Просмотр и загрузка PDF сканов (ФИНАЛЬНЫЙ ХОТФИКС СКРЕПКИ) -->
-                <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box; background: transparent;">
-                    <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: center; width: 100%; background: transparent;">
-                        <?php
-                        $contractPath = isset($r['scan_path']) ? trim($r['scan_path']) : '';
-                        
-                        // Жесткая проверка: если путь не пустой, не NULL и не равен техническим нулям
-                        if (!empty($contractPath) && $contractPath !== 'NULL' && $contractPath !== '0' && $contractPath !== 0): 
-                        ?>
-                            <!-- Если файл ЕСТЬ — выводим кнопку PDF -->
-                            <a href="<?= htmlspecialchars($contractPath) ?>" 
-                               target="_blank" 
-                               style="color: #10b981; text-decoration: none; font-size: 11px; font-weight: bold; background: rgba(16, 185, 129, 0.1); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25); display: inline-block; white-space: nowrap; transition: 0.2s;"
-                               onmouseover="this.style.background='rgba(16, 185, 129, 0.2)';"
-                               onmouseout="this.style.background='rgba(16, 185, 129, 0.1)';">👁 PDF</a>
-                            <button type="button" 
-                                    onclick="if(confirm('⚠️ Вы уверены, что хотите БЕЗВОЗВРАТНО удалить скан договора?')){ window.location.href='delete_contract_file.php?pid=<?= $projectId ?>'; } return false;" 
-                                    style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; padding: 4px; display: inline-block; line-height: 1; transition: transform 0.15s;"
-                                    onmouseover="this.style.transform='scale(1.2)';"
-                                    onmouseout="this.style.transform='scale(1)';">❌</button>
-                        <?php else: ?>
-                            <!-- Если файла НЕТ — выводим красивую кнопку-скрепку загрузки -->
-                            <label for="contract_file_<?= $projectId ?>" 
-                                   style="cursor: pointer; color: #818cf8; font-size: 13px; padding: 5px 12px; background: #161624; border: 1px solid #232334; border-radius: 6px; display: inline-block; user-select: none; transition: all 0.15s; box-sizing: border-box;"
-                                   onmouseover="this.style.background='#232334'; this.style.borderColor='#4f46e5';"
-                                   onmouseout="this.style.background='#161624'; this.style.borderColor='#232334';">📎</label>
-                            
-                            <!-- ИСПРАВЛЕНО: возвращен точный индекс первого файла [0] в FormData пакете -->
-                            <input type="file" 
-                                   id="contract_file_<?= $projectId ?>" 
-                                   accept=".pdf" 
-                                   style="display: none;" 
-                                   onchange="if(!this.files||!this.files.length)return; const fd=new FormData(); fd.append('pid',<?= $projectId ?>); fd.append('contract_pdf',this.files[0]); const path=window.location.pathname; const url=path.substring(0,path.lastIndexOf('/'))+'/upload_scan.php'; fetch(url,{method:'POST',body:fd}).then(r=>r.json()).then(res=>{ if(res.status==='success'){ window.location.reload(); }else{ alert('Ответ сервера:\n'+res.message); window.location.reload(); } }).catch(err=>alert('Ошибка сети или размера файла'));return false;">
-                        <?php endif; ?>
-                    </div>
-                </td>
+             <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box; white-space: nowrap;">
+    <?php 
+    $scanUrl = trim($r['scan_path'] ?? '');
+    $currentPid = (int)($r['pid'] ?? 0);
+    if (!empty($scanUrl) && $scanUrl !== 'NULL' && $scanUrl !== '0'): 
+        // Определяем расширение файла для вывода точного текста на кнопке
+        $ext = strtolower(pathinfo($scanUrl, PATHINFO_EXTENSION));
+        $btnLabel = ($ext === 'pdf') ? '👁 PDF' : '👁 ФОТО';
+        $bColor = ($ext === 'pdf') ? '#ef4444' : '#6366f1'; // PDF - красный, ФОТО - индиго
+    ?>
+        <!-- Кнопка просмотра прикрепленного документа -->
+        <a href="<?= htmlspecialchars($scanUrl, ENT_QUOTES, 'UTF-8') ?>" 
+           target="_blank" 
+           style="color: <?= $bColor ?>; text-decoration: none; font-size: 11px; font-weight: bold; background: <?= $bColor ?>15; padding: 5px 10px; border-radius: 6px; border: 1px solid <?= $bColor ?>30; display: inline-block; transition: all 0.15s;">
+            <?= $btnLabel ?>
+        </a>
+    <?php else: ?>
+        <!-- Кнопка быстрой загрузки скана, если его еще нет (вызывает скрытый клик по инпуту) -->
+        <?php if ($currentPid > 0): ?>
+            <label for="contract_file_input_<?= $currentPid ?>" style="cursor: pointer; color: #818cf8; font-size: 12px; padding: 5px 12px; background: #151521; border: 1px solid #323248; border-radius: 6px; display: inline-block; transition: all 0.15s;" onmouseover="this.style.borderColor='#4f46e5';" onmouseout="this.style.borderColor='#323248';">
+                📎 Скан
+            </label>
+            <input type="file" 
+                   id="contract_file_input_<?= $currentPid ?>" 
+                   accept=".pdf,.jpg,.jpeg,.png" 
+                   style="display: none;" 
+                   onchange="uploadContractScanFast(<?= $currentPid ?>, this)">
+        <?php else: ?>
+            <span style="color: #4b5563;">—</span>
+        <?php endif; ?>
+    <?php endif; ?>
+
+<script>async function uploadContractScanFast(pid, inputElement) {
+    if (!inputElement || !inputElement.files || inputElement.files.length === 0) return;
+
+    const file = inputElement.files[0];
+    console.log("=== СТАРТ ИНЛАЙН ЗАГРУЗКИ СКАНА ===");
+    console.log("Проект ID:", pid, "Файл:", file.name, "Размер:", file.size);
+
+    const fd = new FormData();
+    fd.append('project_id', pid);
+    fd.append('contract_scan', file); // Ключ отправки на upload_scan.php
+
+    // Находим родительский label для вывода красивого лоадера
+    const label = inputElement.previousElementSibling;
+    const originalText = label.innerText;
+    label.innerText = "⏳...";
+    label.style.color = "#f59e0b";
+
+    try {
+        const res = await fetch('upload_scan.php', { method: 'POST', body: fd });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            // Подсвечиваем успехом и полностью перезапускаем страницу для отрисовки новой VIP-кнопки просмотра
+            label.innerText = "✅ Готово";
+            label.style.color = "#10b981";
+            setTimeout(() => { window.location.reload(); }, 500);
+        } else {
+            alert("Ошибка валидации СУБД:\n" + result.message);
+            label.innerText = originalText;
+            label.style.color = "#818cf8";
+            inputElement.value = ""; // Вычищаем заклинивший сбойный файл из инпута!
+        }
+    } catch (err) {
+        alert("Критический сбой сети при передаче скана договора.");
+        label.innerText = originalText;
+        label.style.color = "#818cf8";
+        inputElement.value = "";
+    }
+}</script>
+</td>
             </tr>
+            
             <?php endforeach; ?>
+
             <script>
 // Глобальный инициализатор модального окна контракта
 function openNewContractModal(clientId) {
@@ -529,77 +1080,174 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>       
         </tbody>
 
-<tfoot style="background: #1a1a26; font-weight: bold; border-top: 2px solid #4f46e5;">
-    <tr>
-        <!-- Пропускаем первые 6 колонок, чтобы надпись встала перед суммами -->
-        <td colspan="10" style="text-align: right; padding: 15px; color: #92929f; font-size: 13px;">
-            ИТОГО ПО ВСЕМ КЛИЕНТАМ:
-        </td>
-        
-        <!-- КОЛОНКА ИТОГОВОЙ СУММЫ (Сюда JS запишет точный живой расчет) -->
-        <td id="js-contracts-grand-total" style="text-align: right; color: #fff; padding-right: 15px; font-size: 15px; font-weight: bold;">
-            0.00 BYN
-        </td>
-        
-        <!-- Оставляем пустую ячейку под колонкой мультивалютного пересчета -->
-        <td></td>
-    </tr>
-</tfoot>
             </table>
         </div>
  
+ 
+<?php
+// ГЛОБАЛЬНЫЙ МУЛЬТИВАЛЮТНЫЙ ПОДСЧЕТ ДЛЯ ФУТЕРА СТРАНИЦЫ НА СТОРОНЕ PHP
+// Собираем вообще все ТТН из базы данных по текущим видимым проектам
+$projectIds = array_filter(array_column($rows, 'pid'));
 
+$globalTotalsString = '0.00 BYN';
+
+if (!empty($projectIds)) {
+    // Втупую суммируем всеamount из базы, группируя их строго по валюте
+    $inQuery = implode(',', array_map('intval', $projectIds));
+    $calcSql = "SELECT currency, SUM(amount) as total_wallet 
+                FROM project_ttns 
+                WHERE project_id IN ($inQuery) 
+                GROUP BY currency 
+                ORDER BY currency ASC";
+    
+    $calcStmt = $pdo->query($calcSql);
+    $globalCalculations = $calcStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (!empty($globalCalculations)) {
+        $tempBadges = [];
+        foreach ($globalCalculations as $vc) {
+            $amtFormatted = number_format((float)$vc['total_wallet'], 2, '.', ' ');
+            $curName = strtoupper(trim($vc['currency']));
+            
+            // Раскрашиваем коды валют для премиального контраста в футере
+            $cColor = '#10b981'; // BYN
+            if ($curName === 'RUB') $cColor = '#f59e0b';
+            if ($curName === 'USD') $cColor = '#6366f1';
+            if ($curName === 'EUR') $cColor = '#ec4899';
+            if ($curName === 'CNY') $cColor = '#a855f7';
+            
+            $tempBadges[] = "<span style='color: #ffffff;'>{$amtFormatted}</span> <span style='color: {$cColor}; font-weight: 800; font-size: 11px;'>{$curName}</span>";
+        }
+        // Склеиваем раздельные валютные кошельки через красивый слэш
+        $globalTotalsString = implode(' <span style="color:#323248; margin: 0 10px;">/</span> ', $tempBadges);
+    }
+}
+?>
+
+<!-- ПАРЯЩИЙ МУЛЬТИВАЛЮТНЫЙ ФУТЕР СТРАНИЦЫ (БЕЗ КОНВЕРТЕРОВ И JAVASCRIPT) -->
+<div style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(20, 20, 30, 0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid rgba(255, 255, 255, 0.06); padding: 14px 40px; z-index: 9999; box-shadow: 0 -15px 35px rgba(0,0,0,0.6); display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 7px; height: 7px; background: #10b981; border-radius: 5px; box-shadow: 0 0 10px #10b981;"></div>
+        <span style="font-size: 11px; color: #71717a; font-weight: bold; tracking-spacing: 0.5px; text-transform: uppercase;">Сводный баланс отгрузок SANTEKS NEXT</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <span style="color: #92929f; font-size: 12px; font-weight: 700; tracking-spacing: 0.5px; text-transform: uppercase;">ОБЩИЙ ИТОГ ПО ВСЕМ КОНТРАКТАМ:</span>
+        
+        <!-- Сюда PHP выводит готовые раздельные кошельки -->
+        <div style="color: #ffffff; font-size: 15px; font-weight: bold; font-family: monospace; background: #151521; border: 1px solid #323248; padding: 8px 18px; border-radius: 10px; text-align: right; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 4px;">
+            <?= $globalTotalsString ?>
+        </div>
+    </div>
+</div>
+
+<div style="height: 80px; width: 100%; display: block; clear: both;"></div>
+
+<!-- Небольшой технический отступ в самом низу страницы, чтобы таблица при скролле не перекрывалась футером -->
+<div style="height: 80px; width: 100%; display: block; clear: both;"></div>
+<script>
+// НАМЕРТВО ИСПРАВЛЕНО: Всеядный калькулятор футера, который читает данные прямо из сетки таблицы
+function calculatePageGrandTotalFromScratch() {
+    console.log("=== ЗАПУСК ВСЕЯДНОГО КАЛЬКУЛЯТОРА ФУТЕРА ===");
+    
+    let totalSum = 0;
+    
+    // 1. Пытаемся собрать данные по нашему маркер-классу js-project-amount
+    const amountElements = document.querySelectorAll('.js-project-amount');
+    
+    if (amountElements.length > 0) {
+        amountElements.forEach(el => {
+            const val = parseFloat(el.getAttribute('data-amount')) || 0;
+            totalSum += val;
+        });
+    } else {
+        // 2. РЕЗЕРВНЫЙ БРОНЕБОЙНЫЙ ВАРИАНТ: Если классы стёрлись, парсим саму HTML-таблицу напрямую!
+        // Находим все строки таблицы, у которых есть ячейки
+        const tableRows = document.querySelectorAll('table text, table tr, .client-row');
+        
+        tableRows.forEach(row => {
+            const cells = row.getElementsByTagName('td');
+            // В нашей структуре ячейка суммы отгрузок идёт 7-й по счёту (индекс 6 или соседний)
+            if (cells.length >= 7) {
+                // Извлекаем текстовое содержимое ячейки (например, "1 096 400.00 BYN")
+                let cellText = cells[6].innerText || cells[7].innerText || "";
+                
+                // Хирургическая очистка текста: убираем значки валют, пробелы и буквы, оставляя только число и точку
+                cellText = cellText.replace(/[₽$€¥BYNRUB\s]/g, '').replace(',', '.').trim();
+                
+                const val = parseFloat(cellText) || 0;
+                totalSum += val;
+            }
+        });
+    }
+
+    // 3. Выводим итоговую сумму в наш красивый парящий футер страницы
+    const target = document.getElementById('js-page-grand-total');
+    
+    if (target) {
+        // Форматируем число с разделением тысяч (1 096 400.00 + 10 227.03 + 4 393.58 = 1 111 020.61 BYN)
+        target.innerHTML = totalSum.toLocaleString('ru-RU', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }) + ' <span style="font-size:12px; color:#818cf8; font-weight:800; margin-left:3px; font-family:sans-serif;">BYN</span>';
+        
+        console.log("Итоговая сумма успешно выведена в парящий футер:", totalSum);
+    } else {
+        console.error("Ошибка UI: Элемент 'js-page-grand-total' не найден на странице!");
+    }
+}
+
+// Автоматический повторный вызов калькулятора, если страница загружается асинхронно
+document.addEventListener('DOMContentLoaded', function() {
+    calculatePageGrandTotalFromScratch();
+    // Страхуемся коротким таймаутом, если jQuery или AJAX дорисовывают таблицу чуть позже
+    setTimeout(calculatePageGrandTotalFromScratch, 300);
+});
+</script>
     
 
 <!-- ИСПРАВЛЕНО: Полный редизайн модалки договора и новые виды продукции -->
 <!-- ИСПРАВЛЕНО UI/UX: Идеальное центрирование окна ровно по центру экрана менеджера -->
-<div id="contractModal" 
-     style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); z-index: 99999; display: flex; justify-content: center; align-items: center; box-sizing: border-box; backdrop-filter: blur(4px);">
-
-    <!-- ВНУТРЕННИЙ БЛОК ОКНА (ИСПРАВЛЕНО: убраны проценты, центрируется автоматически) -->
-    <div class="modal-content stylish-modal" style="background: #1e1e2d; border-radius: 16px; border: 1px solid #323248; padding: 30px; width: 480px; box-sizing: border-box; box-shadow: 0 25px 50px rgba(0,0,0,0.6); position: relative;">
+<form id="contractForm" method="POST" action="contracts.php" enctype="multipart/form-data" style="margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
+<div id="contractModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); justify-content: center; align-items: center; z-index: 99999; box-sizing: border-box; backdrop-filter: blur(5px); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    
+    <!-- ВНУТРЕННИЙ БЛОК ОКНА -->
+    <div class="modal-content stylish-modal" style="background: #1e1e2d; border-radius: 16px; border: 1px solid #323248; padding: 30px; width: 480px; box-sizing: border-box; box-shadow: 0 25px 50px rgba(0,0,0,0.6); position: relative; display: flex; flex-direction: column; gap: 16px;">
         
         <!-- ХЕДЕР ОКНА -->
-        <div class="modal-header" style="margin-bottom: 25px; text-align: left;">
-            <h2 style="margin: 0; color: #ffffff; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                📋 Новый договор: <span id="modalClientName" style="color: #818cf8; font-weight: 800;"></span>
+        <div class="modal-header" style="text-align: left; width: 100%; box-sizing: border-box;">
+            <h2 style="margin: 0; color: #ffffff; font-size: 16px; font-weight: 700; letter-spacing: 0.3px;">
+                📋 Новый договор: <span id="modalClientName" style="color: #818cf8; font-weight: 800;">Загрузка...</span>
             </h2>
         </div>
 
-        <!-- ИСПРАВЛЕНО: Прямая, безотказная отправка данных на сервер в обход ломающегося JS -->
-<!-- ИСПРАВЛЕНО: Форма отправляет данные напрямую силами браузера, минуя ломающийся JS -->
-    <form id="contractForm" method="POST" action="contracts.php" style="margin: 0; padding: 0;">
+        <!-- САМА ФОРМА ОТПРАВКИ ДАННЫХ -->
+        <form id="contractForm" method="POST" action="contracts.php" style="margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box;">
 
-            <!-- Скрытый маркер ID клиента, заполняемый силами JavaScript -->
-            <input type="hidden" id="modal_client_id" name="client_id">
+            <!-- Скрытый маркер ID клиента -->
+            <input type="hidden" id="modal_client_id" name="client_id" value="">
             
             <!-- Сетка: Номер и Дата (Выровнены в один ряд) -->
-            <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 16px; width: 100%; box-sizing: border-box;">
+            <div class="form-row" style="display: flex; gap: 15px; width: 100%; box-sizing: border-box;">
+                <div class="form-group" style="flex: 2; display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">№ Договора *</label>
+                   <input type="text" 
+       id="edit_contract_number" 
+       name="contract_number" 
+       required 
+       style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none;"> </div>
                 <div class="form-group" style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
-                    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">№ Договора *</label>
-                    <input type="text" name="contract_number" placeholder="Напр: 125/А" required style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 13px; transition: all 0.15s ease;" onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
-                </div>
-                <div class="form-group" style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
-                    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Дата договора *</label>
-                    <input type="date" name="contract_date" value="<?= date('Y-m-d') ?>" style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 13px; color-scheme: dark; font-weight: bold; transition: all 0.15s ease;" onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
+                    <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">Дата договора *</label>
+                    <input type="date" name="contract_date" value="<?= date('Y-m-d') ?>" required style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 13px; color-scheme: dark; font-weight: bold; transition: all 0.15s ease;" onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
                 </div>
             </div>
 
-            <!-- ---- ДИНАМИЧЕСКИЙ ХОТФИКС: ВЫБОР ВАЛЮТЫ ЗАКЛЮЧЕНИЯ КОНТРАКТА ---- -->
-            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; width: 100%; box-sizing: border-box;">
-                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Валюта договора *</label>
-                <select name="currency" required style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #10b981; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 13px; font-weight: bold; cursor: pointer; transition: all 0.15s ease;" onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
-                    <option value="BYN" selected>BYN (Белорусский рубль)</option>
-                    <option value="RUB">RUB (Российский рубль)</option>
-                    <option value="USD">USD (Доллар США)</option>
-                    <option value="EUR">EUR (Евро)</option>
-                    <option value="CNY">CNY (Китайский юань)</option>
-                </select>
-            </div>
-
-                       <!-- Вид продукции (Новый актуальный список в VIP-стиле) -->
-            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 25px; width: 100%; box-sizing: border-box;">
-                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Вид продукции *</label>
+            <!-- ВЫБОР ВАЛЮТЫ ЗАКЛЮЧЕНИЯ КОНТРАКТА -->
+      
+            <!-- Вид продукции -->
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px; width: 100%; box-sizing: border-box;">
+                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">Вид продукции *</label>
                 <select id="modal_contract_product_type" name="product_type" required style="width: 100%; height: 42px; padding: 0 14px; background: #151521; border: 1px solid #323248; color: #818cf8; border-radius: 8px; outline: none; cursor: pointer; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s ease;" onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
                     <option value="Посуда">Посуда</option>
                     <option value="Сантехника" selected>Сантехника</option>
@@ -611,113 +1259,162 @@ document.addEventListener("DOMContentLoaded", function() {
                     <option value="другое">другое</option>
                 </select>
             </div>
-
-         <!-- Подвал: Кнопки (Разнесены по правому краю) -->
-            <div class="modal-footer" style="display: flex !important; justify-content: flex-end !important; gap: 12px !important; margin-top: 25px !important; padding: 0 !important; background: transparent !important; background-color: transparent !important; border: none !important; border-top: none !important; box-shadow: none !important;">
+<div class="form-group" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 25px; width: 100%; box-sizing: border-box;">
+                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">Скан-копия договора / Фото документов</label>
+                <div style="position: relative; width: 100%; box-sizing: border-box;">
+                    <input type="file" 
+                           name="contract_scan" 
+                           accept=".pdf,.jpg,.jpeg,.png" 
+                           style="width: 100%; height: 42px; padding: 8px 14px; background: #151521; border: 1px solid #323248; color: #818cf8; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 12px; font-weight: 600; cursor: pointer;">
+                </div>
+            </div>
+            <!-- Подвал: Кнопки (Разнесены по правому краю) -->
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; width: 100%; box-sizing: border-box;">
                 <button type="button" 
                         onclick="closeContractModal(); return false;" 
-                        style="height: 42px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.15s ease;"
+                        style="height: 42px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.15s ease; box-sizing: border-box;"
                         onmouseover="this.style.color='#fff'; this.style.borderColor='#4f46e5';"
                         onmouseout="this.style.color='#92929f'; this.style.borderColor='#323248';">
                     Отмена
                 </button>
-                
                 <button type="submit" 
                         class="btn-contract-save" 
-                        onclick="this.form.submit();"
                         style="height: 42px; padding: 0 24px; background: #4f46e5; border: none; color: #ffffff; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.15s ease; box-sizing: border-box;" 
                         onmouseover="this.style.background='#4338ca'; this.style.boxShadow='0 5px 15px rgba(79, 70, 229, 0.3)';" 
                         onmouseout="this.style.background='#4f46e5'; this.style.boxShadow='none';">
                     Создать договор
                 </button>
             </div>
-
         </form>
     </div>
 </div>
 
-            
-        </form>
+
+                        </div>
+                        </div>
+<!-- 2. СВЕЖИЙ НАПИСАННЫЙ С НУЛЯ JAVASCRIPT-ДВИЖОК ДЛЯ ИНТЕРФЕЙСА ОКНА -->
+<script>
+// ФУНКЦИЯ ОТКРЫТИЯ ОКНА: Связывает кнопку таблицы с модалкой, передавая ID и имя клиента
+function openContractModalFromRow(buttonElement) {
+    if (!buttonElement) return;
+
+    const clientId = parseInt(buttonElement.getAttribute('data-client-id'), 10);
+    const clientName = buttonElement.getAttribute('data-client-name') || 'Контрагент';
+
+    if (isNaN(clientId) || clientId <= 0) {
+        alert("Критическая ошибка UI: Не удалось считать системный ID клиента!");
+        return;
+    }
+
+    // Записываем ID и подставляем имя
+    document.getElementById('modal_client_id').value = clientId;
+    document.getElementById('modalClientName').innerText = clientName;
+
+    // Показываем окно
+    const modal = document.getElementById('contractModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+
+// ФУНКЦИЯ ЗАКРЫТИЯ ОКНА
+function closeContractModal() {
+    const modal = document.getElementById('contractModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+
     </div>
 </div>
 
 </main>
 </body>
 <!-- ИСПРАВЛЕНО: Полностью рабочий монолит формы управления ТТН/CMR Santeks CRM -->
-<div id="ttnManagerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); justify-content: center; align-items: center; z-index: 99999; box-sizing: border-box; backdrop-filter: blur(4px);">
-     <div style="background: #1e1e2d; padding: 30px; border-radius: 16px; width: 500px; border: 1px solid #323248; box-shadow: 0 25px 50px rgba(0,0,0,0.6); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #fff; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box; position: relative;">
+<!-- МОДАЛЬНОЕ ОКНО МЕНЕДЖЕРА ТТН (УСПЕШНО СИНХРОНИЗИРОВАНО С СУБД SANTEKS) -->
+<!-- =========================================================================
+     КАРКАС МОДАЛЬНОГО ОКНА ТТН v3.0 (ЧАСТЬ 2: ЧИСТАЯ ВЕРСТКА БЕЗ СЕЛЕКТОРОВ ВАЛЮТ -->
+<div id="ttnManagerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); justify-content: center; align-items: center; z-index: 99999; box-sizing: border-box; backdrop-filter: blur(5px); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background: #1e1e2d; padding: 25px 30px; border-radius: 16px; width: 500px; border: 1px solid #323248; box-shadow: 0 25px 50px rgba(0,0,0,0.6); color: #fff; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; position: relative;">
         
         <!-- Шапка окна -->
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <h3 id="ttnContractLabel" style="margin: 0; font-size: 15px; font-weight: 800; color: #ffffff; tracking-spacing: -0.2px;">Системный ID договора: №--</h3>
+            <button type="button" onclick="document.getElementById('ttnManagerModal').style.display='none';" style="background: none; border: none; color: #71717a; font-size: 22px; cursor: pointer; transition: color 0.15s; outline: none; line-height: 1;">&times;</button>
+        </div>
      
-        
-        <!-- Скрытые технические хранилища ID (Заполняются силами JS) -->
+        <!-- Скрытые технические хранилища ID для бэкенда save_ttn.php -->
         <input type="hidden" id="ttn_pid_storage" value="0">
         <input type="hidden" id="edit_ttn_id_storage" value="">
+        <input type="hidden" id="ttn_currency_hidden" value="BYN">
         
-        <!-- КОНТЕЙНЕР ДЛЯ ВЫВОДА СПИСКА НАКЛАДНЫХ -->
-        <label style="font-size: 11px; color: #92929f; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: -6px;">Список накладных по проекту:</label>
-        <div id="ttnListContainer" style="max-height: 180px; min-height: 80px; overflow-y: auto; background: #151521; border-radius: 8px; padding: 12px; border: 1px solid #323248; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box;">
-            <!-- Данные подгружаются асинхронно через JS -->
+        <!-- КОНТЕЙНЕР СПИСКА НАКЛАДНЫХ (Сюда JS выведет готовые строки из get_ttns.php) -->
+        <div style="display: flex; flex-direction: column; gap: 6px; text-align: left; width: 100%; box-sizing: border-box;">
+            <label style="font-size: 11px; color: #92929f; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Список накладных по проекту:</label>
+            <div id="projectTtnsListContainer" style="max-height: 160px; min-height: 70px; overflow-y: auto; background: #151521; border-radius: 8px; padding: 12px; border: 1px solid #323248; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box;">
+                <!-- Данные подгружаются асинхронно через JS -->
+            </div>
         </div>
 
-               <!-- ЧАСТЬ 2 МОДАЛКИ ТТН: ИЗОЛИРОВАННЫЙ БЛОК ПОЛЕЙ ВВОДА С МУЛЬТИВАЛЮТНОСТЬЮ -->
-        <div style="background: #242434; padding: 18px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; text-align: left; box-sizing: border-box; border: 1px solid #323248;">
-            <h4 id="ttnFormTitle" style="margin: 0; font-size: 13px; color: #818cf8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Добавить новую отгрузку в рамках контракта:</h4>
+        <!-- ФОРМА ДОБАВЛЕНИЯ / РЕДАКТИРОВАНИЯ (Изолированный блок полей) -->
+        <div style="background: #242434; padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; text-align: left; box-sizing: border-box; border: 1px solid #323248; width: 100%;">
+            <h4 id="ttnFormTitle" style="margin: 0; font-size: 12px; color: #818cf8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Добавить новую отгрузку в рамках контракта:</h4>
             
-            <!-- Номер ТТН и Дата -->
+            <!-- Ряд 1: Номер ТТН и Дата -->
             <div style="display: flex; gap: 10px; width: 100%; box-sizing: border-box;">
-                <input type="text" id="new_ttn_num" placeholder="№ ТТН / CMR" style="flex: 2; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; transition: border-color 0.15s;" onfocus="this.style.borderColor='#4f46e5';" onblur="this.style.borderColor='#323248';">
-                <input type="date" id="new_ttn_date" value="<?= date('Y-m-d') ?>" style="flex: 1; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; color-scheme: dark; font-weight: bold; transition: border-color 0.15s;" onfocus="this.style.borderColor='#4f46e5';" onblur="this.style.borderColor='#323248';">
-            </div>
-            
-            <!-- ИСПРАВЛЕНО НАМЕРТВО: Сумма по ТТН объединены с выбором валюты в одну строку -->
-            <div style="display: flex; gap: 10px; width: 100%; box-sizing: border-box;">
-                <input type="number" id="new_ttn_amount" step="0.01" placeholder="Сумма по накладной" oninput="calculateTtnBynLive()" style="flex: 2; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; box-sizing: border-box; transition: border-color 0.15s;" onfocus="this.style.borderColor='#4f46e5';" onblur="this.style.borderColor='#323248';">
-                
-                <select id="ttn_currency_select" onchange="calculateTtnBynLive()" style="flex: 1; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #10b981; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; cursor: pointer; height: 38px; transition: border-color 0.15s;" onfocus="this.style.borderColor='#4f46e5';" onblur="this.style.borderColor='#323248';">
-                    <option value="BYN">BYN</option>
-                    <option value="RUB">RUB</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="CNY">CNY</option>
-                </select>
+                <input type="text" id="new_ttn_num" placeholder="№ ТТН / CMR" style="flex: 2; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; box-sizing: border-box;">
+                <input type="date" id="new_ttn_date" value="<?= date('Y-m-d') ?>" style="flex: 1; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; color-scheme: dark; font-weight: bold; box-sizing: border-box;">
             </div>
 
-            <!-- БЛОК ПРЕВЬЮ АВТО-ПЕРЕСЧЕТА В БАЗОВУЮ BYN -->
-            <div id="ttn_byn_preview_block" style="display: none; font-size: 11px; color: #a855f7; font-weight: bold; padding: 2px 4px; margin-top: -6px; letter-spacing: 0.3px;">
-                В эквиваленте для системы: <span id="ttn_byn_preview_text" style="color: #10b981; font-family: monospace; font-size: 12px;">0.00 BYN</span>
+            <!-- Ряд 2: Количество штук продукции -->
+            <div style="width: 100%; box-sizing: border-box;">
+                <input type="number" id="new_ttn_quantity" placeholder="Количество продукции (шт)" style="width: 100%; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; box-sizing: border-box;">
             </div>
             
-            <!-- Количество продукции -->
-            <input type="number" id="new_ttn_quantity" placeholder="Количество продукции (шт)" style="width: 100%; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; box-sizing: border-box; transition: border-color 0.15s;" onfocus="this.style.borderColor='#4f46e5';" onblur="this.style.borderColor='#323248';">
-            
-            <!-- Спецификация -->
-            <div style="display: flex; flex-direction: column; gap: 4px; width: 100%; box-sizing: border-box;">
-                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Спецификация (Товар):</label>
-                <input type="text" 
-                       id="new_ttn_prod" 
-                       name="product_info" 
-                       value="Сантехника" 
-                       readonly 
-                       style="height: 38px; padding: 0 12px; background: #161624; border: 1px solid #323248; color: #818cf8; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; box-sizing: border-box; width: 100%; cursor: not-allowed;" 
-                       title="Данные автоматически подтянуты из связанного договора. Изменение запрещено.">
+            <!-- Ряд 3: Сумма отгрузки с красивым автоматическим бейджем валюты договора -->
+        <div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; text-align: left;">
+                <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Сумма отгрузки и Валюта *</label>
+                <div style="display: flex; gap: 10px; width: 100%; box-sizing: border-box;">
+                    <!-- Поле ввода суммы накладной -->
+                    <input type="number" 
+                           id="new_ttn_amount" 
+                           step="0.01" 
+                           placeholder="0.00" 
+                           style="flex: 2; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; font-size: 13px; box-sizing: border-box; font-family: monospace; transition: border-color 0.15s;"
+                           onfocus="this.style.borderColor='#4f46e5';" 
+                           onblur="this.style.borderColor='#323248';">
+                    
+                    <!-- Селектор ручного выбора валюты конкретной ТТН -->
+                    <select id="ttn_currency_select" 
+                            style="flex: 1; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #10b981; border-radius: 8px; outline: none; font-size: 13px; font-weight: bold; cursor: pointer; height: 38px; box-sizing: border-box; transition: border-color 0.15s;"
+                            onfocus="this.style.borderColor='#4f46e5';" 
+                            onblur="this.style.borderColor='#323248';">
+                        <option value="BYN">BYN</option>
+                        <option value="RUB">RUB</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="CNY">CNY</option>
+                    </select>
+                </div>
+            </div>
+            <!-- Ряд 4: Спецификация товара -->
+            <div style="width: 100%; box-sizing: border-box;">
+                <input type="text" id="new_ttn_prod" value="Сантехника" style="width: 100%; padding: 10px 12px; background: #151521; border: 1px solid #323248; color: #818cf8; border-radius: 8px; outline: none; font-size: 13px; font-weight: 600; box-sizing: border-box;">
             </div>
 
-
-            <!-- Чистая кнопка отправки с вызовом защищенной функции -->
-            <button type="button" id="ttnActionBtn" onclick="saveTtnRecord(); return false;" style="background: #10b981; color: white; border: none; padding: 11px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 4px; transition: all 0.15s ease; width: 100%; box-sizing: border-box;" onmouseover="this.style.background='#059669'; this.style.boxShadow='0 5px 15px rgba(16, 185, 129, 0.25)';" onmouseout="this.style.background='#10b981'; this.style.boxShadow='none';">
+            <!-- Кнопка отправки формы на save_ttn.php -->
+            <button type="button" id="ttnSubmitBtn" onclick="submitTtnFormPremium()" style="width: 100%; background: #10b981; color: white; border: none; padding: 11px; border-radius: 8px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; transition: background 0.15s; box-sizing: border-box; margin-top: 4px;">
                 Добавить в рамках контракта
             </button>
         </div>
-   <!-- Кнопка закрытия окна (Перенесена в общий премиум-подвал) -->
-        <div style="display: flex; justify-content: flex-end; margin-top: 4px; box-sizing: border-box;">
-            <button type="button" onclick="closeTtnManager();" style="height: 38px; padding: 0 20px; background: #242434; border: 1px solid #323248; color: #92929f; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.15s ease; box-sizing: border-box;" onmouseover="this.style.color='#fff'; this.style.borderColor='#4f46e5';" onmouseout="this.style.color='#92929f'; this.style.borderColor='#323248';">
-                Закрыть
-            </button>
-        </div>
 
-    </div> <!-- Закрывает внутренний блок формы -->
-</div> 
+        <!-- Подвальная кнопка закрытия -->
+        <div style="display: flex; justify-content: flex-end; width: 100%; margin-top: -4px;">
+            <button type="button" onclick="document.getElementById('ttnManagerModal').style.display='none';" style="background: #27273a; color: #a1a1aa; border: 1px solid #323248; padding: 8px 18px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s; box-sizing: border-box;">Закрыть</button>
+        </div>
+     </div>
+</div>
+
 
 
 <script>
@@ -1026,7 +1723,182 @@ async function saveTtnRecord() {
 
 
 // 2. Функция сохранения отгрузки ТТН в базу данных Windows XAMPP
+// НАМЕРТВО ИСПРАВЛЕНО: Чистый рендерер ТТН без лишней математики и конвертеров
+async function loadProjectTtnsPremium(pid) {
+    console.log("=== ЗАПУСК ПРЯМОГО РЕНДЕРЕРА ТТН ===");
+    const safePid = parseInt(pid, 10);
+    
+    // Ищем наш контейнер из разметки модалки
+    const container = document.getElementById('projectTtnsListContainer');
+    if (!container) {
+        console.error("Критическая ошибка UI: Контейнер projectTtnsListContainer не найден!");
+        return;
+    }
 
+    // Визуальный лоадер во время синхронизации
+    container.innerHTML = '<span style="color:#818cf8; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">⏳ Синхронизация с СУБД Santeks...</span>';
+
+    try {
+        // Делаем прямой запрос к нашему всеядному get_ttns.php
+        const response = await fetch('get_ttns.php?project_id=' + safePid);
+        if (!response.ok) {
+            throw new Error("Сервер вернул статус: " + response.status);
+        }
+
+        const textData = await response.text();
+        console.log("Ответ сервера по ТТН:", textData);
+
+        let ttns = [];
+        try {
+            ttns = JSON.parse(textData);
+        } catch (jsonErr) {
+            container.innerHTML = '<span style="color:#ef4444; font-size:12px; padding:15px; display:block; text-align:center;">⚠️ Сбой структуры данных.</span>';
+            return;
+        }
+
+        let html = '';
+        if (Array.isArray(ttns) && ttns.length > 0) {
+            ttns.forEach(t => {
+                const safeNum = (t.ttn_number || '').replace(/'/g, "\\'");
+                const safeDate = t.ttn_date ? t.ttn_date.split('-').reverse().join('.') : '—';
+                const safeQty = parseInt(t.product_quantity || 0, 10);
+                const safeProd = (t.product_info || 'Сантехника').replace(/'/g, "\\'");
+                
+                // Просто форматируем чистую сумму ТТН из базы данных
+                const safeAmt = parseFloat(t.amount || 0).toLocaleString('ru-RU', { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                });
+                
+                // Подхватываем родную валюту ТТН
+                const rawCurrency = (t.currency || 'BYN').toString().trim().toUpperCase();
+
+                // Плоская палитра цветов для вывода валютных маркеров строк
+                let curColor = '#10b981'; // BYN
+                let currencyLabel = 'BYN';
+                if (rawCurrency === 'RUB') { curColor = '#f59e0b'; currencyLabel = '₽'; }
+                if (rawCurrency === 'USD') { curColor = '#6366f1'; currencyLabel = '$'; }
+                if (rawCurrency === 'EUR') { curColor = '#ec4899'; currencyLabel = '€'; }
+                if (rawCurrency === 'CNY') { curColor = '#a855f7'; currencyLabel = '¥'; }
+
+                let fileControls = '';
+                const fileUrl = t.scan_path ? t.scan_path.toString().trim() : '';
+
+                if (fileUrl !== '' && fileUrl !== 'NULL' && fileUrl !== '0') {
+                    fileControls += `<a href="${fileUrl}" target="_blank" style="color:#10b981; text-decoration:none; font-size:11px; font-weight:bold; background:#1a2e26; padding:4px 8px; border-radius:6px; margin-right:5px; border:1px solid rgba(16,185,129,0.25); display:inline-block;">👁 PDF</a>`;
+                } else {
+                    fileControls += `<label for="ttn_file_input_${t.id}" style="cursor:pointer; color:#818cf8; font-size:13px; padding:4px 10px; background:#161624; border: 1px solid #323248; border-radius:6px; display:inline-block;">📎</label>`;
+                    fileControls += `<input type="file" id="ttn_file_input_${t.id}" accept=".pdf" style="display:none;" onchange="uploadTtnPdf(${t.id}, ${safePid}, this)">`;
+                }
+
+                // Выводим чистую красивую плоскую строчку отгрузки
+                html += `
+                <div style="background: #151521; padding: 10px 12px; border-radius: 8px; border: 1px solid #323248; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box; margin-bottom: 4px;">
+                    <div style="flex: 1; min-width: 0; padding-right: 10px; text-align:left;">
+                        <div style="font-weight: bold; color: #fff; font-size: 13px;">ТТН № ${safeNum}</div>
+                        <div style="color: #71717a; font-size: 11px; margin-top: 2px;">Дата: ${safeDate} | Кол-во: <strong style="color:#f59e0b;">${safeQty} шт.</strong></div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                        <div style="font-weight: 700; color: ${curColor}; font-size: 13px; font-family: monospace;">${safeAmt} ${currencyLabel}</div>
+                        <div style="display: flex; align-items: center; margin-left: 4px;">${fileControls}</div>
+                    </div>
+                </div>`;
+            });
+        } else {
+            html += '<span style="color:#4b5563; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">Отгрузок в рамках контракта пока нет</span>';
+        }
+        
+        container.innerHTML = html;
+
+    } catch (err) {
+        console.error("Сбой рендерера ТТН:", err);
+        container.innerHTML = '<span style="color:#ef4444; font-size:12px; padding:15px; display:block; text-align:center;">Критическая ошибка загрузки</span>';
+    }
+}
+
+window.submitTtnFormPremium = async function() {
+    const pid = document.getElementById('ttn_pid_storage').value;
+    const ttnNum = document.getElementById('new_ttn_num').value;
+    const ttnDate = document.getElementById('new_ttn_date').value;
+    const ttnQty = document.getElementById('new_ttn_quantity').value;
+    const ttnAmount = document.getElementById('new_ttn_amount').value;
+    const ttnProd = document.getElementById('new_ttn_prod').value;
+
+    if (!ttnNum || !ttnAmount) {
+        alert("Заполните номер накладной и сумму отгрузки!");
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('project_id', pid);
+    fd.append('ttn_number', ttnNum);
+    fd.append('ttn_date', ttnDate);
+    fd.append('product_quantity', ttnQty);
+    fd.append('new_ttn_amount', ttnAmount);
+    fd.append('product_info', ttnProd);
+    // Валюту здесь больше не передаем — бэкенд сам возьмет её из карточки договора!
+
+    try {
+        const res = await fetch('save_ttn.php', { method: 'POST', body: fd });
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            document.getElementById('new_ttn_num').value = '';
+            document.getElementById('new_ttn_quantity').value = '';
+            document.getElementById('new_ttn_amount').value = '';
+            window.loadProjectTtnsPremium(pid);
+        } else {
+            alert("Ошибка сохранения: " + result.message);
+        }
+    } catch (err) {
+        alert("Ошибка сети при отправке накладной");
+    }
+};
+
+// Хелпер для очистки пробелов в кодах валют
+function trim(str) { return str.replace(/^\s+|\s+$/g, ''); }
+
+// 3. ПЕРЕНОС ДАННЫХ В ПОЛЯ ПРИ КЛИКЕ НА КАРАНДАШ
+function editTtn(id, num, date, amount, qty, prod, currency) {
+    document.getElementById('edit_ttn_id_storage').value = id;
+    document.getElementById('new_ttn_num').value = num;
+    document.getElementById('new_ttn_date').value = date;
+    document.getElementById('new_ttn_amount').value = amount;
+    
+    // Безопасное заполнение спецификации
+    const prodInput = document.getElementById('new_ttn_prod') || document.getElementById('ttn_specification_fixed');
+    if (prodInput) {
+        prodInput.value = prod || 'Сантехника';
+    }
+
+    // ТАКЖЕ ЛОВИМ КОЛИЧЕСТВО (Чтобы оно не сбрасывалось при клике на карандаш)
+    const qtyInput = document.getElementById('new_ttn_quantity');
+    if (qtyInput) {
+        qtyInput.value = qty || 0;
+    }
+
+    // ---- НАШ ВАЛЮТНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ РЕДАКТИРОВАНИЯ ----
+    const currencySelect = document.getElementById('ttn_currency_select');
+    if (currencySelect) {
+        // Принудительно ставим селект в валюту накладной из СУБД
+        currencySelect.value = currency ? currency.toUpperCase() : 'BYN';
+    }
+    
+    // Мгновенно пересчитываем превью эквивалента в BYN на лету
+    if (typeof calculateTtnBynLive === 'function') {
+        calculateTtnBynLive();
+    }
+    // --------------------------------------------------------
+
+    if(document.getElementById('ttnFormTitle')) {
+        document.getElementById('ttnFormTitle').innerText = 'Редактировать отгрузку №' + num + ':';
+    }
+    const btn = document.getElementById('ttnActionBtn');
+    if (btn) {
+        btn.innerText = 'Сохранить изменения';
+        btn.style.background = '#f59e0b'; // Роскошный янтарный цвет для режима правки
+    }
+}
 
 
 // 3. ПОДСТАНОВКА В ФОРМУ ПРИ РЕДАКТИРОВАНИИ (КАРАНДАШ)
@@ -1121,6 +1993,10 @@ function closeTtnManager() {
         modal.style.display = 'none'; 
     }
 }
+
+
+
+
     // Передаем массив курсов из PHP в JS
 const exchangeRates = <?= json_encode($globalRates) ?>;
 document.addEventListener('change', async function(e) {
@@ -1341,126 +2217,8 @@ function closeTtnManager() {
 
 // 1. ПОДГРУЗКА СПИСКА ТТН (Крестик удаления файла теперь виден ВСЕМ)
 // ИСПРАВЛЕНО НАМЕРТВО: Исправлен баг кавычек в блоке fileControls, список гарантированно отрендерится!
-async function loadProjectTtnsPremium(pid) {
-    const container = document.getElementById('ttnListContainer');
-    if (!container) return;
-    
-    container.innerHTML = '<span style="color:#92929f; font-size:12px; padding:10px; display:block; text-align:left;">Загрузка списка отгрузок...</span>';
+// НАМЕРТВО ИСПРАВЛЕНО: Привязка к глобальному объекту window гарантирует выполнение кода!
 
-    try {
-        const res = await fetch('get_ttns.php?pid=' + parseInt(pid, 10));
-        const data = await res.json();
-        
-        let html = '<div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">';
-        
-        if (data && data.length > 0) {
-            data.forEach(function(t) {
-                // ИСПРАВЛЕНО: Безопасное экранирование одинарных кавычек через HTML-сущность
-                const safeProd = (t.product_info || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                const safeQty  = parseInt(t.product_quantity || 0, 10);
-                const safeNum  = (t.ttn_number || '').replace(/"/g, '&quot;');
-                const safeDate = (t.ttn_date || '');
-                const safeAmt  = parseFloat(t.amount || 0).toFixed(2);
-                
-                // Считываем мультивалюту из твоего рабочего JSON
-                const rawCurrency = (t.currency || 'BYN').toUpperCase();
-                let currencyLabel = 'BYN';
-                let curColor = '#10b981'; // BYN — изумрудный
-
-                if (rawCurrency === 'RUB') {
-                    currencyLabel = '₽ RUB';
-                    curColor = '#f59e0b'; // RUB — янтарный
-                } else if (rawCurrency === 'USD') {
-                    currencyLabel = '$ USD';
-                    curColor = '#6366f1'; // USD — индиго
-                } else if (rawCurrency === 'EUR') {
-                    currencyLabel = '€ EUR';
-                    curColor = '#ec4899'; // EUR — розовый
-                } else if (rawCurrency === 'CNY') {
-                    currencyLabel = '¥ CNY';
-                    curColor = '#a855f7'; // CNY — фиолетовый
-                }
-                // Управление файлами PDF (Исправлены все кавычки конкатенации шаблона)
-                let fileControls = '';
-                const fileUrl = t.scan_path ? t.scan_path.trim() : '';
-
-                if (fileUrl !== '' && fileUrl !== 'NULL' && fileUrl !== '0') {
-                    fileControls += `<a href="${fileUrl}" target="_blank" style="color:#10b981; text-decoration:none; font-size:11px; font-weight:bold; background:#1a2e26; padding:4px 8px; border-radius:6px; margin-right:5px; border:1px solid rgba(16,185,129,0.25); display:inline-block;">👁 PDF</a>`;
-                    fileControls += `<button type="button" onclick="removeTtnFile(${t.id}, ${pid})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:13px; font-weight:bold; padding:4px; margin-left:2px;">❌</button>`;
-                } else {
-                    fileControls += `<label for="ttn_file_input_${t.id}" style="cursor:pointer; color:#818cf8; font-size:13px; padding:4px 10px; background:#161624; border: 1px solid #323248; border-radius:6px; display:inline-block;">📎</label>`;
-                    fileControls += `<input type="file" id="ttn_file_input_${t.id}" accept=".pdf" style="display:none;" onchange="uploadTtnFile(${t.id}, ${pid}, this)">`;
-                }
-
-                // Шаблон строки через чистые косые кавычки
-                html += `
-                <div style="background: #151521; padding: 12px 14px; border-radius: 8px; border: 1px solid #323248; display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box; margin-bottom: 2px;">
-                    <div style="flex: 1; min-width: 0; padding-right: 10px; text-align:left;">
-                        <div style="font-weight: bold; color: #fff; font-size: 13px; letter-spacing:0.2px;">ТТН № ${safeNum}</div>
-                        <div style="color: #71717a; font-size: 11px; margin-top: 3px;">Дата: ${safeDate} | Кол-во: <strong style="color:#f59e0b; font-family: monospace;">${safeQty} шт.</strong></div>
-                        <div style="color: #4b5a75; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; font-weight: 500;">${t.product_info || 'Без спецификации'}</div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                        <div style="font-weight: 700; color: ${curColor}; font-size: 13px; font-family: monospace; letter-spacing: -0.2px;">${safeAmt} ${currencyLabel}</div>
-                        <div style="display: flex; align-items: center; margin-left: 4px;">${fileControls}</div>
-                        <button type="button" onclick="editTtn(${t.id}, '${safeNum}', '${safeDate}', ${t.amount}, ${safeQty}, '${safeProd}', '${rawCurrency}')" style="background:none; border:none; color:#f59e0b; cursor:pointer; font-size:13px; padding:4px; margin-left:3px;">✏️</button>
-                    </div>
-                </div>`;
-            });
-        } else {
-            html += '<span style="color:#4b5563; font-size:12px; padding:20px; display:block; text-align:center; font-style: italic;">Отгрузок в рамках контракта пока нет</span>';
-        }
-        
-        html += '</div>';
-        container.innerHTML = html;
-
-    } catch (err) {
-        console.error("Сбой loadProjectTtnsPremium:", err);
-        container.innerHTML = '<span style="color:#ef4444; font-size:12px; padding:10px; display:block;">Критическая ошибка загрузки ТТН</span>';
-    }
-}
-
-// 3. ПЕРЕНОС ДАННЫХ В ПОЛЯ ПРИ КЛИКЕ НА КАРАНДАШ
-function editTtn(id, num, date, amount, qty, prod, currency) {
-    document.getElementById('edit_ttn_id_storage').value = id;
-    document.getElementById('new_ttn_num').value = num;
-    document.getElementById('new_ttn_date').value = date;
-    document.getElementById('new_ttn_amount').value = amount;
-    
-    // Безопасное заполнение спецификации
-    const prodInput = document.getElementById('new_ttn_prod') || document.getElementById('ttn_specification_fixed');
-    if (prodInput) {
-        prodInput.value = prod || 'Сантехника';
-    }
-
-    // ТАКЖЕ ЛОВИМ КОЛИЧЕСТВО (Чтобы оно не сбрасывалось при клике на карандаш)
-    const qtyInput = document.getElementById('new_ttn_quantity');
-    if (qtyInput) {
-        qtyInput.value = qty || 0;
-    }
-
-    // ---- НАШ ВАЛЮТНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ РЕДАКТИРОВАНИЯ ----
-    const currencySelect = document.getElementById('ttn_currency_select');
-    if (currencySelect) {
-        // Принудительно ставим селект в валюту накладной из СУБД
-        currencySelect.value = currency ? currency.toUpperCase() : 'BYN';
-    }
-    
-    // Мгновенно пересчитываем превью эквивалента в BYN на лету
-    if (typeof calculateTtnBynLive === 'function') {
-        calculateTtnBynLive();
-    }
-    // --------------------------------------------------------
-
-    if(document.getElementById('ttnFormTitle')) {
-        document.getElementById('ttnFormTitle').innerText = 'Редактировать отгрузку №' + num + ':';
-    }
-    const btn = document.getElementById('ttnActionBtn');
-    if (btn) {
-        btn.innerText = 'Сохранить изменения';
-        btn.style.background = '#f59e0b'; // Роскошный янтарный цвет для режима правки
-    }
-}
 // 4. БЕЗВОЗВРАТНОЕ УДАЛЕНИЕ PDF С СЕРВЕРА
 async function deleteTtnPdf(ttnId, pid) {
     if (!confirm("Вы уверены, что хотите БЕЗВОЗВРАТНО удалить PDF-файл?")) return;
@@ -1564,86 +2322,6 @@ function closeContractModal() {
         console.log("Менеджер нажал 'Отмена'. Галочка контракта успешно погашена без записи в СУБД.");
     }
 }
-// ИСПРАВЛЕНО: Функция считывает ID и выводит подробный лог в консоль F12
-function openTtnManagerFromButton(buttonElement) {
-    if (!buttonElement) return;
-    
-    // Считываем значение из data-id кнопки
-    const rawId = buttonElement.getAttribute('data-id');
-    const pid = parseInt(rawId, 10);
-    
-    console.log("=== ЛОГ КЛИКА КНОПКИ ТТН ===");
-    console.log("Сырое значение из HTML атрибута data-id =", rawId);
-    console.log("Распарсенный числовой ID договора =", pid);
-    
-    if (isNaN(pid) || pid <= 0) {
-        alert("Критическая ошибка: Кнопка передала ID = " + rawId + ". Проверьте имя переменной ($p, $t, $row) в PHP цикле таблицы!");
-        return;
-    }
-    
-    if (typeof openTtnManager === 'function') {
-        openTtnManager(pid);
-    }
-}
-
-
-// =========================================================================
-// АРХИТЕКТУРНЫЙ ФИКС: Хранение ID договора в оперативной памяти window
-// =========================================================================
-
-// Глобальное хранилище ID активного договора (застраховано от затирания в HTML)
-window.currentTtnProjectId = 0;
-
-
-// 2. Главная функция инициализации и открытия модального окна
-function openTtnManager(pid) {
-    console.log("=== ЗАПУСК ДВИЖКА ТТН ===");
-    const safePid = parseInt(pid, 10);
-    
-    if (isNaN(safePid) || safePid <= 0) {
-        alert("Критическая ошибка JS: Некорректный ID договора!");
-        return;
-    }
-
-    // НАМЕРТВО ЗАПИСЫВАЕМ ID В ОПЕРАТИВНУЮ ПАМЯТЬ БРАУЗЕРА
-    window.currentTtnProjectId = safePid;
-    console.log("ID договора надежно зафиксирован в памяти: window.currentTtnProjectId =", window.currentTtnProjectId);
-
-    // Визуально выводим ID в заголовок окна (для менеджера)
-    const label = document.getElementById('ttnContractLabel');
-    if (label) {
-        label.innerText = 'Системный ID договора: №' + safePid;
-    }
-
-    // Ищем и открываем модальное окно
-    let modal = document.getElementById('ttnManagerModal');
-    if (!modal) {
-        const headers = Array.from(document.querySelectorAll('h3'));
-        const ttnHeader = headers.find(h => h.textContent.includes('Управление отгрузками ТТН'));
-        if (ttnHeader) modal = ttnHeader.parentElement.parentElement;
-    }
-
-    if (modal) {
-        modal.style.display = 'flex';
-        console.log("Модальное окно выведено на экран.");
-    } else {
-        alert("Критическая ошибка UI: Не найден контейнер модального окна отгрузок!");
-        return;
-    }
-
-    // Очищаем поле редактирования ТТН (так как создаем новую отгрузку)
-    if (document.getElementById('edit_ttn_id_storage')) {
-        document.getElementById('edit_ttn_id_storage').value = '';
-    }
-
-    // Загружаем асинхронный список уже созданных накладных из базы
-    if (typeof renderProjectTtnsList === 'function') {
-        renderProjectTtnsList(safePid);
-    }
-}
-
-// 3. Функция сохранения отгрузки ТТН в базу данных Windows XAMPP
-
 
 function exportToExcel() {
     // 1. Берем таблицу
@@ -1781,89 +2459,18 @@ const nbrbCurrentRates = <?= json_encode($globalRates ?? [
 
 console.log("Курсы успешно загружены в JS:", nbrbCurrentRates);
 
-// Функция, которая вернет правильный пересчет
-function getConvertedValue(baseByn, currency) {
-   if (currency === 'BYN') return baseByn;
-    
-    // ПРЯМАЯ И ЧЕСТНАЯ МАТЕМАТИКА НАЦБАНКА РБ
-    // Нацбанк дает курс ЗА ЕДИНИЦУ валюты к BYN (USD = 3.26, EUR = 3.54, RUB = 0.0352)
-    const rate = parseFloat(nbrbCurrentRates[currency]) || 1.0;
-    
-    if (rate <= 0) return 0;
 
-    // Формула: Сумма в BYN делить на курс единицы валюты
-    // Для USD: 312 BYN / 3.2650 = 95.55 USD (У тебя выдавало 96 — это сходится!)
-    // Для EUR: 312 BYN / 3.5420 = 88.08 EUR (У тебя выдавало 87 — это сходится!)
-    // Для RUB: 312 BYN / 0.0352 = 8 863.63 RUB (Вот здесь была ошибка, теперь будет считать тысячи!)
-    return baseByn / rate;
-}
-
-function updateTableTotals() {
-    let sumByn = 0;
-    const cells = document.querySelectorAll('.amount-byn');
-    
-    cells.forEach(el => {
-        // 1. Чистим и считаем BYN
-        let cleanText = el.innerText.replace(/\s/g, '').replace(',', '.');
-        let val = parseFloat(cleanText) || 0;
-        sumByn += val;
-
-        // 2. Ищем ячейку RUB именно для ЭТОЙ строки по data-id
-        const pid = el.getAttribute('data-id');
-        // Ищем элемент с классом rub-column и нужным ID
-        const rubCell = document.querySelector(`.rub-column[data-id="${pid}"]`);
-        
-        if (rubCell && typeof nbrbRate !== 'undefined') {
-            let rowRub = val / (nbrbRate / 100);
-            // Записываем результат
-            rubCell.innerText = rowRub.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' RUB';
-        }
-    });
-
-    // 3. Обновляем ИТОГО
-    document.getElementById('total-byn-cell').innerText = sumByn.toLocaleString('ru-RU', {minimumFractionDigits: 2}) + ' BYN';
-    
-    if (typeof nbrbRate !== 'undefined') {
-        let totalRub = sumByn / (nbrbRate / 100);
-        document.getElementById('total-rub-cell').innerText = totalRub.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 3}) + ' RUB';
-    }
-}
 
 // Запускаем при загрузке и при каждом изменении
 window.addEventListener('load', updateTableTotals);
 document.addEventListener('input', (e) => {
     if (e.target.classList.contains('amount-byn')) updateTableTotals();
 });
-function doTheMath() {
-    console.log("Запущен автоматический пересчет итоговой суммы страницы...");
-    
-    let totalSum = 0;
 
-    // 1. Находим все ячейки базовых сумм BYN в таблице по их классу
-    // Убедись, что у тебя в цикле foreach у ячейки с суммой BYN стоит класс js-byn-base
-    const bynCells = document.querySelectorAll('.js-byn-base');
-    
-    bynCells.forEach(function(cell) {
-        // Очищаем текст от пробелов и знаков BYN, превращая в чистое число
-        const text = cell.innerText.replace(/\s/g, '').replace(',', '.');
-        const value = parseFloat(text) || 0;
-        totalSum += value;
-    });
-
-    // 2. Находим наш элемент итогов в tfoot
-    const grandTotalElement = document.getElementById('js-contracts-grand-total');
-    if (grandTotalElement) {
-        // Выводим красивое число с разделением тысяч
-        grandTotalElement.innerHTML = totalSum.toLocaleString('ru-RU', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }) + ' <span style="font-size:11px; color:#92929f; font-weight:normal;">BYN</span>';
-        
-        console.log("Итоговая сумма успешно выведена:", totalSum);
-    } else {
-        console.warn("Элемент js-contracts-grand-total не найден в разметке tfoot!");
-    }
-}
+// Автоматически запускаем подсчет сразу после полной загрузки страницы браузером
+document.addEventListener('DOMContentLoaded', function() {
+    updateContractsGrandTotal();
+});
 
 // АВТОЗАПУСК: Нам нужно, чтобы функция сама запускалась ОДИН раз при полной загрузке страницы
 document.addEventListener("DOMContentLoaded", function() {

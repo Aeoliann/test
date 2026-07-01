@@ -1,16 +1,20 @@
 <?php
-// get_client.php — Абсолютно всеядный API-обработчик выгрузки данных карточки клиента для CRM
+// get_client.php — Всеядный API-контроллер карточки клиента и мульти-контактов CRM Santeks
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require 'db.php';
 
+// Жестко отключаем вывод любых PHP-предупреждений в поток, чтобы не сломать JSON-структуру
+ini_set('display_errors', 0);
+error_reporting(0);
+
 header('Content-Type: application/json');
-if (ob_get_length()) ob_clean(); // Очищаем случайные пробелы, ломающие JSON-парсинг
+if (ob_get_length()) ob_clean(); // Хирургическая очистка буфера от случайных пробелов
 
 try {
     if (!isset($_SESSION['user_id'])) {
-        throw new Exception("Ошибка авторизации сессии. Пожалуйста, перезапустите страницу.");
+        throw new Exception("Ошибка авторизации сессии.");
     }
 
     $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -18,31 +22,49 @@ try {
         throw new Exception("Некорректный системный ID клиента.");
     }
 
-    // 1. Достаем чистую строку из базы данных по системному идентификатору
+    // 1. Извлекаем основные параметры компании из таблицы clients
     $stmt = $pdo->prepare("SELECT * FROM clients WHERE id = ?");
     $stmt->execute([$id]);
     $client = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$client) {
-        throw new Exception("Критическая ошибка: Запрашиваемый клиент не найден в базе данных.");
+        throw new Exception("Запрашиваемый клиент не найден в базе данных.");
     }
 
-    // 2. ИНТЕЛЛЕКТУАЛЬНЫЙ СУБД-МАРШРУТИЗАТОР ДАТЫ (ФИКС БАГА 104 НА СТОРОНЕ ЯДРА)
-    // Сканируем массив $client на предмет скрытых альтернативных имен полей даты следующего контакта
-    if (!isset($client['next_contact_date'])) {
-        if (isset($client['next_date'])) {
-            $client['next_contact_date'] = $client['next_date'];
-        } elseif (isset($client['date_next'])) {
-            $client['next_contact_date'] = $client['date_next'];
-        } elseif (isset($client['contact_next'])) {
-            $client['next_contact_date'] = $client['contact_next'];
-        } else {
-            // Если поле в структуре вообще отсутствует, создаем дефолтный пустой маркер
-            $client['next_contact_date'] = '';
+    // Инициализируем пустой массив контактов на случай сбоя
+    $client['contacts'] = [];
+
+    // 2. ИЗОЛИРОВАННЫЙ ДОБОР КОНТАКТОВ (Сверяется со скриншотом твоей таблицы)
+    try {
+        $sql_contacts = "SELECT 
+                            contact_name AS name, 
+                            contact_role AS position, 
+                            phone, 
+                            email, 
+                            postal_address, 
+                            function_notes 
+                         FROM client_contacts 
+                         WHERE client_id = ? 
+                         ORDER BY id ASC";
+                         
+        $stmtContacts = $pdo->prepare($sql_contacts);
+        $stmtContacts->execute([$id]);
+        $fetched = $stmtContacts->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (is_array($fetched)) {
+            $client['contacts'] = $fetched;
         }
+    } catch (Exception $subEx) {
+        // Если база выдаст ошибку по колонкам, скрипт не упадёт, а запишет лог ошибки
+        $client['contacts_error'] = $subEx->getMessage();
     }
 
-    // 3. Возвращаем фронтенду кристально чистый, стандартизированный массив данных
+    // 3. Интеллектуальный фикс даты следующего контакта (Фикс бага 104)
+    if (!isset($client['next_contact_date'])) {
+        $client['next_contact_date'] = $client['next_date'] ?? ($client['date_next'] ?? '');
+    }
+
+    // Возвращаем фронтенду идеальный валидный JSON
     echo json_encode(['status' => 'success', 'data' => $client]);
     exit;
 

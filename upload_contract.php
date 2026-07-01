@@ -16,7 +16,7 @@ try {
 
     // Проверяем, прилетел ли вообще файл с формы
     if (!isset($_FILES['contract_pdf'])) {
-        throw new Exception("Файл договора не был передан на сервер.");
+        throw new Exception("Файл договора не был передан на server.");
     }
 
     $file = $_FILES['contract_pdf'];
@@ -65,9 +65,14 @@ try {
         $stmt = $pdo->prepare("UPDATE projects SET contract_file = ? WHERE id = ?");
         $stmt->execute([$newFileName, $pid]);
         
-        // Логируем успешное действие в журнал
+        // ИСПРАВЛЕНО: Привели вызов к стандартным 3-м параметрам и добавили имя исходного файла
         if (function_exists('logAction')) {
-            logAction($pdo, 'UPDATE', 'projects', $pid, "Прикрепил скан договора к контракту ID {$pid}");
+            $originalName = htmlspecialchars($file['name']);
+            logAction(
+                'UPDATE', 
+                'projects', 
+                "Прикрепил скан договора к контракту ID {$pid} (Файл: {$originalName})"
+            );
         }
 
         // Если всё успешно — мягко возвращаем менеджера на страницу контрактов
@@ -87,3 +92,4 @@ try {
     echo "</div></body>";
 }
 exit;
+?>

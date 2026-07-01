@@ -93,32 +93,15 @@ try {
 
     <!-- ПРАВАЯ КОЛОНКА: Справочник контента (весь твой код теперь живет внутри этого main) -->
     <main style="flex: 1; min-width: 0; height: 100%; padding: 30px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
-        <!-- ВЕРХНЯЯ ГОРИЗОНТАЛЬНАЯ ПАНЕЛЬ ПОИСКА -->
-      
-    
-    <!-- Форма шлет GET-запрос на саму себя при клике на Найти или Enter -->
-   
 
+        <div style="background: #1e1e2d; border: 1px solid #323248; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; box-sizing: border-box; width: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
 
-            
-            <!-- Форма мгновенного сканирования -->
-           
-
-            <a href="index.php" style="background: #242434; border: 1px solid #323248; color: #92929f; text-decoration: none; padding: 10px 15px; border-radius: 6px; font-size: 13px; font-weight: bold; transition: 0.15s;" onmouseover="this.style.color='#fff'; this.style.background='#2b2b3d';" onmouseout="this.style.color='#92929f'; this.style.background='#242434';">← В CRM</a>
-              <div class="table-scroll-box" style="display:flex;">
-            <input type="text" 
-       id="directory_live_search" 
-       placeholder="Быстрый фильтр по названию или УНП..." 
-       oninput="runLiveDirectoryFilter(this.value)"
-       style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
-   <?php if ($search !== ''): ?>
-    <a href="directory.php" style="color: #ef4444; text-decoration: none; font-size: 13px; padding-left: 8px; font-weight: bold;">Сбросить</a>
-<?php endif; ?> 
-        </div>
-        
+                Общий справочник клиентов CRM
+</div>
      <!-- ТАБЛИЦА СПРАВОЧНИКА В НЕЗАВИСИМОМ СКРОЛЛ-КОНТЕЙНЕРЕ -->
     
             <table>
+                
                 <thead>
                     <tr>
                         <th>п/п</th>
@@ -128,6 +111,69 @@ try {
                         <th>Текущий статус</th>
                         <th>Ответственный менеджер</th>
                     </tr>
+                       <!-- Поле ввода поискового запроса -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; position: relative;">
+        <input type="text" 
+               id="js-crm-search-input" 
+               oninput="filterCrmDatabaseInline()" 
+               placeholder="Быстрый поиск по имени клиента, № договора или УНП..." 
+               style="width: 100%; height: 42px; padding: 0 40px 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 13px; transition: all 0.15s ease;" 
+               onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" 
+               onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
+        
+        <!-- Иконка лупы (SVG на чистом CSS) -->
+        <span style="position: absolute; right: 14px; top: 13px; color: #71717a; pointer-events: none; font-size: 14px;">🔍</span>
+    </div>
+
+<script>
+    function filterCrmDatabaseInline() {
+    console.log("=== СТАРТ ЖИВОЙ ФИЛЬТРАЦИИ БАЗЫ ===");
+    
+    // Считываем поисковый запрос менеджера и переводим в нижний регистр
+    const query = document.getElementById('js-crm-search-input').value.toLowerCase().trim();
+    
+    // Находим все строки клиентов в нашей HTML-таблице
+    // (Ищет теги <tr> внутри tbody, за исключением шапки таблицы)
+    const rows = document.querySelectorAll('table tbody tr, .client-row');
+    
+    let visibleCount = 0;
+    let totalCount = 0;
+
+    rows.forEach(row => {
+        // Пропускаем строки, если это технические разделители, не содержащие ячеек <td>
+        if (!row.getElementsByTagName('td').length) return;
+        
+        totalCount++;
+        
+        // Извлекаем текстовое содержимое всей строки (Имя, Договор, Продукция, УНП)
+        const rowText = row.innerText.toLowerCase();
+
+        // Если строка содержит поисковый запрос — плавно показываем её, иначе — полностью скрываем
+        if (rowText.includes(query)) {
+            row.style.display = ''; // Сброс к дефолтному отображению строки таблицы
+            visibleCount++;
+        } else {
+            row.style.display = 'none'; // Намертво скрываем строку из DOM-дерева
+        }
+    });
+
+    // Обновляем счетчик найденных контрагентов на нашей VIP-панели
+    const counterSpan = document.getElementById('js-search-counter');
+    if (counterSpan) {
+        counterSpan.innerText = query === "" ? totalCount : visibleCount;
+        // Если ничего не найдено — подсвечиваем индикатор красным цветом
+        counterSpan.style.color = visibleCount === 0 && query !== "" ? '#ef4444' : '#10b981';
+    }
+}
+
+// Автоматически инициализируем счетчик строк при первой загрузке страницы реестра
+document.addEventListener('DOMContentLoaded', function() {
+    // Вызываем фильтр один раз вхолостую, чтобы посчитать исходное количество записей
+    if (document.getElementById('js-crm-search-input')) {
+        filterCrmDatabaseInline();
+    }
+});
+</script>
                 </thead>
                 <tbody>
 
