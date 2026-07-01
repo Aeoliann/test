@@ -1471,26 +1471,66 @@ async function openProtectedEditModal(id) {
         }
         console.log("CHECKPOINT 3: Поле сайта обработано.");
 
-        // 5. Отрисовка динамических мульти-контактов из таблицы client_contacts
-         const contactsContainer = document.getElementById('contactsContainer');
-        if (contactsContainer) {
-            contactsContainer.innerHTML = ''; // Вычищаем старые блоки
+        // 5. НАМЕРТВО ИСПРАВЛЕНО: Динамическая заливка серверного грида contactsGrid данными из API
+        const gridContainer = document.getElementById('contactsGrid');
+        if (gridContainer) {
+            gridContainer.innerHTML = ''; // Стираем серую заглушку или старые карточки
             
-            // ВАЖНО: Намертво сбрасываем глобальный счетчик в ноль для новой карточки!
+            // Намертво сбрасываем глобальный счетчик инпутов для сохранения
             window.contactIndex = 0; 
-            
+
             if (c.contacts && Array.isArray(c.contacts) && c.contacts.length > 0) {
-                // Если контакты есть в базе — рендерим их по очереди
-                c.contacts.forEach(contact => { 
-                    addContactField(contact); 
+                console.log(`=== ЖИВАЯ ОТРИСОВКА ГРИДА: Найдено ${c.contacts.length} лиц для модалки ===`, c.contacts);
+                
+                c.contacts.forEach((contact, idx) => {
+                    // Вытаскиваем значения, страхуясь от NULL под структуру твоей СУБД
+                    let lcName   = contact.contact_name || (contact.name || '');
+                    let lcRole   = contact.contact_role || (contact.position || '');
+                    let lcPhone  = contact.phone || '';
+                    let lcEmail  = contact.email || '';
+                    let lcPostal = contact.postal_address || '';
+                    let lcNotes  = contact.function_notes || '';
+
+                    // Создаем карточку лица в фирменном стиле Santeks Premium
+                    const card = document.createElement('div');
+                    card.style.cssText = "background: #151521; border: 1px solid #323248; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left; box-sizing: border-box; width: 100%;";
+                    
+                    card.innerHTML = `
+                        <div style="font-weight: bold; color: #fff; font-size: 13px; padding-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            👤 ${escapeHtmlQuotes(lcName)}
+                        </div>
+                        ${lcRole ? `<div style="color: #92929f; font-size: 11px;">💼 ${escapeHtmlQuotes(lcRole)}</div>` : ''}
+                        ${lcPhone ? `<div style="color: #818cf8; font-family: monospace; font-size: 11px;">📞 ${escapeHtmlQuotes(lcPhone)}</div>` : ''}
+                        ${lcEmail ? `<div style="color: #cbd5e1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">✉️ ${escapeHtmlQuotes(lcEmail)}</div>` : ''}
+                        
+                        <!-- Кнопка удаления лица из массива карточек -->
+                        <div style="position: absolute; right: 8px; top: 8px;">
+                            <button type="button" onclick="this.parentElement.parentElement.remove();" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold;">×</button>
+                        </div>
+                        
+                        <!-- Скрытая структура инпутов для сборщика FormData при сохранении формы -->
+                        <input type="hidden" name="contacts[${window.contactIndex}][name]" value="${escapeHtmlQuotes(lcName)}">
+                        <input type="hidden" name="contacts[${window.contactIndex}][position]" value="${escapeHtmlQuotes(lcRole)}">
+                        <input type="hidden" name="contacts[${window.contactIndex}][phone]" value="${escapeHtmlQuotes(lcPhone)}">
+                        <input type="hidden" name="contacts[${window.contactIndex}][email]" value="${escapeHtmlQuotes(lcEmail)}">
+                        <input type="hidden" name="contacts[${window.contactIndex}][postal_address]" value="${escapeHtmlQuotes(lcPostal)}">
+                        <input type="hidden" name="contacts[${window.contactIndex}][function_notes]" value="${escapeHtmlQuotes(lcNotes)}">
+                    `;
+                    
+                    gridContainer.appendChild(card);
+                    window.contactIndex++;
                 });
             } else {
-                // Если контактов в базе ещё нет — создаем один пустой обязательный блок
-                addContactField(null);
+                // Если у клиента в базе реально нет лиц
+                gridContainer.innerHTML = `<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 6px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет зарегистрированных лиц. Нажмите «Добавить лицо» для создания.</div>`;
             }
         }
-        console.log("CHECKPOINT 4: Динамические мульти-контакты отрисованы.");
-
+        
+        // Всегда принудительно сбрасываем отображение на режим списка (грида), пряча форму добавления
+        if (typeof toggleContactView === 'function') {
+            toggleContactView(false); 
+        }
+        console.log("CHECKPOINT 4: Динамический VIP-грид контактов успешно заполнен данными СУБД.");
        // 6. НАМЕРТВО ИСПРАВЛЕНО: Поля обратной совместимости пишут строго в главные инпуты компании
         // Ищем инпуты компании строго вне контейнера контактов, чтобы не затирать динамические лица!
         const mainForm = form || document.getElementById('clientForm');
@@ -1680,19 +1720,6 @@ async function openProtectedEditModal(id) {
                     <div class="form-group">
                         <label>Сайт компании</label>
                         <input type="text" id="client_website" name="website" class="crm-input" placeholder="example.com">
-                    </div>
-                </div>
-
-             <!-- МОДУЛЬ МУЛЬТИ-КОНТАКТОВ С ДИНАМИЧЕСКИМ ПЕРЕКЛЮЧЕНИЕМ ГРИД / ФОРМА -->
-<div style="margin-top: 20px; border-top: 1px dashed #323248; padding-top: 15px; text-align: left;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin: 0; font-size: 14px; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Контактные лица компании</h3>
-        
-        <!-- КНОПКА-ПЕРЕКЛЮЧАТЕЛЬ -->
-        <button type="button" id="toggleContactViewBtn" onclick="toggleContactView();" class="btn-primary" style="background: #4f46e5; border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s;">
-            ➕ Добавить лицо
-
-        </button>
             <script>
         function toggleContactView(showForm = null) {
     const grid = document.getElementById('contactsGrid');
@@ -1725,9 +1752,9 @@ function openContactFormWithData(c = null) {
     if (!formArea) return;
 
     const name = c ? (c.name || c.contact_name || '') : '';
-    const pos = c ? (c.position || c.contact_role || '') : '';
-    const phone = c ? (c.phone || '') : '';
-    const email = c ? (c.email || '') : '';
+    const pos = c ? (c.contact_role || '') : '';
+    const phone = c ? (c.contact_phone || '') : '';
+    const email = c ? (c.contact_email || '') : '';
     const postal = c ? (c.postal_address || '') : '';
     const notes = c ? (c.function_notes || '') : '';
 
@@ -1869,8 +1896,97 @@ function renderContactsGrid(contactsArray) {
     });
 }
     </script>    
+    <!-- МОДУЛЬ МУЛЬТИ-КОНТАКТОВ С ДИНАМИЧЕСКИМ ПЕРЕКЛЮЧЕНИЕМ ГРИД / ФОРМА -->
+<!-- ИСПРАВЛЕНО НАМЕРТВО: Изолированный PREMIUM-модуль мульти-контактов (Защищен от сдвигов сетки) -->
+
+    </div>
+<!-- ИСПРАВЛЕНО НАМЕРТВО: Модуль мульти-контактов, расширенный на всю ширину сетки grid-column -->
+<div style="grid-column: 1 / -1; margin-top: 25px; margin-bottom: 25px; border-top: 1px dashed #323248; padding-top: 20px; text-align: left; width: 100%; box-sizing: border-box; display: block; clear: both;">
+    
+    <!-- ШАПКА МОДУЛЯ -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; width: 100%; box-sizing: border-box; gap: 15px;">
+        <h3 style="margin: 0; font-size: 13px; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; font-family: sans-serif;">
+            👥 Контактные лица компании
+        </h3>
+        
+        <!-- АВТОНОМНАЯ КНОПКА (Убран класс btn-primary во избежание конфликтов скриптов темы) -->
+        <button type="button" id="toggleContactViewBtn" onclick="toggleContactView(); event.preventDefault();" style="background: #4f46e5; border: 1px solid #4f46e5; color: #fff; padding: 0 16px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s; white-space: nowrap; height: 36px; line-height: 36px; box-sizing: border-box; outline: none;">
+            ➕ Добавить лицо
+        </button>
     </div>
 
+    <!-- 1. ГРИД-СПИСОК КОНТАКТОВ -->
+    <div id="contactsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 5px; margin-bottom: 10px; width: 100%; box-sizing: border-box; min-height: 50px;">
+      <?php
+        try {
+            // Берем ID текущего клиента из контекста модалки
+            $currentModalClientId = (int)($c['id'] ?? ($client['id'] ?? 0));
+            $loadedContacts = [];
+
+            if ($currentModalClientId > 0) {
+                // Прямой изолированный запрос в таблицу контактов Santeks
+                $stmtGrid = $pdo->prepare("SELECT contact_name, contact_role, phone, email, postal_address, function_notes FROM client_contacts WHERE client_id = ? ORDER BY id ASC");
+                $stmtGrid->execute([$currentModalClientId]);
+                $loadedContacts = $stmtGrid->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            if (!empty($loadedContacts)):
+                foreach ($loadedContacts as $idx => $lc):
+                    $lcName = trim($lc['contact_name'] ?? '');
+                    $lcRole = trim($lc['contact_role'] ?? '');
+                    $lcPhone = trim($lc['phone'] ?? '');
+                    $lcEmail = trim($lc['email'] ?? '');
+                    $lcPostal = trim($lc['postal_address'] ?? '');
+                    $lcNotes = trim($lc['function_notes'] ?? '');
+        ?>
+                    <!-- Карточка одного контактного лица -->
+                    <div style="background: #151521; border: 1px solid #323248; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left; box-sizing: border-box; width: 100%;">
+                        <div style="font-weight: bold; color: #fff; font-size: 13px; padding-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            👤 <?= htmlspecialchars($lcName) ?>
+                        </div>
+                        <?php if (!empty($lcRole)): ?>
+                            <div style="color: #92929f; font-size: 11px;">💼 <?= htmlspecialchars($lcRole) ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($lcPhone)): ?>
+                            <div style="color: #818cf8; font-family: monospace; font-size: 11px;">📞 <?= htmlspecialchars($lcPhone) ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($lcEmail)): ?>
+                            <div style="color: #cbd5e1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">✉️ <?= htmlspecialchars($lcEmail) ?></div>
+                        <?php endif; ?>
+                        
+                        <!-- Кнопка локального удаления карточки на фронтенде -->
+                        <div style="position: absolute; right: 8px; top: 8px;">
+                            <button type="button" onclick="this.parentElement.parentElement.remove();" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold;">×</button>
+                        </div>
+                        
+                        <!-- Скрытая структура инпутов, чтобы FormData при общем сохранении забирала массив в update_client.php -->
+                        <input type="hidden" name="contacts[<?= $idx ?>][name]" value="<?= htmlspecialchars($lcName, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="contacts[<?= $idx ?>][position]" value="<?= htmlspecialchars($lcRole, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="contacts[<?= $idx ?>][phone]" value="<?= htmlspecialchars($lcPhone, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="contacts[<?= $idx ?>][email]" value="<?= htmlspecialchars($lcEmail, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="contacts[<?= $idx ?>][postal_address]" value="<?= htmlspecialchars($lcPostal, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="contacts[<?= $idx ?>][function_notes]" value="<?= htmlspecialchars($lcNotes, ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+        <?php 
+                endforeach;
+            else:
+                // Если в базе нет лиц, выводим аккуратную заглушку-инструкцию
+                echo '<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 6px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет зарегистрированных лиц. Нажмите «Добавить лицо» для создания.</div>';
+            endif;
+        } catch (Exception $e) {
+            echo '<div style="grid-column: span 2; color: #ef4444; font-size: 11px; padding: 10px; text-align: center;">Ошибка загрузки лиц из СУБД</div>';
+        }
+        ?>
+    
+    <!-- Сюда JS будет рендерить компактные карточки лиц -->
+    </div>
+
+    <!-- 2. ФОРМА РЕДАКТИРОВАНИЯ/ДОБАВЛЕНИЯ -->
+    <div id="contactsFormArea" style="display: none; background: rgba(255, 255, 255, 0.01); border: 1px solid #323248; border-radius: 8px; padding: 15px; position: relative; box-sizing: border-box; width: 100%;">
+        <!-- Сюда JS будет подставлять форму конкретного лица -->
+    </div>
+
+</div>
     <!-- 1. ГРИД-СПИСОК КОНТАКТОВ (Основной экран при открытии модалки) -->
     <div id="contactsGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
         <!-- Сюда JS будет рендерить компактные карточки лиц -->

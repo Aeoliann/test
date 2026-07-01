@@ -1007,48 +1007,28 @@ document.getElementById('contractForm').onsubmit = async function(e) {
 };
 
 
-// АСИНХРОННОЕ УДАЛЕНИЕ PDF ФАЙЛА ТТН (СТРОГО ДЛЯ АДМИНА)
-async function deleteTtnPdf(ttnId, pid) {
-    console.log("Клик по крестику пойман. ttnId:", ttnId, "pid:", pid);
-    
-    // 1. Жёсткое окно подтверждения на уровне браузера
-    if (!confirm("Вы уверены, что хотите БЕЗВОЗВРАТНО удалить прикрепленный PDF-файл этой ТТН?")) {
-        console.log("Удаление отменено пользователем.");
-        return;
+document.getElementById('contactForm').onsubmit = async function(e){ 
+    e.preventDefault;
+    const fd = new FormData(this); 
+    try { 
+        const res = await fetch('save_new_client.php' { 
+            method: 'POST',
+            body: fd
+        });
+    const text = await res.text(); 
+    console.log('Ответ:', text);
+    if (result.status === "success") { 
+        location.reload();
+
+    } else { 
+        alert(result.message);
     }
 
-    console.log("Отправляю fetch запрос на delete_ttn_pdf.php...");
-
-    try {
-        const res = await fetch('delete_ttn_pdf.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ttn_id: parseInt(ttnId) })
-        });
-        
-        // Читаем сырой текст ответа на случай, если PHP выдал Fatal Error вместо JSON
-        const rawText = await res.text();
-        console.log("Сырой ответ сервера:", rawText);
-        
-        const result = JSON.parse(rawText);
-
-        if (result.status === 'success') {
-            console.log("Файл успешно удален, обновляю список ТТН...");
-            // Перерисовываем список накладных прямо в открытом окне
-            if (typeof loadProjectTtns === 'function') {
-                loadProjectTtns(pid);
-            } else {
-                location.reload();
-            }
-        } else {
-            alert("Ошибка при удалении файла: " + result.message);
-        }
-    } catch (err) {
-        console.error("Критическая ошибка JS при удалении PDF:", err);
-        alert("Ошибка связи с сервером delete_ttn_pdf.php. Откройте консоль F12.");
+    } catch(err) { 
+        console.error(err);
+        alert("Сбой"):
     }
 }
-
 async function executeContractUpload(pid, inputElement) {
     console.log("Движок поймал выбор файла. Начинаю асинхронную отправку договора ID:", pid);
     

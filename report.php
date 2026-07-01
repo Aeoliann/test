@@ -25,7 +25,6 @@ try {
                         COALESCE(u.login, 'Не указан') AS manager_name,
                         COUNT(t.id) AS ttn_count,
                         SUM(t.amount) AS total_amount
-                        
                    FROM project_ttns t
                    LEFT JOIN projects p ON t.project_id = p.id
                    LEFT JOIN clients c ON p.client_id = c.id
@@ -129,16 +128,10 @@ try {
     .details-scroll-container::-webkit-scrollbar-thumb { background: #2b2b40; border-radius: 3px; }
     .details-scroll-container::-webkit-scrollbar-thumb:hover { background: #4f46e5; }
    </style>
-  
-
     </head>
     <body>
-    
         <!-- ПОДКЛЮЧЕНИЕ САЙДБАРА CRM -->
-
             <?php include 'sidebar.php'; ?>
-
-
         <div class="main-content">
             
             <!-- ШАПКА ФИЛЬТРАЦИИ И КАНАЛЕНДАРНЫЙ ПЕРИОД -->
