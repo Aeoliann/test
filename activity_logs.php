@@ -29,6 +29,7 @@ if (!empty($filterType)) {
     $params[] = $filterType;
 }
 
+
 $sql .= " ORDER BY al.id DESC LIMIT 500"; 
 
 $stmt = $pdo->prepare($sql);

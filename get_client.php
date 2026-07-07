@@ -35,9 +35,9 @@ try {
     $client['contacts'] = [];
 
     // 2. ИЗОЛИРОВАННЫЙ ДОБОР КОНТАКТОВ (Сверяется со скриншотом твоей таблицы)
-    try {
+   try {
         $sql_contacts = "SELECT 
-                            contact_name AS name, 
+                            name, 
                             contact_role AS position, 
                             phone, 
                             email, 
@@ -55,9 +55,10 @@ try {
             $client['contacts'] = $fetched;
         }
     } catch (Exception $subEx) {
-        // Если база выдаст ошибку по колонкам, скрипт не упадёт, а запишет лог ошибки
+        // Записываем лог, если что-то пойдет не так
         $client['contacts_error'] = $subEx->getMessage();
     }
+
 
     // 3. Интеллектуальный фикс даты следующего контакта (Фикс бага 104)
     if (!isset($client['next_contact_date'])) {
@@ -72,3 +73,21 @@ try {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     exit;
 }
+ $mainPerson = trim($client['contact_person'] ?? '');
+    $mainPhone  = trim($client['phone'] ?? '');
+    $mainEmail  = trim($client['email'] ?? '');
+
+    if (!empty($mainPerson) || !empty($mainPhone) || !empty($mainEmail)) {
+        $mainContactObject = [
+            'name'           => !empty($mainPerson) ? $mainPerson : 'Главный контакт',
+            'position'       => 'Основное лицо компании', // Задаем красивый статус плашки
+            'phone'          => $mainPhone,
+            'email'          => $mainEmail,
+            'postal_address' => '',
+            'function_notes' => 'Основной контакт из карточки клиента',
+            'is_main'        => 1 // Маркер, что это главный контакт (чтобы запретить его удаление)
+        ];
+        
+        // Вставляем главный контакт в самое начало массива contacts
+        array_unshift($client['contacts'], $mainContactObject);
+    }

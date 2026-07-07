@@ -708,6 +708,7 @@ select[name="lead_source"]:focus {
                 <option value="" <?= empty($statusFilter) ? 'selected' : '' ?>>Все статусы</option>
                 <option value="Новый" <?= $statusFilter === 'Новый' ? 'selected' : '' ?>>🔴 Новый</option>
                 <option value="Текущий" <?= $statusFilter === 'Текущий' ? 'selected' : '' ?>>🟡 Текущий</option>
+                <option value="Отказ" <?= $statusFilter === 'Отказ' ? 'selected' : ''?>>Отказ</option>
             </select>
         </div>
 
@@ -1472,57 +1473,81 @@ async function openProtectedEditModal(id) {
         console.log("CHECKPOINT 3: Поле сайта обработано.");
 
         // 5. НАМЕРТВО ИСПРАВЛЕНО: Динамическая заливка серверного грида contactsGrid данными из API
-        const gridContainer = document.getElementById('contactsGrid');
+          const gridContainer = document.getElementById('contactsGrid');
         if (gridContainer) {
-            gridContainer.innerHTML = ''; // Стираем серую заглушку или старые карточки
-            
-            // Намертво сбрасываем глобальный счетчик инпутов для сохранения
+            gridContainer.innerHTML = ''; 
             window.contactIndex = 0; 
 
-            if (c.contacts && Array.isArray(c.contacts) && c.contacts.length > 0) {
-                console.log(`=== ЖИВАЯ ОТРИСОВКА ГРИДА: Найдено ${c.contacts.length} лиц для модалки ===`, c.contacts);
-                
-                c.contacts.forEach((contact, idx) => {
-                    // Вытаскиваем значения, страхуясь от NULL под структуру твоей СУБД
-                    let lcName   = contact.contact_name || (contact.name || '');
-                    let lcRole   = contact.contact_role || (contact.position || '');
-                    let lcPhone  = contact.phone || '';
-                    let lcEmail  = contact.email || '';
-                    let lcPostal = contact.postal_address || '';
-                    let lcNotes  = contact.function_notes || '';
+                if (c.contacts && Array.isArray(c.contacts) && c.contacts.length > 0) {
+                    c.contacts.forEach((contact) => {
+                        // ЖЕЛЕЗНЫЙ ХИТ: проверяем и name, и contact_name, и даже ФИО в верхнем/нижнем регистре
+                    let lcName = '';
+                        if (contact) {
+                            lcName = contact.name || (contact.contact_name || (contact.contact_person || (contact.contact_person_name || '')));
+                        }
+                        
+                        // Если имя по-прежнему пустое, пробуем забрать его, если объект прилетел в нестандартном регистре
+                        if (!lcName && contact) {
+                            lcName = contact.NAME || (contact.CONTACT_NAME || '');
+                        }
 
-                    // Создаем карточку лица в фирменном стиле Santeks Premium
+                        let lcRole   = contact ? (contact.position || (contact.contact_role || (contact.role || ''))) : '';
+                        let lcPhone  = contact ? (contact.phone || '') : '';
+                        let lcEmail  = contact ? (contact.email || '') : '';
+                        let lcPostal = contact ? (contact.postal_address || '') : '';
+                        let lcNotes  = contact ? (contact.function_notes || '') : '';
+
+                        // Если вместо строки прилетел битый объект, очищаем его во избежание вывода [object Object]
+                        if (typeof lcName === 'object' || lcName === null) lcName = '';
+
+                        // Если вдруг пришла строка '[object Object]' или мусор, тушим его
+                        if (typeof lcName === 'object') lcName = '';
+                        
+                      const isMainContact = contact && contact.is_main === 1;
+                    
+                    const deleteBtnHtml = isMainContact 
+                        ? '' 
+                        : `<div style="position: absolute; right: 8px; top: 8px;" class="js-grid-del-btn">
+                               <button type="button" onclick="this.parentElement.parentElement.remove();" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold;">×</button>
+                           </div>`;
+
                     const card = document.createElement('div');
-                    card.style.cssText = "background: #151521; border: 1px solid #323248; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left; box-sizing: border-box; width: 100%;";
+                    
+                    // PREMIUM UX: Главный контакт подсветим синим неоном, дополнительные — стандартным темным контуром
+                    const borderColor = isMainContact ? '#3b82f6' : '#323248';
+                    const bgGlow = isMainContact ? 'rgba(59, 130, 246, 0.02)' : '#151521';
+
+                    card.style.cssText = `background: ${bgGlow}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left; box-sizing: border-box; width: 100%;`;
                     
                     card.innerHTML = `
+                        ${deleteBtnHtml}
                         <div style="font-weight: bold; color: #fff; font-size: 13px; padding-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            👤 ${escapeHtmlQuotes(lcName)}
+                            👤 ${escapeHtmlQuotes(lcName || 'Без имени')}
                         </div>
-                        ${lcRole ? `<div style="color: #92929f; font-size: 11px;">💼 ${escapeHtmlQuotes(lcRole)}</div>` : ''}
+                        <div style="color: #64748b; font-size: 11px;">💼 ${escapeHtmlQuotes(isMainContact ? 'Основной контакт компании' : (lcRole || 'Должность не указана'))}</div>
                         ${lcPhone ? `<div style="color: #818cf8; font-family: monospace; font-size: 11px;">📞 ${escapeHtmlQuotes(lcPhone)}</div>` : ''}
                         ${lcEmail ? `<div style="color: #cbd5e1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">✉️ ${escapeHtmlQuotes(lcEmail)}</div>` : ''}
                         
-                        <!-- Кнопка удаления лица из массива карточек -->
-                        <div style="position: absolute; right: 8px; top: 8px;">
-                            <button type="button" onclick="this.parentElement.parentElement.remove();" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold;">×</button>
-                        </div>
-                        
-                        <!-- Скрытая структура инпутов для сборщика FormData при сохранении формы -->
-                        <input type="hidden" name="contacts[${window.contactIndex}][name]" value="${escapeHtmlQuotes(lcName)}">
-                        <input type="hidden" name="contacts[${window.contactIndex}][position]" value="${escapeHtmlQuotes(lcRole)}">
-                        <input type="hidden" name="contacts[${window.contactIndex}][phone]" value="${escapeHtmlQuotes(lcPhone)}">
-                        <input type="hidden" name="contacts[${window.contactIndex}][email]" value="${escapeHtmlQuotes(lcEmail)}">
-                        <input type="hidden" name="contacts[${window.contactIndex}][postal_address]" value="${escapeHtmlQuotes(lcPostal)}">
-                        <input type="hidden" name="contacts[${window.contactIndex}][function_notes]" value="${escapeHtmlQuotes(lcNotes)}">
+                        <!-- ЖЕСТКАЯ ЗАЩИТА: Массив contacts[] пишем ТОЛЬКО для дополнительных лиц, чтобы бэкенд не затирал основную таблицу clients! -->
+                        ${isMainContact ? '' : `
+                            <input type="hidden" name="contacts[${window.contactIndex}][name]" value="${escapeHtmlQuotes(lcName)}">
+                            <input type="hidden" name="contacts[${window.contactIndex}][position]" value="${escapeHtmlQuotes(lcRole)}">
+                            <input type="hidden" name="contacts[${window.contactIndex}][phone]" value="${escapeHtmlQuotes(lcPhone)}">
+                            <input type="hidden" name="contacts[${window.contactIndex}][email]" value="${escapeHtmlQuotes(lcEmail)}">
+                            <input type="hidden" name="contacts[${window.contactIndex}][postal_address]" value="${escapeHtmlQuotes(lcPostal)}">
+                            <input type="hidden" name="contacts[${window.contactIndex}][function_notes]" value="${escapeHtmlQuotes(lcNotes)}">
+                        `}
                     `;
                     
                     gridContainer.appendChild(card);
-                    window.contactIndex++;
-                });
+                    
+                    // Инкрементируем индекс только для доп. контактов, чтобы FormData собирала массив без пропусков!
+                    if (!isMainContact) {
+                        window.contactIndex++;
+                    }
+                }); // Конец цикла c.contacts.forEach
             } else {
-                // Если у клиента в базе реально нет лиц
-                gridContainer.innerHTML = `<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 6px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет зарегистрированных лиц. Нажмите «Добавить лицо» для создания.</div>`;
+                gridContainer.innerHTML = `<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 8px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет зарегистрированных лиц.</div>`;
             }
         }
         
@@ -1917,28 +1942,30 @@ function renderContactsGrid(contactsArray) {
 
     <!-- 1. ГРИД-СПИСОК КОНТАКТОВ -->
     <div id="contactsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 5px; margin-bottom: 10px; width: 100%; box-sizing: border-box; min-height: 50px;">
-      <?php
+     <?php
         try {
             // Берем ID текущего клиента из контекста модалки
             $currentModalClientId = (int)($c['id'] ?? ($client['id'] ?? 0));
             $loadedContacts = [];
 
             if ($currentModalClientId > 0) {
-                // Прямой изолированный запрос в таблицу контактов Santeks
-                $stmtGrid = $pdo->prepare("SELECT contact_name, contact_role, phone, email, postal_address, function_notes FROM client_contacts WHERE client_id = ? ORDER BY id ASC");
+                // Прямой изолированный запрос в таблицу контактов Santeks (Выбираем name!)
+                $stmtGrid = $pdo->prepare("SELECT name, contact_role, phone, email, postal_address, function_notes FROM client_contacts WHERE client_id = ? ORDER BY id ASC");
                 $stmtGrid->execute([$currentModalClientId]);
                 $loadedContacts = $stmtGrid->fetchAll(PDO::FETCH_ASSOC);
             }
 
             if (!empty($loadedContacts)):
                 foreach ($loadedContacts as $idx => $lc):
-                    $lcName = trim($lc['contact_name'] ?? '');
-                    $lcRole = trim($lc['contact_role'] ?? '');
+                    // НАМЕРТВО ИСПРАВЛЕНО: Читаем чистый ключ 'name', который получили из базы данных
+                    $lcName  = trim($lc['name'] ?? '');
+                    $lcRole  = trim($lc['contact_role'] ?? '');
                     $lcPhone = trim($lc['phone'] ?? '');
                     $lcEmail = trim($lc['email'] ?? '');
                     $lcPostal = trim($lc['postal_address'] ?? '');
                     $lcNotes = trim($lc['function_notes'] ?? '');
         ?>
+
                     <!-- Карточка одного контактного лица -->
                     <div style="background: #151521; border: 1px solid #323248; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left; box-sizing: border-box; width: 100%;">
                         <div style="font-weight: bold; color: #fff; font-size: 13px; padding-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -2133,6 +2160,7 @@ window.toggleContactView = function(showForm = null) {
                         <select id="status" name="status" class="crm-select">
                             <option value="Новый">Новый</option>
                             <option value="Текущий">Текущий</option>
+                            <option value="Отказ">Отказ</option>
                             <option value="Потенциальный">Потенциальный</option>
                         </select>
                     </div>
@@ -2605,7 +2633,7 @@ function bypassUnpLockForAdmin() {
 <!-- ИСПРАВЛЕНО: Скрытый транзит истории комментариев для защиты от затирания при редактировании -->
 <input type="hidden" id="modal_client_hidden_comment" name="comment">
 
-<input type="hidden" id="modal_client_hidden_comment" name="comment">
+
 
 <script>
     document.addEventListener("DOMContentLoaded", () => {

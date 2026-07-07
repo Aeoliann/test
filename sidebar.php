@@ -46,7 +46,7 @@ if (isset($_SESSION['user_id'])):
             💡 <span style="white-space: nowrap;">Журнал предложений</span>
         </a>
     <?php endif; ?>
-
+   
     <!-- Кнопка: Поручения и Задачи (Доступна всем) -->
     <a href="tasks.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #e11d48; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
         📆 <span style="white-space: nowrap;">Поручения и Задачи</span>
@@ -66,7 +66,9 @@ if (isset($_SESSION['user_id'])):
             ➕ <span style="white-space: nowrap;">Добавить сотрудника</span>
         </a>
     <?php endif; ?>
-
+ <?php if ($menuRole === 'admin'): ?> 
+        <a href="backup.php" class="btn btn-primary">Создать бэкап базы данных сейчас</a>
+        <?php endif; ?>
     <!-- Кнопка: Выйти -->
     <a href="logout.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #3f3f46; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;"
        onmouseover="this.style.background='#52525b'" onmouseout="this.style.background='#3f3f46'">
