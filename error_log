@@ -1,0 +1,330 @@
+[08-Jul-2026 09:59:04 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:04 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:04 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:05 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:07 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:07 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:08 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:08 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:09 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 09:59:10 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 09:59:10 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/bug_reports.php(96): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:10 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:11 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:12 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:13 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:13 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:13 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:18 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 09:59:20 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:00:03 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:00:10 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:00:14 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:00:19 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:00:42 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:00:43 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:01:07 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:01:10 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:01:15 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:01:20 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:01:38 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:05 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:06 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:06 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:07 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:10 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:16 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:21 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:34 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:35 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:35 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:35 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:38 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:38 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:38 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:40 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:41 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:02:41 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:03:10 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:03:17 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:03:22 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:03:29 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:03:29 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/login.php(3): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:04:10 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:04:18 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:04:23 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:05:11 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:05:19 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:05:24 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:06:03 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/index.php(8): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:06:10 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:06:20 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:06:25 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:07:13 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:07:20 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:07:26 Europe/Minsk] PHP Fatal error:  Uncaught PDOException: SQLSTATE[28000] [1045] Access denied for user 'root'@'localhost' (using password: NO) in /var/www/h118005/data/www/santex.by/crm/db.php:19
+Stack trace:
+#0 /var/www/h118005/data/www/santex.by/crm/ping.php(6): require()
+#1 {main}
+  thrown in /var/www/h118005/data/www/santex.by/crm/db.php on line 19
+[08-Jul-2026 10:42:37 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 10:42:41 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 10:42:47 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 10:43:00 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 10:57:41 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 11:55:14 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 11:55:17 Europe/Minsk] PHP Parse error:  syntax error, unexpected '<', expecting elseif (T_ELSEIF) or else (T_ELSE) or endif (T_ENDIF) in /var/www/h118005/data/www/santex.by/crm/suggestions.php on line 92
+[08-Jul-2026 16:59:53 Europe/Minsk] КРИТИЧЕСКАЯ ОШИБКА АУДИТА: SQLSTATE[23000]: Integrity constraint violation: 1048 Column 'user_id' cannot be null
+[08-Jul-2026 16:59:53 Europe/Minsk] КРИТИЧЕСКАЯ ОШИБКА АУДИТА: SQLSTATE[23000]: Integrity constraint violation: 1048 Column 'user_id' cannot be null
+[09-Jul-2026 08:29:12 Europe/Minsk] КРИТИЧЕСКАЯ ОШИБКА АУДИТА: SQLSTATE[23000]: Integrity constraint violation: 1048 Column 'user_id' cannot be null
+[09-Jul-2026 08:40:07 Europe/Minsk] КРИТИЧЕСКАЯ ОШИБКА АУДИТА: SQLSTATE[23000]: Integrity constraint violation: 1048 Column 'user_id' cannot be null
+[09-Jul-2026 08:40:11 Europe/Minsk] КРИТИЧЕСКАЯ ОШИБКА АУДИТА: SQLSTATE[23000]: Integrity constraint violation: 1048 Column 'user_id' cannot be null
+[09-Jul-2026 08:40:15 Europe/Minsk] КРИТИЧЕСКАЯ ОШИБКА АУДИТА: SQLSTATE[23000]: Integrity constraint violation: 1048 Column 'user_id' cannot be null

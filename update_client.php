@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $product_type = trim($_POST['product_type'] ?? 'Сантехника');
     $source       = trim($_POST['source'] ?? ($_POST['lead_source'] ?? ''));
     $comment      = trim($_POST['comment'] ?? '');
+    $next_contact_date = trim($_POST['next_contact_date'] ?? '');
     $email        = trim($_POST['email'] ?? '');
     
     // Принимаем входящий динамический массив контактных лиц
@@ -41,7 +42,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $pdo->beginTransaction();
+   // =========================================================================
+        // НАМЕРТВО ИСПРАВЛЕНО: Прямое чтение ID из POST-потока FormData
+        // =========================================================================
+        // Принудительно вытягиваем ID из всех возможных вариаций ключей формы
+        $inline_id = (int)($_POST['id'] ?? ($_POST['client_id'] ?? 0));
+        
+        // Если это создание нового клиента и $inline_id равен 0, 
+        // пробуем перехватить свежесгенерированный ID СУБД, если INSERT выполнился выше
+        if ($inline_id <= 0 && isset($newId) && (int)$newId > 0) {
+            $inline_id = (int)$newId;
+        }
 
+        $kp_db_value = null; 
+        
+        // Теперь проверяем наш гарантированный $inline_id
+        if ($inline_id > 0 && isset($_FILES['kp_file']) && $_FILES['kp_file']['error'] === UPLOAD_ERR_OK) {
+            $fileTmpPath = $_FILES['kp_file']['tmp_name'];
+            $fileName    = $_FILES['kp_file']['name'];
+            
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+            
+            if (in_array($fileExtension, $allowedExtensions)) {
+                // ЖЕСТКАЯ СКЛЕЙКА: Теперь имя гарантированно получит число (например, kp_394_...)
+                $newFileName = 'kp_' . $inline_id . '_' . md5(time() . $fileName) . '.' . $fileExtension;
+                
+                $uploadFileDir = __DIR__ . '/uploads/kp/';
+                if (!is_dir($uploadFileDir)) {
+                    mkdir($uploadFileDir, 0755, true);
+                }
+                
+                $dest_path = $uploadFileDir . $newFileName;
+                
+                if (move_uploaded_file($fileTmpPath, $dest_path)) {
+                    $kp_db_value = $newFileName;
+                    
+                    // Обновляем СУБД MariaDB по точечному изолированному $inline_id!
+                    $stmtKp = $pdo->prepare("UPDATE clients SET kp_file = ? WHERE id = ?");
+                    $stmtKp->execute([$kp_db_value, $inline_id]);
+                    
+                    if (function_exists('logAction')) {
+                        logAction($pdo, 'UPDATE', 'clients', $inline_id, "Прикреплен скан коммерческого предложения: {$kp_db_value}");
+                    }
+                }
+            }
+        }
         // 1. НАМЕРТВО ИСПРАВЛЕНО: Обновление через позиционные параметры (строго по порядку)
         $sqlClient = "UPDATE clients 
                       SET client_name = ?, 
@@ -51,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                           product_type = ?,
                           source = ?,
                           comment = ?,
+                          next_contact_date =?,
                           email = ?
                       WHERE id = ?";
                       
@@ -63,6 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $product_type,
             $source,
             $comment,
+            $next_contact_date,
             $email,
             $clientId // ID строго последним, так как он идет после WHERE
         ]);

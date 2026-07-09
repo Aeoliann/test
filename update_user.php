@@ -13,5 +13,4 @@ if ($_SESSION['role'] === 'admin' && isset($data['id'], $data['field'], $data['v
         echo json_encode(['status' => 'success']);
     }
 }
-endif
 ?>

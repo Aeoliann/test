@@ -372,6 +372,9 @@ try {
     error_log("Ошибка выборки журнала багов: " . $e->getMessage());
 }
 ?>
+<head>
+    <title>Журнал ошибок CRM</title>
+</head>
 <?php include "sidebar.php";?>
 <!-- ОСНОВНОЙ КОНТЕНТ СТРАНИЦЫ -->
 <div class="main-content">

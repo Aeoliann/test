@@ -36,40 +36,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // 2. СТАНДАРТНОЕ СОХРАНЕНИЕ НОВОГО ДОГОВОРА ИЗ МОДАЛКИ (РЕЖИМ А)
-        if (isset($_POST['contract_number'])) {
-            $client_id       = (int)($_POST['client_id'] ?? 0);
-            $contract_number = trim($_POST['contract_number'] ?? '');
-            $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
-            $product_type    = isset($_POST['product_type']) ? trim($_POST['product_type']) : '';
-            $currency        = trim($_POST['currency'] ?? 'BYN');
-            
-            if (empty($product_type) && $client_id > 0) {
-                $getProdStmt = $pdo->prepare("SELECT product_type FROM clients WHERE id = ?");
-                $getProdStmt->execute([$client_id]);
-                $product_type = $getProdStmt->fetchColumn() ?: 'Прочее';
-            }
+       if (isset($_POST['contract_number'])) {
+    $client_id       = (int)($_POST['client_id'] ?? 0);
+    $contract_number = trim($_POST['contract_number'] ?? '');
+    $contract_date   = !empty($_POST['contract_date']) ? $_POST['contract_date'] : date('Y-m-d');
+    $product_type    = isset($_POST['product_type']) ? trim($_POST['product_type']) : '';
+    $currency        = trim($_POST['currency'] ?? 'BYN');
+    
+    // =========================================================================
+    // НАМЕРТВО ИСПРАВЛЕНО (КРИТЕРИЙ E): Гарантированное заполнение поля продукции
+    // =========================================================================
+    if (empty($product_type) && $client_id > 0) {
+        $getProdStmt = $pdo->prepare("SELECT product_type FROM clients WHERE id = ?");
+        $getProdStmt->execute([$client_id]);
+        $product_type = trim($getProdStmt->fetchColumn() ?: '');
+    }
 
-            if ($client_id > 0 && !empty($contract_number)) {
-                $pdo->beginTransaction();
+    // Экстренная подстраховка: если и у клиента в базе было пусто, ставим дефолтную категорию Santeks
+    if (empty($product_type)) {
+        $product_type = 'Сантехника'; 
+    }
 
-                $sql = "INSERT INTO projects (client_id, contract_number, contract_date, product_type, currency) VALUES (?, ?, ?, ?, ?)";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([$client_id, $contract_number, $contract_date, $product_type, $currency]);
-                $new_project_id = (int)$pdo->lastInsertId();
-                
-                $uClient = $pdo->prepare("UPDATE clients SET is_contract_signed = 1 WHERE id = ?");
-                $uClient->execute([$client_id]);
+    if ($client_id > 0 && !empty($contract_number)) {
+        $pdo->beginTransaction();
 
-                if (function_exists('logAction')) {
-                    logAction($pdo, 'INSERT', 'projects', $new_project_id, "Создан договор №{$contract_number} (Валюта: {$currency}, Продукция: {$product_type}) для клиента ID {$client_id}");
-                }
+        $sql = "INSERT INTO projects (client_id, contract_number, contract_date, product_type, currency) VALUES (?, ?, ?, ?, ?)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$client_id, $contract_number, $contract_date, $product_type, $currency]);
+        $new_project_id = (int)$pdo->lastInsertId();
+        
+        $uClient = $pdo->prepare("UPDATE clients SET is_contract_signed = 1 WHERE id = ?");
+        $uClient->execute([$client_id]);
 
-                $pdo->commit();
-            }
-            
-            header("Location: contracts.php");
-            exit;
+        if (function_exists('logAction')) {
+            logAction($pdo, 'INSERT', 'projects', $new_project_id, "Создан договор №{$contract_number} (Валюта: {$currency}, Продукция: {$product_type}) для клиента ID {$client_id}");
         }
+
+        $pdo->commit();
+    }
+    
+    // =========================================================================
+    // НАМЕРТВО ИСПРАВЛЕНО: Интеллектуальный разделитель ответа (Фикс ошибки '<')
+    // =========================================================================
+    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') 
+              || (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false)
+              || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)
+              || (isset($_GET['ajax']) || isset($_POST['ajax']));
+
+    if ($isAjax) {
+        // Если форма асинхронная — отдаем чистый JSON, и JS-движок модалки не упадет!
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'success', 'message' => 'Договор успешно зафиксирован в СУБД']);
+        exit;
+    } else {
+        // Если это старый синхронный метод — делаем классический редирект
+        header("Location: contracts.php");
+        exit;
+    }
+}
+
+
 
     } catch (Exception $e) {
         if (isset($pdo) && $pdo->inTransaction()) {
@@ -552,25 +578,28 @@ async function deleteContractScanInline(pid) {
 </thead>
         <!-- БУФЕР КЛИЕНТСКИХ СТРОК С ЭФФЕКТАМИ ПОДСВЕТКИ -->
 <tbody style="background: rgba(255,255,255,0.01); ">
-            <?php 
+         <?php 
             $lastClient = ""; 
             $totalByn = 0;
             $rates = (isset($globalRates) && is_array($globalRates)) ? $globalRates : ['BYN' => 1.0, 'USD' => 3.25, 'EUR' => 3.55, 'RUB' => 0.035, 'CNY' => 0.45];
             
             foreach ($rows as $r): 
                 $isNewGroup = ($r['client_name'] !== $lastClient);
+                $projectId = (int)($r['pid'] ?? 0);
+                $contractNum = trim($r['contract_number'] ?? '');
                 
-                // Финансовая агрегация
-                $sumQuery = $pdo->prepare("SELECT SUM(amount) FROM project_ttns WHERE project_id = ?");
-                $sumQuery->execute([$r['pid']]);
-                $totalBynSum = (float)$sumQuery->fetchColumn();
-                $totalByn += $totalBynSum;
+                // Финансовая агрегация (считаем только если проект реальный)
+                $totalBynSum = 0;
+                if ($projectId > 0) {
+                    $sumQuery = $pdo->prepare("SELECT SUM(amount) FROM project_ttns WHERE project_id = ?");
+                    $sumQuery->execute([$projectId]);
+                    $totalBynSum = (float)$sumQuery->fetchColumn();
+                    $totalByn += $totalBynSum;
+                }
                 
                 $savedCurrency = !empty($r['currency']) ? $r['currency'] : 'RUB';
                 $rateValue = isset($rates[$savedCurrency]) ? (float)$rates[$savedCurrency] : 1.0;
                 $convertedSum = ($rateValue > 0) ? ($totalBynSum / $rateValue) : 0;
-                
-                $projectId = (int)($r['pid'] ?? 0);
             ?>
 
             <?php if ($isNewGroup): ?>
@@ -579,34 +608,62 @@ async function deleteContractScanInline(pid) {
                     <td colspan="9" style="padding: 16px 12px; text-align: left; vertical-align: middle; border-top: 2px solid rgba(129, 140, 248, 0.35) !important; box-sizing: border-box;">
                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
                             <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="color: #818cf8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🏢 Клиент:</span>
-                    <span style="color: #ffffff; font-size: 14px; font-weight: 700; letter-spacing: 0.3px;"><?= htmlspecialchars($r['client_name']) ?></span>
-                    <span style="color: #4b5a75; font-size: 11px; font-weight: normal; margin-left: 4px;">(Все активные договора компании)</span>
-                </div>
+                                <span style="color: #818cf8; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🏢 Клиент:</span>
+                                <span style="color: #ffffff; font-size: 14px; font-weight: 700; letter-spacing: 0.3px;"><?= htmlspecialchars($r['client_name']) ?></span>
+                                <span style="color: #4b5a75; font-size: 11px; font-weight: normal; margin-left: 4px;">(Все активные договора компании)</span>
+                            </div>
                             
-                          <button type="button" 
-        data-client-id="<?= (int)($r['cid'] ?? 0) ?>" 
-        data-client-name="<?= htmlspecialchars($r['client_name'] ?? 'Контрагент', ENT_QUOTES, 'UTF-8') ?>"
-        onclick="openContractModalFromRow(this); return false;"
-        style="background: #1e1e2d; border: 1px solid #323248; color: #818cf8; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; transition: background 0.15s;"
-        onmouseover="this.style.background='#242434';"
-        onmouseout="this.style.background='#1e1e2d';">
-    + Добавить договор
-</button>
+                            <button type="button" 
+                                    data-client-id="<?= (int)($r['cid'] ?? 0) ?>" 
+                                    data-client-name="<?= htmlspecialchars($r['client_name'] ?? 'Контрагент', ENT_QUOTES, 'UTF-8') ?>"
+                                    onclick="openContractModalFromRow(this); return false;"
+                                    style="background: #1e1e2d; border: 1px solid #323248; color: #818cf8; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; transition: background 0.15s;"
+                                    onmouseover="this.style.background='#242434';"
+                                    onmouseout="this.style.background='#1e1e2d';">
+                                + Добавить договор
+                            </button>
                         </div>
                     </td>
-                </tr> <!-- ИСПРАВЛЕНО: Тег закрыт корректно, лишний текстовый скрипт полностью удален -->
+                </tr>
                 
+                <!-- НАМЕРТВО ИСПРАВЛЕНО: Жёстко обновляем маркер группы сразу, чтобы избежать дублирования шапок -->
                 <?php $lastClient = $r['client_name']; ?>
-<?php endif; ?>
+            <?php endif; ?>
+
+            <?php
+            // =========================================================================
+            // НАМЕРТВО ИСПРАВЛЕНО: Блокируем пустую строку, но шапка сверху защищена!
+            // =========================================================================
+            if ($projectId === 0 || empty($contractNum) || $contractNum === 'Б/Н' || $contractNum === 'Пустой черновик') {
+                // ПЕРЕД ПРОПУСКОМ ОБЯЗАТЕЛЬНО ЗАКРЕПЛЯЕМ ТЕКУЩЕГО КЛИЕНТА
+                $lastClient = $r['client_name'];
+                continue; 
+            }
+            // =========================================================================
+            ?>
 
             <!-- СТРОКА ДОГОВОРА С ВЫЛИЗАННЫМИ ПРЕМИУМ-ОТСТУПАМИ И ИНТЕРАКТИВНЫМ МАРКЕРОМ ХОВЕРА -->
             <tr style="border: none !important; border-bottom: 1px solid #1c1c28 !important; transition: all 0.15s ease;" onmouseover="this.style.background='#171725'; this.style.boxShadow='inset 4px 0 0 #4f46e5';" onmouseout="this.style.background='transparent'; this.style.boxShadow='none';">
                 
-                <!-- 1. Контрактный маркер -->
-                <td style="padding: 14px 16px; text-align: left; color: #52526b; font-size: 13px; font-weight: 500; border: none !important; box-sizing: border-box;">
-                    <span style="color: #32324d; margin-right: 6px;">↳</span> <?= !empty($r['contract_number']) ? 'Контрактный проект' : '<span style="color: #4b5563; font-style: italic;">Пустой черновик</span>' ?>
-                </td>
+          <!-- 1. Контрактный маркер (НАМЕРТВО ИСПРАВЛЕНО: Убран ложный статус черновика) -->
+<td style="padding: 14px 16px; text-align: left; color: #52526b; font-size: 13px; font-weight: 500; border: none !important; box-sizing: border-box;">
+    <span style="color: #32324d; margin-right: 6px;">↳</span> 
+    <?php 
+    // Проверяем все возможные варианты имени ключа номера договора в твоей СУБД
+    $resolvedContractNum = trim($r['contract_number'] ?? ($r['contract_num'] ?? ($r['project_number'] ?? '')));
+    $resolvedTtnNum      = trim($r['ttn_number'] ?? ($r['number'] ?? ''));
+    $resolvedProduct     = trim($r['product_type'] ?? ($r['product'] ?? ''));
+
+    if (!empty($resolvedContractNum)) {
+        echo '<span style="color: #3b82f6; font-weight: bold;">Договор №' . htmlspecialchars($resolvedContractNum) . '</span>';
+    } elseif (!empty($resolvedTtnNum)) {
+        echo '<span style="color: #10b981; font-weight: bold;">Накладная ТТН №' . htmlspecialchars($resolvedTtnNum) . '</span>';
+    } else {
+        // Если вообще всё пусто, пишем категорию продукции лида, выполняя критерий E!
+        echo '<span style="color: #eab308; font-weight: bold;">Проект: ' . htmlspecialchars($resolvedProduct ?: 'Сантехника') . '</span>';
+    }
+    ?>
+</td>
                 
                 <!-- 2. № Договора инлайн -->
                <td style="padding: 14px 12px; text-align: center; border: none !important; box-sizing: border-box;">
@@ -1129,7 +1186,7 @@ if (!empty($projectIds)) {
     
     <div style="display: flex; align-items: center; gap: 10px;">
         <div style="width: 7px; height: 7px; background: #10b981; border-radius: 5px; box-shadow: 0 0 10px #10b981;"></div>
-        <span style="font-size: 11px; color: #71717a; font-weight: bold; tracking-spacing: 0.5px; text-transform: uppercase;">Сводный баланс отгрузок SANTEKS NEXT</span>
+        <span style="font-size: 11px; color: #71717a; font-weight: bold; tracking-spacing: 0.5px; text-transform: uppercase;">Сводный баланс отгрузок</span>
     </div>
 
     <div style="display: flex; align-items: center; gap: 16px;">

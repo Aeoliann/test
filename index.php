@@ -648,10 +648,9 @@ async function saveComplexFormDirectly(event, formElement) {
                 <option value="Все виды" <?= $productFilter === '' ? 'selected' : '' ?>>Все виды</option>
                 <option value="Посуда" <?= $productFilter === 'Посуда' ? 'selected' : '' ?>>Посуда</option>
                 <option value="Сантехника" <?= $productFilter === 'Сантехника' ? 'selected' : '' ?>>Сантехника</option>
-                <option value="Резервуары" <?= $productFilter === 'Резервуары' ? 'selected' : '' ?>>Резервуары</option>
                 <option value="ЕКМ" <?= $productFilter === 'ЕКМ' ? 'selected' : '' ?>>ЕКМ</option>
                 <option value="МПДУ" <?= $productFilter === 'МПДУ'? 'selected' : '' ?>>МПДУ</option> 
-                <option value="Резервуар"<?= $productFilter === 'Резервуары'? 'selected' : '' ?>>Резервуар</option>
+                <option value="Резервуары"<?= $productFilter === 'Резервуары'? 'selected' : '' ?>>Резервуары</option>
                 <option value = "Эмалированные таблички" <?= $productFilter === 'Эмалированные таблички' ? 'selected' : '' ?>>Эмалированные таблички</option>
                 <option value = "УОКТ" <?= $productFilter === "УОКТ" ? 'selected' : ''?>>УОКТ</option>
                 <option value = "Другое" <?= $productFilter === "Другое" ? 'selected' : '' ?>>Другое</option>                
@@ -818,16 +817,15 @@ $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Дата контакта<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: left; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Клиент<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">УНП<div class="resizer"></div></th>
-            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: left; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Контактное лицо<div class="resizer"></div></th>
-            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Телефон<div class="resizer"></div></th>
-            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: left; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Email<div class="resizer"></div></th>
+            <th style="text-align: left; padding: 12px 10px; font-size: 11px; color: #92929f; text-transform: uppercase; letter-spacing: 0.5px;">Контактное лицо</th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Статус<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Источник<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">След. контакт<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Вид продукции<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Контракт<div class="resizer"></div></th>
             <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Действие<div class="resizer"></div></th>
-       
+            <th style="padding: 16px 10px; color: #7f7f9c; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-align: center; white-space: nowrap; position: relative; overflow: hidden; text-overflow: ellipsis; border: none; background: #161624;">Скан КП</th>
+
         </tr>
       
         
@@ -1002,55 +1000,249 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="cell-date" style="padding: 14px 10px; text-align: center; color: #71717a; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= date('d.m.Y', strtotime($c['first_contact_date'])) ?></td>
             
             <!-- 3. Название компании (Яркий белый нео-нуар) -->
-            <td class="cell-name" style="padding: 14px 10px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><strong style="color: #ffffff; font-weight: 700; letter-spacing: 0.3px; font-size: 13px;"><?= htmlspecialchars($c['client_name']) ?></strong></td>
-            
+          <td style="padding: 12px 10px; text-align: left; vertical-align: middle; min-width: 220px; box-sizing: border-box;">
+    <a href="#" 
+       onclick="if(typeof openPureViewModal === 'function'){ openPureViewModal(<?= (int)$c['id'] ?>); } else { console.error('Контроллер openPureViewModal не найден!'); } event.preventDefault(); event.stopPropagation();" 
+       style="color: #ffffff; font-weight: 700; text-decoration: none; font-size: 13px; transition: color 0.15s ease; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; width: fit-content;"
+       onmouseover="this.style.color='#818cf8'; this.style.textDecoration='underline';" 
+       onmouseout="this.style.color='#ffffff'; this.style.textDecoration='none';">
+        🏢 <?= htmlspecialchars($c['client_name'] ?? 'Без названия') ?>
+    </a>
+</td>
+<!-- АБСОЛЮТНО ИЗОЛИРОВАННАЯ КАРТОЧКА КЛИЕНТА (СПУЩЕНО В ПОДВАЛ index.php) -->
+<!-- АБСОЛЮТНО ИЗОЛИРОВАННАЯ КАРТОЧКА КЛИЕНТА (РЕЖИМ СТРОГОГО ПРОСМОТРА — ИНПУТЫ ЗАБЛОКИРОВАНЫ) -->
+<div id="viewClientModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); justify-content: center; align-items: center; z-index: 999999; box-sizing: border-box; padding: 15px;">
+    <div style="background: #1e1e2d; border-radius: 12px; border: 1px solid #323248; padding: 30px; width: 600px; box-sizing: border-box; box-shadow: 0 15px 40px rgba(0,0,0,0.6); color: #fff; font-family: sans-serif; position: relative;"> 
+        
+        <!-- Шапка карточки -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #323248; padding-bottom: 12px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h3 id="viewModalTitle" style="margin: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; color: #818cf8; font-weight: bold;">
+                    🔒 Просмотр контрагента
+                </h3>
+                <!-- НЕОНОВЫЙ ИНДИКАТОР: Показывает менеджерам, что это режим Только чтение -->
+                <span style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: #3b82f6; font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Только чтение
+                </span>
+            </div>
+            <button type="button" onclick="document.getElementById('viewClientModal').style.display='none';" style="background: none; border: none; color: #71717a; cursor: pointer; font-size: 24px; line-height: 1; padding: 0; transition: color 0.1s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#71717a'">&times;</button>
+        </div>
+
+        <!-- Тело со сводной информацией (СТРОГИЙ ТЕКСТОВЫЙ РЕЖИМ БЕЗ ФОРМ И ИНПУТОВ) -->
+        <div id="viewModalBody" style="margin-bottom: 20px; max-height: 350px; overflow-y: auto; padding-right: 4px;">
+            <!-- Сюда JS-функция закидывает чистый текст реквизитов организации -->
+        </div>
+    
+        <!-- Блок связанных контактов -->
+        <div style="border-top: 1px dashed #323248; padding-top: 15px; margin-bottom: 20px; text-align: left;">
+            <h4 style="margin: 0 0 12px 0; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold;">👥 Доступные контактные лица</h4>
+            <div id="viewModalContactsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; max-height: 150px; overflow-y: auto; padding-right: 4px;">
+                <!-- Сюда влетят карточки лиц чистым текстом -->
+            </div>
+        </div>
+
+        <!-- Кнопка закрытия -->
+        <div style="display: flex; justify-content: flex-end; width: 100%;">
+            <button type="button" onclick="document.getElementById('viewClientModal').style.display='none';" style="height: 38px; padding: 0 25px; background: #242434; border: 1px solid #323248; color: #fff; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; transition: all 0.15s; outline: none;" onmouseover="this.style.background='#323248'; this.style.borderColor='#4b5563';" onmouseout="this.style.background='#242434'; this.style.borderColor='#323248';">
+                Закрыть карточку
+            </button>
+        </div>
+
+<script>
+// НАМЕРТВО ИСПРАВЛЕНО: Прямая асинхронная выгрузка данных в изолированную карточку просмотра
+window.openPureViewModal = async function(id) {
+    console.log("=== ЗАПУСК ПРЯМОЙ ВЫГРУЗКИ КАРТОЧКИ ПРОСМОТРА ДЛЯ ID #" + id + " ===");
+    
+    const modal = document.getElementById('viewClientModal');
+    const body = document.getElementById('viewModalBody');
+    const contactsGrid = document.getElementById('viewModalContactsGrid');
+    
+    if (!modal || !body || !contactsGrid) {
+        console.error("🚨 КРИТ: Элементы модалки просмотра не найдены в DOM!");
+        return;
+    }
+
+    // Вспомогательная локальная функция экранирования кавычек от вылетов верстки
+    const localEscapeHtml = function(text) {
+        if (!text) return '—';
+        return text.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    };
+
+    try {
+        // Очищаем старый текст на время загрузки, чтобы менеджер видел реактивность
+        body.innerHTML = '<div style="color: #64748b; font-size: 13px; text-align: center; padding: 20px;">Секунду, подгружаю реквизиты из СУБД...</div>';
+        contactsGrid.innerHTML = '';
+
+        // 1. Делаем прямой фоновый запрос к бэкенду за данными контрагента
+        const res = await fetch('get_client.php?id=' + parseInt(id, 10));
+        const responseData = await res.json();
+        
+        if (responseData.status !== 'success' || !responseData.data) {
+            body.innerHTML = `<div style="color: #ef4444; font-size: 13px; text-align: center; padding: 20px;">Ошибка СУБД: ${localEscapeHtml(responseData.message)}</div>`;
+            return;
+        }
+
+        const data = responseData.data;
+    
+        // 2. Обновляем динамический заголовок
+        if (document.getElementById('viewModalTitle')) {
+            document.getElementById('viewModalTitle').innerText = '🔒 Просмотр контрагента #' + data.id;
+        }
+
+        // 3. Рендерим все реквизиты компании чистым, красивым, нередактируемым текстом
+        body.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; text-align: left;">
+                <div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">Название организации</div>
+                    <div style="font-size: 14px; color: #fff; font-weight: 500;">${localEscapeHtml(data.client_name)}</div>
+                </div>
+                <div>
+                    <div style="font-size: 10px; color: #64748b; font-weight:bold; text-transform: uppercase; margin-bottom: 4px;">УНП контрагента</div>
+                    <div style="font-size: 14px; color: #fff; font-family: monospace;">${localEscapeHtml(data.UNP || data.unp)}</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; text-align: left;">
+                <div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">Сайт компании</div>
+                    <div style="font-size: 14px; color: #818cf8;">${localEscapeHtml(data.website)}</div>
+                </div>
+                <div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">E-mail компании</div>
+                    <div style="font-size: 14px; color: #fff;">${localEscapeHtml(data.email)}</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; text-align: left;">
+                <div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">Телефон прямой</div>
+                    <div style="font-size: 14px; color: #fff; font-family: monospace;">${localEscapeHtml(data.phone)}</div>
+                </div>
+                <div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">Контактное лицо</div>
+                    <div style="font-size: 14px; color: #fff;">${localEscapeHtml(data.contact_person)}</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; text-align: left;">
+                <div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">Вид продукции</div>
+                    <div style="font-size: 14px; color: #eab308; font-weight: bold;">${localEscapeHtml(data.product_type || 'Сантехника')}</div>
+                </div>
+                <div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">Статус клиента</div>
+                    <div style="font-size: 14px; color: #10b981; font-weight: bold;">${localEscapeHtml(data.status || 'Новый')}</div>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid #232334; padding-top: 12px; text-align: left;">
+                <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">Комментарий менеджера</div>
+                <div style="font-size: 13px; color: #92929f; line-height: 1.4; white-space: pre-wrap;">${localEscapeHtml(data.comment)}</div>
+            </div>
+        `;
+
+        // 4. Выводим связанных ЛПР и дополнительные контакты
+        if (data.contacts && Array.isArray(data.contacts) && data.contacts.length > 0) {
+            data.contacts.forEach(contact => {
+                let name = contact.name || (contact.contact_name || 'Без имени');
+                let role = contact.position || (contact.contact_role || '');
+                let phone = contact.phone || '';
+
+                const card = document.createElement('div');
+                card.style.cssText = "background: #151521; border: 1px solid #323248; border-radius: 6px; padding: 10px; text-align: left;";
+                card.innerHTML = `
+                    <div style="font-weight: bold; color: #fff; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">👤 ${localEscapeHtml(name)}</div>
+                    ${role ? `<div style="color: #64748b; font-size: 11px;">💼 ${localEscapeHtml(role)}</div>` : ''}
+                    ${phone ? `<div style="color: #818cf8; font-family: monospace; font-size: 11px;">📞 ${localEscapeHtml(phone)}</div>` : ''}
+                `;
+                contactsGrid.appendChild(card);
+            });
+        } else {
+            contactsGrid.innerHTML = `<div style="color: #64748b; font-size: 12px; grid-column: 1/-1; text-align: center; padding: 10px; border: 1px dashed #232334; border-radius: 6px;">Дополнительных лиц связи не добавлено</div>`;
+        }
+
+        // 5. Проявляем готовую заполненную модалку на экране
+        modal.style.setProperty('display', 'flex', 'important');
+
+    } catch (err) {
+        console.error("🚨 ОШИБКА РЕНДЕРИНГА КАРТОЧКИ ПРОСМОТРА:", err);
+        body.innerHTML = `<div style="color: #ef4444; font-size: 13px; text-align: center; padding: 20px;">Критическая ошибка сети при связи с хостингом.</div>`;
+    }
+};
+</script>
+    </div>
+</div>
+
+
             <!-- 4. УНП (Пепельный) -->
             <td class="cell-unp" style="padding: 14px 10px; text-align: center; color: #71717a; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['unp'] ?: '—') ?></td>
             
-            <!-- 5. Контактное лицо (Мягкий серебряный) -->
-            <td class="cell-person" style="padding: 14px 10px; text-align: left; color: #cbd5e1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['contact_person'] ?: '—') ?></td>
-            
-            <!-- 6. Телефон -->
-            <td class="cell-phone" style="padding: 14px 10px; text-align: center; color: #cbd5e1; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?= htmlspecialchars($c['phone'] ?: '—') ?></td>
-            
+         
             <!-- 7. Email -->
  <!-- НАМЕРТВО ИСПРАВЛЕНО: Всеядный сбор ID внутри ячейки для вывода подсказок -->
-<td class="cell-email" style="padding: 14px 10px; text-align: left; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+<!-- НАМЕРТВО ИСПРАВЛЕНО: Колонка Контактное лицо с каскадной страховкой через Email -->
+<td style="padding: 12px; text-align: left; vertical-align: middle; border: none !important; box-sizing: border-box; min-width: 180px;">
     <?php
-    $hintText = '';
-    try {
-        // Жесткая проверка: ищем ID в переменной $c по всем регистрам
-        $currentClientId = (int)($c['id'] ?? ($c['client_id'] ?? 0));
-        
-        if ($currentClientId > 0) {
-            $stmtHint = $pdo->prepare("SELECT name, position, phone, email FROM client_contacts WHERE client_id = ?");
-            $stmtHint->execute([$currentClientId]);
-            $subContacts = $stmtHint->fetchAll(PDO::FETCH_ASSOC);
-            
-            if (!empty($subContacts)) {
-                $lines = [];
-                foreach ($subContacts as $sc) {
-                    $line = "👤 " . trim($sc['name']);
-                    if (!empty($sc['position'])) $line .= " (" . trim($sc['position']) . ")";
-                    if (!empty($sc['phone']))    $line .= " 📞 " . trim($sc['phone']);
-                    if (!empty($sc['email']))    $line .= " ✉️ " . trim($sc['email']);
-                    $lines[] = $line;
-                }
-                $hintText = "Дополнительные контакты контрагента:\n" . implode("\n", $lines);
-            } else {
-                $hintText = "Дополнительных контактных лиц не зарегистрировано";
-            }
-        } else {
-            $hintText = "Ошибка фронтенда: ID клиента равен 0";
+    // 1. Вытаскиваем данные главного контакта из таблицы clients
+    $mainPersonName  = trim($c['contact_person'] ?? '');
+    $mainPersonPhone = trim($c['phone'] ?? '');
+    $mainPersonEmail = trim($c['email'] ?? ($c['e_mail'] ?? ''));
+
+    // 2. Если в clients пусто, пробуем подтянуть первое лицо из связанной таблицы client_contacts
+    if (empty($mainPersonName) && empty($mainPersonPhone) && isset($c['id'])) {
+        $getFallbackContact = $pdo->prepare("SELECT name, phone, email FROM client_contacts WHERE client_id = ? ORDER BY id ASC LIMIT 1");
+        $getFallbackContact->execute([(int)$c['id']]);
+        $fallback = $getFallbackContact->fetch(PDO::FETCH_ASSOC);
+        if ($fallback) {
+            $mainPersonName  = trim($fallback['name'] ?? '');
+            $mainPersonPhone = trim($fallback['phone'] ?? '');
+            $mainPersonEmail = trim($fallback['email'] ?? '');
         }
-    } catch (Exception $e) {
-        $hintText = "Ошибка СУБД: " . $e->getMessage();
     }
+
+    // Проверяем, есть ли у нас хоть какие-то живые данные по ЛПР (Имя или Телефон)
+    $hasLprData = (!empty($mainPersonName) || !empty($mainPersonPhone));
     ?>
-    <span style="cursor: help; border-bottom: 1px dashed rgba(203, 213, 225, 0.3); display: inline-block; width: 100%;" 
-          title="<?= htmlspecialchars($hintText, ENT_QUOTES, 'UTF-8') ?>">
-        <?= htmlspecialchars($c['email'] ?: '—') ?>
-    </span>
+
+    <?php if ($hasLprData): 
+        // ВАРИАНТ А: Лицо указано -> Выводим Имя / Телефон, а Email прячем в ховер подсказку
+        $tooltipText = !empty($mainPersonEmail) ? "Прямой E-mail ЛПР: " . htmlspecialchars($mainPersonEmail) : "E-mail для этого контакта не указан";
+    ?>
+        <div title="<?= $tooltipText ?>" style="display: flex; flex-direction: column; gap: 2px; cursor: help; width: fit-content;">
+            <!-- Строка 1: Имя контактного лица -->
+            <span style="color: #ffffff; font-weight: 600; font-size: 13px; line-height: 1.2;">
+                👤 <?= !empty($mainPersonName) ? htmlspecialchars($mainPersonName) : 'Имя не указано' ?>
+            </span>
+            
+            <!-- Строка 2: Номер телефона в скобках под именем -->
+            <?php if (!empty($mainPersonPhone)): ?>
+                <span style="color: #818cf8; font-family: monospace; font-size: 11px; font-weight: normal; line-height: 1.2;">
+                    (📞 <?= htmlspecialchars($mainPersonPhone) ?>)
+                </span>
+            <?php else: ?>
+                <span style="color: #4b5563; font-style: italic; font-size: 11px; line-height: 1.2;">
+                    (телефон не указан)
+                </span>
+            <?php endif; ?>
+        </div>
+
+    <?php elseif (!empty($mainPersonEmail)): 
+        // ВАРИАНТ Б: ЛПР не указан, но есть Email -> Выводим чистый Email на экран, чтобы ячейка работала
+    ?>
+        <div title="Контактное лицо не указано, выведен общий Email" style="display: flex; flex-direction: column; width: fit-content;">
+            <span style="color: #cbd5e1; font-size: 13px; font-weight: 500; letter-spacing: 0.2px;">
+                ✉️ <?= htmlspecialchars($mainPersonEmail) ?>
+            </span>
+            <span style="color: #4b5563; font-style: italic; font-size: 10px; margin-top: 1px;">
+                (контакт не указан)
+            </span>
+        </div>
+
+    <?php else: 
+        // ВАРИАНТ В: Вообще полная пустота по всем полям контактов -> выводим аккуратный прочерк
+    ?>
+        <span style="color: #32324d;">— — — — — — — — —</span>
+    <?php endif; ?>
 </td>
             <!-- 8. Статус (ИНТЕЛЛЕКТУАЛЬНЫЕ НЕОНОВЫЕ БЕЙДЖИ) -->
             <td class="cell-status" style="padding: 14px 10px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -1079,88 +1271,53 @@ document.addEventListener("DOMContentLoaded", () => {
 <!-- СТОЛБЕЦ ДАТЫ СЛЕДУЮЩЕГО КОНТАКТА (БРОНЕБОЙНАЯ ПРОВЕРКА ПО ID ПРОЕКТА) -->
 <!-- СТОЛБЕЦ ДАТЫ СЛЕДУЮЩЕГО КОНТАКТА (ТУПАЯ ПРЯМАЯ ПРОВЕРКА ПО ПОЛЮ NEXT_CONTACT_DATE) -->
 <!-- 8. СЛЕДУЮЩИЙ КОНТАКТ (НАМЕРТВО ИСПРАВЛЕНО: ВСТАЛО НА СВОЁ МЕСТО И ЧИТАЕТ МАССИВ $c) -->
-     <td class="cell-next-contact" style="padding: 14px 10px; text-align: center; font-size: 13px; color: #a1a1aa; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: none !important;">
-                <?php 
-                // 1. Вытаскиваем чистый системный ID текущего клиента из строки
-                $directClientId = (int)($c['id'] ?? 0);
-                
-                if ($directClientId > 0) {
-                    // 2. ХИРУРГИЧЕСКИЙ ЗАПРОС: тащим флаг договора и оригинальную дату созвона клиента напрямую из БД
-                    $dbQuery = $pdo->prepare("SELECT is_contract_signed, next_contact_date FROM clients WHERE id = ? LIMIT 1");
-                    $dbQuery->execute([$directClientId]);
-                    $clientDirectData = $dbQuery->fetch(PDO::FETCH_ASSOC);
-                    
-                    $isSignedFlag = (int)($clientDirectData['is_contract_signed'] ?? 0);
-                    $rawNextDate  = trim($clientDirectData['next_contact_date'] ?? '');
-                    
-                    // 3. ПРОВЕРКА НАЛИЧИЯ ДОГОВОРА: заглядываем в таблицу проектов, привязанных к этому клиенту
-                    $projectQuery = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ? AND contract_number IS NOT NULL AND contract_number != '' AND contract_number != '—'");
-                    $projectQuery->execute([$directClientId]);
-                    $hasRealProjectsInDb = ((int)$projectQuery->fetchColumn() > 0);
-                    
-                    // РЕГЛАМЕНТ Е: Если договор уже подписан ИЛИ у компании есть активные проекты в СУБД — ЖЁСТКО ставим прочерк!
-                    if ($isSignedFlag === 1 || $hasRealProjectsInDb) {
-                        echo '<span style="color: #4b5563; font-weight: bold;">—</span>';
-                    } else {
-                        // Если договора нет — выводим настоящую дату созвона из карточки контрагента
-                        if (!empty($rawNextDate) && $rawNextDate !== '0000-00-00' && strtolower($rawNextDate) !== 'null') {
-                            echo date('d.m.Y', strtotime($rawNextDate));
-                        } else {
-                            echo '<span style="color: #4b5563; font-weight: bold;">—</span>';
-                        }
-                    }
-                } else {
-                    // Подстраховка на случай сбоя структуры цикла
-                    echo '<span style="color: #4b5563; font-weight: bold;">—</span>';
-                }
-                ?>
-            </td>
-           </td>  
-       <!-- ЯЧЕЙКА КОММЕНТАРИЯ С КЛИКОМ ДЛЯ ПРОСМОТРА -->
- <!--   <td class="cell-comment js-comment-preview"</td>
-    data-client-name="<?= htmlspecialchars($c['client_name'], ENT_QUOTES, 'UTF-8') ?>"
-    style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: #92929f;"
-    title="Кликните для просмотра полного комментария">
-    <?= htmlspecialchars($c['comment'] ?? '—') ?>
+      <td class="cell-next-contact" style="padding: 14px 10px; text-align: center; font-size: 13px; color: #fff; vertical-align: middle; border: none !important; box-sizing: border-box; width: 160px;">
+    <?php 
+    $directClientId = (int)($c['id'] ?? 0);
+    $currentNextDate = '';
 
-    <script>function openCommentHistoryModal(clientId, clientName) {
-    currentActiveHistoryClientId = clientId;
-    
-    // Находим элементы модалки
-    const modal = document.getElementById('commentHistoryModal');
-    const inputId = document.getElementById('history_modal_client_id');
-    const spanName = document.getElementById('historyModalClientName');
-    const inputField = document.getElementById('new_history_comment_input');
-    const container = document.getElementById('historyLogsContainer');
-    
-    // Находим ячейку с текущим комментарием
-    const viewDiv = document.getElementById('comment_view_' + clientId);
-
-    if (inputId) inputId.value = clientId;
-    if (spanName) spanName.innerText = clientName || '';
-
-    // 1. Вытягиваем всю сырую историю для блока логов
-    const rawHistory = viewDiv ? viewDiv.getAttribute('data-raw-history') : '';
-    if (container) {
-        container.innerText = rawHistory && rawHistory.trim() !== '' ? rawHistory : 'История переговоров пуста.';
+    if ($directClientId > 0) {
+        // Вытаскиваем актуальную дату созвона из СУБД для отображения в календаре
+        $dbQuery = $pdo->prepare("SELECT next_contact_date FROM clients WHERE id = ? LIMIT 1");
+        $dbQuery->execute([$directClientId]);
+        $rawNextDate = trim($dbQuery->fetchColumn() ?: '');
+        
+        if (!empty($rawNextDate) && $rawNextDate !== '0000-00-00' && strtolower($rawNextDate) !== 'null') {
+            $currentNextDate = date('Y-m-d', strtotime($rawNextDate));
+        }
     }
-
-    // 2. ХИРУРГИЧЕСКИЙ ВПРЫСК: Забираем текущий видимый текст ячейки ("раавыы") и шлем в форму
-    if (inputField && viewDiv) {
-        const currentText = viewDiv.innerText.trim();
-        // Если там прочерк — оставляем поле пустым, если текст есть — подставляем для редактирования
-        inputField.value = (currentText === '—') ? '' : currentText;
-    }
-
-    // Показываем окно
-    if (modal) {
-        modal.style.display = 'flex';
-    }
-    if (inputField) {
-        inputField.focus();
-    }
-}</script>
--->
+    ?>
+        <input type="date" 
+           id="next_contact_date_input_<?= $directClientId ?>"
+           value="<?= $currentNextDate ?>"
+           onchange="
+               console.log('📅 ФРОНТЕНД: Отправка даты...', this.value);
+               
+               fetch('update_inline_date.php', {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ id: <?= $directClientId ?>, value: this.value })
+               })
+               .then(res => {
+                   if (!res.ok) throw new Error('HTTP status ' + res.status);
+                   return res.json();
+               })
+               .then(result => {
+                   if(result.status === 'success') {
+                       console.log('🎯 СУБД: Дата созвона НАМЕРТВО зафиксирована в базе:', result.saved_date);
+                   } else {
+                       alert('Ошибка СУБД: ' + result.message);
+                   }
+               })
+               .catch(err => {
+                   console.error('🚨 КРИТ СЕТИ:', err);
+                   alert('Критическая ошибка связи с новым обработчиком дат!');
+               });
+           "
+           style="background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; padding: 6px 8px; font-family: monospace; font-size: 12px; outline: none; cursor: pointer; transition: all 0.2s ease-in-out; width: 100%; box-sizing: border-box; color-scheme: dark;">
+</td>
+        </td>
+     
 
 
             <!-- ИСПРАВЛЕНО: Выводим тип продукции привязанного договора вместо дефолтного значения -->
@@ -1171,30 +1328,33 @@ document.addEventListener("DOMContentLoaded", () => {
                 </span>
             </td>
 
-   <td style="padding: 14px 10px; text-align: center; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-        <?php 
-        $currentClientId = (int)($c['id'] ?? 0);
-        
-        // Способ 1: Прямая проверка наличия договора в таблице проектов projects
-        $checkContractStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ?");
-        $checkContractStmt->execute([$currentClientId]);
-        $hasRealContract = ((int)$checkContractStmt->fetchColumn() > 0);
-        
-        // Способ 2: Проверка флага из самой таблицы клиентов clients
-        $isSignedFlag = (isset($c['is_contract_signed']) && (int)$c['is_contract_signed'] === 1);
-        // ИТОГОВЫЙ СИНХРОНИЗАТОР: Если есть запись в projects ИЛИ взведен флаг в clients — галочка ЖЕЛЕЗНО будет чекнута!
-        $contractExists = ($hasRealContract || $isSignedFlag);
-        $jsContractFlag = $contractExists ? 1 : 0;
-        ?>
-        <input type="checkbox" 
-               id="contract_signed_<?= $currentClientId ?>"
-               data-has-contract="<?= $jsContractFlag ?>"
-               <?= $contractExists ? 'checked' : '' ?> 
-               onchange="toggleContractStatus(<?= $currentClientId ?>, event, <?= $jsContractFlag ?>)"
-               style="cursor: pointer; width: 16px; height: 16px; position: relative; z-index: 10;">
-    </td>
-            <script>
-
+  <td style="padding: 14px 10px; text-align: center; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+    <?php 
+    $currentClientId = (int)($c['id'] ?? 0);
+    
+    // Способ 1: Прямая и строгая проверка наличия реального договора в таблице проектов projects
+    $checkContractStmt = $pdo->prepare("SELECT COUNT(*) FROM projects WHERE client_id = ? AND contract_number != 'Б/Н' AND contract_number IS NOT NULL AND contract_number != ''");
+    $checkContractStmt->execute([$currentClientId]);
+    $hasRealContract = ((int)$checkContractStmt->fetchColumn() > 0);
+    
+    // Способ 2: Проверка флага из самой таблицы клиентов clients
+    $isSignedFlag = (isset($c['is_contract_signed']) && (int)$c['is_contract_signed'] === 1);
+    
+    // Галочка будет визуально чекнута, если взведен флаг ИЛИ есть физический договор
+    $checkboxChecked = ($hasRealContract || $isSignedFlag);
+    
+    // НАМЕРТВО ИСПРАВЛЕНО: JS-маркер равен 1 строго при наличии РЕАЛЬНОГО физического договора в projects!
+    $jsContractFlag = $hasRealContract ? 1 : 0;
+    ?>
+    <input type="checkbox" 
+           id="contract_signed_<?= $currentClientId ?>"
+           data-has-contract="<?= $jsContractFlag ?>"
+           <?= $checkboxChecked ? 'checked' : '' ?> 
+           onchange="toggleContractStatus(<?= $currentClientId ?>, event, <?= $jsContractFlag ?>)"
+           style="cursor: pointer; width: 16px; height: 16px; position: relative; z-index: 10;">
+</td>
+        <script>
+// НАМЕРТВО ИСПРАВЛЕНО: Чистое фоновое переключение статуса контракта в СУБД Santeks
 window.toggleContractStatus = async function(clientId, event, dbHasContract) {
     const ev = (event && event.target) ? event : (window.event || null);
     
@@ -1209,7 +1369,7 @@ window.toggleContractStatus = async function(clientId, event, dbHasContract) {
     console.log("=== СИНХРОНИЗАЦИЯ ГАЛОЧКИ С СУБД ===");
     window.activeContractCheckbox = checkboxElement;
 
-    // СИТУАЦИЯ 1: Контракт РЕАЛЬНО ЕСТЬ в базе projects
+    // СИТУАЦИЯ 1: Контракт РЕАЛЬНО ЕСТЬ в базе projects (Твоя логика расторжения контракта)
     if (hasContract) {
         checkboxElement.checked = true; 
         if (!confirm("⚠️ Вы уверены, что хотите полностью расторгнуть контракт этого клиента со всеми ТТН?\nЭто действие удалит договор из базы контрактов!")) {
@@ -1230,82 +1390,51 @@ window.toggleContractStatus = async function(clientId, event, dbHasContract) {
         return;
     } 
 
-    // СИТУАЦИЯ 2: Контракта в базе еще нет (Открытие формы договора)
+    // СИТУАЦИЯ 2: Контракта в базе еще нет (НАМЕРТВО ИСПРАВЛЕНО: Только флаг, без черновиков-призраков!)
     else {
-        if (isCheckedNow) {
-            try {
-                const res = await fetch('update_cell.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: clientId, field: 'is_contract_signed', value: 1 })
-                });
-                const result = await res.json();
-                
-                if (result.status === 'success') {
-                    console.log("Флаг успешно сохранен в clients.");
-                    
-                    // Умный инспектор модалок на index.php
-                    if (typeof openNewContractModal === 'function') {
-                        openNewContractModal(clientId);
-                    } else if (typeof openContractModal === 'function') {
-                        openContractModal(clientId);
-                    } else {
-                        const modal = document.getElementById('contractModal') || document.getElementById('newContractModal') || document.getElementById('addContractModal');
-                        const inputId = document.getElementById('modal_client_id') || document.getElementById('contract_client_id_storage');
-                        
-                        if (modal) {
-                            if (inputId) inputId.value = parseInt(clientId, 10);
-                            modal.style.display = 'flex';
-                        } else {
-                            alert("Вы зафиксировали лид под договор! Обновите страницу или перейдите в раздел 'Договоры'.");
-                            location.reload();
-                        }
-                    }
-                } else {
-                    checkboxElement.checked = false;
-                    alert("Ошибка СУБД: " + result.message);
-                }
-            } catch (err) {
-                checkboxElement.checked = false;
-                alert("Ошибка сети");
+        try {
+            // Отправляем чистый статус 1 (включить) или 0 (выключить)
+            const res = await fetch('update_cell.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    id: clientId, 
+                    field: 'is_contract_signed', 
+                    value: isCheckedNow ? 1 : 0
+                })
+            });
+            const result = await res.json();
+            
+            if (result.status === 'success') {
+                console.log("Флаг контракта успешно изменен в СУБД clients. Страница перезагружается.");
+                location.reload(); // Перезагружаем страницу для обновления стилей всей CRM-таблицы
+            } else {
+                checkboxElement.checked = !isCheckedNow;
+                alert("Ошибка СУБД: " + result.message);
             }
-        } else {
-            try {
-                await fetch('update_cell.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: clientId, field: 'is_contract_signed', value: 0 })
-                });
-            } catch (err) { console.error(err); }
-            window.activeContractCheckbox = null;
+        } catch (err) {
+            checkboxElement.checked = !isCheckedNow;
+            alert("Ошибка сети при связи с хостингом");
         }
+        window.activeContractCheckbox = null;
     }
 };
 
-
-// Принудительный сброс галочки при клике на Отмену
+// Функция closeContractModal остается для обратной совместимости, если где-то вызывается темой
 function closeContractModal() {
-    const modal = document.getElementById('contractModal') || document.getElementById('newContractModal');
-     
-
-        console.log("Данные успешно подтянуты из API без единого сбоя.");
-
-
-
     if (window.activeContractCheckbox) {
-        window.activeContractCheckbox.checked = false; // Галочка принудительно снимается
-        window.activeContractCheckbox = null;         // Очищаем память
-        console.log("Менеджер нажал 'Отмена'. Галочка контракта успешно погашена без записи в СУБД.");
+        window.activeContractCheckbox.checked = false;
+        window.activeContractCheckbox = null;
     }
 }
-            </script>
-            <td>
-      <!-- МАКСИМАЛЬНО ПРОСТАЯ И НАДЕЖНАЯ КНОПКА РЕДАКТИРОВАНИЯ -->
+</script>
+
+<td>
+<!-- МАКСИМАЛЬНО ПРОСТАЯ И НАДЕЖНАЯ КНОПКА РЕДАКТИРОВАНИЯ -->
 <?php 
-// Жесткое условие блокировки: у клиента есть договор ($c['is_contract_signed'] == 1) и залогинен менеджер
+// Жесткое условие блокировки кнопки "Ред.": контракт подписан и роль равна менеджеру
 $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'manager'); 
 ?>
-
 <button type="button" 
         class="btn-edit"
         onclick="<?= $isComplexLock ? "alert('⚠️ Доступ ограничен: Карточка заблокирована для редактирования, так как по ней уже заключен договор! Обратитесь к Администратору.'); return false;" : "openProtectedEditModal(" . (int)$c['id'] . "); return false;" ?>"
@@ -1319,8 +1448,32 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
 </td>
 
             <td class="cell-source" style="display:none;"><?= htmlspecialchars($c['source']) ?></td>
-        </tr>
-        
+      
+      <td style="padding: 12px 10px; text-align: center; vertical-align: middle; border: none !important; box-sizing: border-box; width: 110px;">
+    <?php 
+    $fileName = trim($c['kp_file'] ?? '');
+    
+    if (!empty($fileName) && $fileName !== 'NULL' && $fileName !== 'null'): 
+    ?>
+        <!-- Если файл есть в СУБД — выводим зеленую неоновую кнопку прямой загрузки -->
+        <a href="uploads/kp/<?= htmlspecialchars($fileName) ?>" 
+           target="_blank" 
+           title="Открыть коммерческое предложение в новой вкладке"
+           style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; color: #10b981; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
+           onmouseover="this.style.background='rgba(16, 185, 129, 0.2)';"
+           onmouseout="this.style.background='rgba(16, 185, 129, 0.1)';"
+           onclick="event.stopPropagation();">
+            📎 Скан
+        </a>
+    <?php else: ?>
+        <!-- Если файла нет — аккуратный серый прочерк -->
+        <span style="color: #32324d; font-size: 13px;">—</span>
+    <?php endif; ?>
+</td>
+  </tr>
+        <!-- НАМЕРТВО ИСПРАВЛЕНО: Интерактивный вывод и скачивание скана КП прямо из сетки таблицы -->
+
+
         <?php endforeach; ?>
     </tbody>
     
@@ -1412,168 +1565,144 @@ function removeContactField(index) {
 
 /**
  * ФУНКЦИЯ РЕДАКТИРОВАНИЯ КЛИЕНТА (ВЫНЕСЕНА В ФИНАЛЬНЫЙ БЛОК)
- */
-async function openProtectedEditModal(id) {
-    console.log("=== ЗАПУСК ПАКЕТНОЙ ВЫГРУЗКИ ДАННЫХ ИЗ СУБД ДЛЯ КЛИЕНТА #" + id + " ===");
+ */async function openProtectedEditModal(id) {
+    console.log("=== ЗАПУСК ПАКЕТНОЙ ВЫГРУЗКИ ДАННЫХ ДЛЯ КЛИЕНТА #" + id + " ===");
     
     const modal = document.getElementById('clientModal');
     const form = document.getElementById('clientForm');
+    const gridContainer = document.getElementById('contactsGrid');
     
+    if (!modal || !form) {
+        console.error("🚨 КРИТ: Главные элементы формы редактирования не найдены в DOM!");
+        return;
+    }
+
     try {
-        // Фоновый AJAX-запрос к API-контроллеру карточки
+        // 1. Асинхронный фоновый запрос к нашему API-контроллеру hoster.by
         const res = await fetch('get_client.php?id=' + parseInt(id, 10));
         const responseData = await res.json();
         
         if (responseData.status !== 'success' || !responseData.data) {
-            alert("🚨 Ошибка API СУБД: " + (responseData.message || "Не удалось получить данные клиента."));
+            alert("🚨 Ошибка API СУБД: " + (responseData.message || "Не удалось выгрузить данные контрагента."));
             return;
         }
 
         const c = responseData.data; 
-        console.log("CHECKPOINT 1: Данные успешно получены из базы данных.", c);
+        console.log("CHECKPOINT 1: Реквизиты успешно получены из MariaDB.", c);
 
-        // 1. Инициализация базовых системных маркеров ID и Заголовка
-        if (document.getElementById('client_id')) {
-            document.getElementById('client_id').value = c.id;
-        }
+        // Принудительно возвращаем интерактивную форму на экран, если до этого открывался просмотр
+        form.style.setProperty('display', 'block', 'important');
+        
+        // Сбрасываем заголовок под штатный режим редактирования
         if (document.getElementById('modalTitle')) {
             document.getElementById('modalTitle').innerText = 'Редактирование клиента #' + c.id;
         }
+
+        // 2. Инициализация базовых скрытых и текстовых инпутов компании
+        if (document.getElementById('client_id')) document.getElementById('client_id').value = c.id;
+        if (document.getElementById('client_name')) document.getElementById('client_name').value = c.client_name || '';
         
-        // 2. Локальный поиск и заполнение Имени компании
-        const nameField = modal ? (modal.querySelector('#client_name') || modal.querySelector('#name') || modal.querySelector('input[name="client_name"]')) : null;
-        if (nameField) nameField.value = c.client_name || '';
+        const modalUnpInput = document.getElementById('unp') || document.getElementById('complex_unp');
+        if (modalUnpInput) modalUnpInput.value = c.UNP || (c.unp || '');
         
-        // 3. ХИРУРГИЧЕСКИЙ ФИКС УНП: Ищем строго внутри модалки, чтобы не путать с формой добавления!
-        if (modal) {
-            const modalUnpInput = modal.querySelector('#unp') 
-                               || modal.querySelector('#complex_unp') 
-                               || modal.querySelector('input[name="unp"]');
+        if (document.getElementById('client_website')) document.getElementById('client_website').value = c.website || '';
+        if (document.getElementById('contact_person')) document.getElementById('contact_person').value = c.contact_person || '';
+        if (document.getElementById('phone')) document.getElementById('phone').value = c.phone || '';
+        if (document.getElementById('email')) document.getElementById('email').value = c.email || '';
+        if (document.getElementById('comment')) document.getElementById('comment').value = c.comment || '';
+        if (document.getElementById('status')) document.getElementById('status').value = c.status || 'Новый';
+        if (document.getElementById('product_type')) document.getElementById('product_type').value = c.product_type || '';
+
+        // =========================================================================
+        // 3. СКВОЗНОЙ ИЗОЛИРОВАННЫЙ РЕНДЕРЕР СЕТКИ ЛИЦ (ЗАЩИТА ОТ ПЕРЕЗАПИСИ)
+        // =========================================================================
+        window.renderContactsGrid = function(contactsArray) {
+            if (!gridContainer) return;
+            gridContainer.innerHTML = ''; // Стираем заглушки
             
-            if (modalUnpInput) {
-                // Приоритет заглавному ключу UNP из структуры СУБД Santeks
-                modalUnpInput.value = c.UNP || (c.unp || '');
-                
-                // Намертво тушим старые красные рамки ошибок от формы добавления
-                modalUnpInput.style.borderColor = '#323248';
-                modalUnpInput.style.boxShadow = 'none';
-            }
+            // Сохраняем массив в глобальное хранилище текущей модалки
+            window.currentModalContacts = Array.isArray(contactsArray) ? contactsArray : [];
             
-            // Скрываем текстовую подсказку ошибки дубликата в модалке правок
-            const errorMsg = modal.querySelector('#complex_unp_error_msg') || modal.querySelector('#add_unp_error_msg');
-            if (errorMsg) errorMsg.style.display = 'none';
-        }
-        console.log("CHECKPOINT 2: Базовые текстовые поля (Имя, УНП) заполнены.");
+            // Локальный индекс ВСЕГДА пересчитывается с 0 при вызове, чтобы инпуты не двоились!
+            let localIdx = 0;
 
-        // 4. Заполнение поля Сайта / Веб-ресурса
-        const websiteField = modal ? (modal.querySelector('#client_website') || modal.querySelector('input[name="website"]')) : null;
-        if (websiteField) {
-            websiteField.value = c.website || '';
-        }
-        console.log("CHECKPOINT 3: Поле сайта обработано.");
+            if (window.currentModalContacts.length > 0) {
+                window.currentModalContacts.forEach((contact, idx) => {
+                    const isMainContact = contact && contact.is_main === 1;
 
-        // 5. НАМЕРТВО ИСПРАВЛЕНО: Динамическая заливка серверного грида contactsGrid данными из API
-          const gridContainer = document.getElementById('contactsGrid');
-        if (gridContainer) {
-            gridContainer.innerHTML = ''; 
-            window.contactIndex = 0; 
+                    // Всеядный разбор ФИО
+                    let lcName = contact.name || (contact.contact_name || (contact.contact_person || ''));
+                    if (typeof lcName === 'object' || lcName === null) lcName = '';
 
-                if (c.contacts && Array.isArray(c.contacts) && c.contacts.length > 0) {
-                    c.contacts.forEach((contact) => {
-                        // ЖЕЛЕЗНЫЙ ХИТ: проверяем и name, и contact_name, и даже ФИО в верхнем/нижнем регистре
-                    let lcName = '';
-                        if (contact) {
-                            lcName = contact.name || (contact.contact_name || (contact.contact_person || (contact.contact_person_name || '')));
-                        }
-                        
-                        // Если имя по-прежнему пустое, пробуем забрать его, если объект прилетел в нестандартном регистре
-                        if (!lcName && contact) {
-                            lcName = contact.NAME || (contact.CONTACT_NAME || '');
-                        }
+                    let lcRole   = contact.position || (contact.contact_role || (contact.role || ''));
+                    let lcPhone  = contact.phone || '';
+                    let lcEmail  = contact.email || '';
+                    let lcPostal = contact.postal_address || '';
+                    let lcNotes  = contact.function_notes || '';
 
-                        let lcRole   = contact ? (contact.position || (contact.contact_role || (contact.role || ''))) : '';
-                        let lcPhone  = contact ? (contact.phone || '') : '';
-                        let lcEmail  = contact ? (contact.email || '') : '';
-                        let lcPostal = contact ? (contact.postal_address || '') : '';
-                        let lcNotes  = contact ? (contact.function_notes || '') : '';
-
-                        // Если вместо строки прилетел битый объект, очищаем его во избежание вывода [object Object]
-                        if (typeof lcName === 'object' || lcName === null) lcName = '';
-
-                        // Если вдруг пришла строка '[object Object]' или мусор, тушим его
-                        if (typeof lcName === 'object') lcName = '';
-                        
-                      const isMainContact = contact && contact.is_main === 1;
-                    
+                    // Кнопка удаления (только для дополнительных ЛПР)
                     const deleteBtnHtml = isMainContact 
                         ? '' 
                         : `<div style="position: absolute; right: 8px; top: 8px;" class="js-grid-del-btn">
-                               <button type="button" onclick="this.parentElement.parentElement.remove();" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold;">×</button>
+                               <button type="button" onclick="window.removeContactFromDataArray(${idx}); return false;" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold;">×</button>
                            </div>`;
 
                     const card = document.createElement('div');
-                    
-                    // PREMIUM UX: Главный контакт подсветим синим неоном, дополнительные — стандартным темным контуром
                     const borderColor = isMainContact ? '#3b82f6' : '#323248';
                     const bgGlow = isMainContact ? 'rgba(59, 130, 246, 0.02)' : '#151521';
-
                     card.style.cssText = `background: ${bgGlow}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left; box-sizing: border-box; width: 100%;`;
-                    
+
                     card.innerHTML = `
                         ${deleteBtnHtml}
                         <div style="font-weight: bold; color: #fff; font-size: 13px; padding-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                             👤 ${escapeHtmlQuotes(lcName || 'Без имени')}
                         </div>
-                        <div style="color: #64748b; font-size: 11px;">💼 ${escapeHtmlQuotes(isMainContact ? 'Основной контакт компании' : (lcRole || 'Должность не указана'))}</div>
+                        <div style="color: #64748b; font-size: 11px;">
+                            💼 ${escapeHtmlQuotes(isMainContact ? 'Основной контакт компании' : (lcRole || 'Должность не указана'))}
+                        </div>
                         ${lcPhone ? `<div style="color: #818cf8; font-family: monospace; font-size: 11px;">📞 ${escapeHtmlQuotes(lcPhone)}</div>` : ''}
                         ${lcEmail ? `<div style="color: #cbd5e1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">✉️ ${escapeHtmlQuotes(lcEmail)}</div>` : ''}
                         
-                        <!-- ЖЕСТКАЯ ЗАЩИТА: Массив contacts[] пишем ТОЛЬКО для дополнительных лиц, чтобы бэкенд не затирал основную таблицу clients! -->
+                        <!-- ЖЕСТКИЙ ФИКС: Скрытые инпуты генерируются только для доп. лиц с чистым инкрементом по порядку -->
                         ${isMainContact ? '' : `
-                            <input type="hidden" name="contacts[${window.contactIndex}][name]" value="${escapeHtmlQuotes(lcName)}">
-                            <input type="hidden" name="contacts[${window.contactIndex}][position]" value="${escapeHtmlQuotes(lcRole)}">
-                            <input type="hidden" name="contacts[${window.contactIndex}][phone]" value="${escapeHtmlQuotes(lcPhone)}">
-                            <input type="hidden" name="contacts[${window.contactIndex}][email]" value="${escapeHtmlQuotes(lcEmail)}">
-                            <input type="hidden" name="contacts[${window.contactIndex}][postal_address]" value="${escapeHtmlQuotes(lcPostal)}">
-                            <input type="hidden" name="contacts[${window.contactIndex}][function_notes]" value="${escapeHtmlQuotes(lcNotes)}">
+                            <input type="hidden" name="contacts[${localIdx}][name]" value="${escapeHtmlQuotes(lcName)}">
+                            <input type="hidden" name="contacts[${localIdx}][position]" value="${escapeHtmlQuotes(lcRole)}">
+                            <input type="hidden" name="contacts[${localIdx}][phone]" value="${escapeHtmlQuotes(lcPhone)}">
+                            <input type="hidden" name="contacts[${localIdx}][email]" value="${escapeHtmlQuotes(lcEmail)}">
+                            <input type="hidden" name="contacts[${localIdx}][postal_address]" value="${escapeHtmlQuotes(lcPostal)}">
+                            <input type="hidden" name="contacts[${localIdx}][function_notes]" value="${escapeHtmlQuotes(lcNotes)}">
                         `}
                     `;
-                    
                     gridContainer.appendChild(card);
-                    
-                    // Инкрементируем индекс только для доп. контактов, чтобы FormData собирала массив без пропусков!
+
                     if (!isMainContact) {
-                        window.contactIndex++;
+                        localIdx++; 
                     }
-                }); // Конец цикла c.contacts.forEach
+                });
             } else {
-                gridContainer.innerHTML = `<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 8px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет зарегистрированных лиц.</div>`;
+                gridContainer.innerHTML = `<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 8px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет дополнительных лиц.</div>`;
             }
-        }
-        
-        // Всегда принудительно сбрасываем отображение на режим списка (грида), пряча форму добавления
+        };
+
+        // Локальная функция безопасного удаления лица из JS-массива
+        window.removeContactFromDataArray = function(index) {
+            if (Array.isArray(window.currentModalContacts)) {
+                window.currentModalContacts.splice(index, 1);
+                window.renderContactsGrid(window.currentModalContacts);
+            }
+        };
+
+        // Запускаем первичную отрисовку лиц, прилетевших из базы данных
+        window.renderContactsGrid(c.contacts || []);
+
+        // 4. Сброс кнопок и переключателей в режим списка лиц (скрываем внутреннюю форму)
+        const addContactBtn = document.getElementById('toggleContactViewBtn');
+        if (addContactBtn) addContactBtn.style.setProperty('display', 'block', 'important');
         if (typeof toggleContactView === 'function') {
             toggleContactView(false); 
         }
-        console.log("CHECKPOINT 4: Динамический VIP-грид контактов успешно заполнен данными СУБД.");
-       // 6. НАМЕРТВО ИСПРАВЛЕНО: Поля обратной совместимости пишут строго в главные инпуты компании
-        // Ищем инпуты компании строго вне контейнера контактов, чтобы не затирать динамические лица!
-        const mainForm = form || document.getElementById('clientForm');
-        
-        if (mainForm) {
-            const mainContactPerson = mainForm.querySelector('#contact_person') || document.getElementById('contact_person');
-            if (mainContactPerson) mainContactPerson.value = c.contact_person || '';
-            
-            // Ищем базовый телефон компании (проверяем, чтобы это не был инпут из контактов)
-            const mainPhone = mainForm.querySelector('#phone') || document.getElementById('phone');
-            if (mainPhone && !mainPhone.closest('#contactsContainer')) mainPhone.value = c.phone || '';
-            
-            const mainEmail = mainForm.querySelector('#e_mail') || mainForm.querySelector('#email') || document.getElementById('email');
-            if (mainEmail && !mainEmail.closest('#contactsContainer')) mainEmail.value = c.email || '';
-        }
-        console.log("CHECKPOINT 5: Поля обратной совместимости пройдены без затирания контактов.");
 
-        // 7. Парсинг календаря и валидация даты следующего контакта (Фикс бага 104)
+        // 5. Валидация календаря и даты следующего контакта (Фикс бага 104)
         const nextDateInput = document.getElementById('add_client_next_date') || document.getElementById('next_contact_date');
         if (nextDateInput) {
             let apiDateValue = (c.next_contact_date || '').toString().trim();
@@ -1586,81 +1715,38 @@ async function openProtectedEditModal(id) {
             nextDateInput.style.borderColor = '#323248';
             nextDateInput.style.boxShadow = 'none';
         }
-        console.log("CHECKPOINT 6: Даты и календари зафиксированы.");
 
-        // 8. Синхронизация системных селектов Статуса и Комментария
-        if (document.getElementById('status')) document.getElementById('status').value = c.status || 'Новый';
-        if (document.getElementById('comment')) document.getElementById('comment').value = c.comment || '';
-        
-        // 9. Фикс селекта вида продукции
-        const productTypeSelect = document.getElementById('product_type') || document.querySelector('select[name="product_type"]');
-        if (productTypeSelect) productTypeSelect.value = c.product_type || '';
+        // Разворачиваем готовую модалку редактирования на экране
+        modal.style.setProperty('display', 'flex', 'important');
+        modal.classList.add('active');
+        console.log("CHECKPOINT ПАКЕТА: Карточка редактирования #" + c.id + " успешно выведена в DOM.");
 
-        // 10. Фикс источника привлечения (Поддержка кастомного DIV-модуля Santeks)
-        const sourceValue = c.source || (c.lead_source || '');
-        const customSourceText = document.getElementById('js-custom-select-text');
-        const customSourceInput = document.getElementById('js-real-lead-source');
-        
-        if (customSourceInput && customSourceText) {
-            customSourceInput.value = sourceValue;
-            customSourceText.innerText = sourceValue ? sourceValue : 'Выберите источник...';
-            customSourceText.style.color = sourceValue ? '#ffffff' : '#64748b';
-        }
-        if (document.getElementById('source')) document.getElementById('source').value = sourceValue;
-        
-        console.log("CHECKPOINT 7: Системные выпадающие списки синхронизированы.");
-
-        // ФИНАЛЬНЫЙ ЗАПУСК И ОТКРЫТИЕ ОКНА МОДАТКИ
-        if (modal) {
-            modal.style.setProperty('display', 'flex', 'important');
-            modal.classList.add('active');
-            
-            // Гарантированно возвращаем кнопку сохранения в рабочее состояние
-            const submitBtn = modal.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-                submitBtn.style.cursor = 'pointer';
-                submitBtn.innerText = "Сохранить изменения";
-            }
-            console.log("CHECKPOINT ФИНАЛ: МОДАЛКА РЕАКТИВНО РАЗВЕРНУТА И ПОЛНОСТЬЮ ЗАПОЛНЕНА!");
-        }
-
-    } catch (err) {
-        console.error("🚨 КРИТИЧЕСКИЙ СБОЙ ВНУТРИ ФУНКЦИИ openProtectedEditModal:", err);
-    }
-}
+    } catch (err) {console.error("🚨 КРИТ АНАЛИЗА openProtectedEditModal:", err);}}
     </script>
 </div>
 <!-- МОДАЛЬНОЕ ОКНО (ОДНО НА ВЕСЬ ФАЙЛ, ВНЕ ЦИКЛА!) -->
-<div id="clientModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:9999;">
-    <div class="stylish-modal" style="background:#1e1e2d; padding:25px; border-radius:12px; height:800px; width:800px; color:#fff; font-family:sans-serif;">
-        
+<div id="clientModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); justify-content: center; align-items: center; z-index: 99999; box-sizing: border-box; padding: 20px;">
+     <div style="background: #1e1e2d; border-radius: 12px; border: 1px solid #323248; padding: 25px; width: 650px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; box-shadow: 0 10px 40px rgba(0,0,0,0.5); color: #fff; font-family: sans-serif; position: relative;">
+         
         <h2 id="modalTitle" style="margin-top:0; text-align:left;">Добавить клиента</h2>
         
         <!-- ОСТАВЛЯЕМ СТРОГО ОДИН ТЕГ ФОРМЫ С НАШИМ СКРЫТЫМ ИНПУТОМ ID -->
-        <form id="clientForm" autocomplete="off" style="margin: 0; padding: 0;">
+        <form id="clientForm"  enctype="multipart/form-data" method="POST" autocomplete="off" style="margin: 0; padding: 0;">
             <input type="hidden" id="client_id" name="id" value="0">
             
             <div class="modal-body">
-                
-                <!-- РЯД 1: КЛЮЧЕВАЯ ИНФОРМАЦИЯ -->
-                <div class="crm-grid-3">
-                    <div class="form-group">
-                        <label>Название организации <span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="client_name" name="client_name" required class="crm-input" placeholder="СЗАО «Сантэкс»">
-                    </div>
-                    <div class="form-group">
-                        <label>УНП контрагента <span style="color:#ef4444;">*</span></label>
-                        <input type="text" 
-           id="js_client_unp_input" 
-           name="unp" 
-           required 
-           maxlength="9"
-           placeholder="9 знаков" 
-           oninput="checkUnpDuplicateLive(this.value);"
-           style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; transition: all 0.2s;">
-           <script>
+              <!-- РЯД 1: ДАННЫЕ ОРГАНИЗАЦИИ (ИСПРАВЛЕНО НАМЕРТВО: Выровнен УНП) -->
+<div style="margin-bottom: 20px; display: flex; gap: 15px; width: 100%; box-sizing: border-box;">
+    <!-- Название компании -->
+    <div style="flex: 3; display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+        <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">Название организации *</label>
+        <input type="text" name="client_name" id="client_name" required placeholder="ООО СантехМонтаж" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
+    </div>
+                    <!-- УНП Контрагента -->
+    <div style="flex: 2; display: flex; flex-direction: column; gap: 6px; min-width: 120px; position: relative;">
+        <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">УНП Контрагента *</label>                    
+        <input type="text" name="unp" id="unp" placeholder="9 знаков" maxlength="9" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
+    </div>  <script>
           async function checkUnpDuplicateLive(unpValue) {
     const unpInput = document.getElementById('add_client_unp') || document.getElementById('unp');
     const errorMsg = document.getElementById('add_unp_error_msg');
@@ -1735,6 +1821,22 @@ async function openProtectedEditModal(id) {
                 submitBtn.style.cursor = 'pointer';
             }
         }
+  const kpContainer = document.getElementById('kp_download_link_container');
+        const kpLink = document.getElementById('kp_download_link');
+        
+        if (kpContainer && kpLink) {
+            // Очищаем старый инпут выбора файла при каждом открытии окна, чтобы не было дублей
+            if (document.getElementById('client_kp_file')) document.getElementById('client_kp_file').value = '';
+            
+            // Если в базе лежит имя файла, собираем к нему прямой изолированный путь
+            if (c.kp_file && c.kp_file.trim() !== '' && c.kp_file !== 'NULL' && c.kp_file !== null) {
+                kpLink.href = 'uploads/kp/' + c.kp_file;
+                kpContainer.style.display = 'block';
+                console.log("📄 КП-ИНСПЕКТОР: У контрагента обнаружен прикрепленный скан документа:", c.kp_file);
+            } else {
+                kpContainer.style.display = 'none';
+            }
+        }
     } catch (err) {
         console.error("Ошибка асинхронного транспорта УНП:", err);
     }
@@ -1742,9 +1844,9 @@ async function openProtectedEditModal(id) {
            </script>
                         <div id="js-unp-error-block" style="display:none; font-size:10px; color:#ef4444; font-weight:600;"></div>
                     </div>
-                    <div class="form-group">
-                        <label>Сайт компании</label>
-                        <input type="text" id="client_website" name="website" class="crm-input" placeholder="example.com">
+ <div style="flex: 2; display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+        <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">Сайт компании</label>
+        <input type="text" name="website" id="client_website" placeholder="example.com" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;">
             <script>
         function toggleContactView(showForm = null) {
     const grid = document.getElementById('contactsGrid');
@@ -1760,7 +1862,7 @@ async function openProtectedEditModal(id) {
         // Показываем Грид, скрываем Форму
         grid.style.display = 'grid';
         formArea.style.display = 'none';
-        btn.innerText = "➕ Добавить лицо";
+        btn.innerText = "➕ Добавить контакт";
         btn.style.background = "#4f46e5";
         window.editingContactIndex = null;
     } else {
@@ -1872,8 +1974,11 @@ window.toggleContactView = function(showForm = null) {
     window.editingContactIndex = null;
 
     // Перерисовываем компактную сетку и возвращаем менеджера к списку лиц
-    renderContactsGrid(window.currentModalContacts);
-    toggleContactView(false); 
+    if (typeof window.renderContactsGrid === 'function') {
+        window.renderContactsGrid(window.currentModalContacts);
+    }
+    toggleContactView(false); // Закрываем внутреннюю форму лица
+
 }
 function deleteContactFromGrid(index) {
     if (confirm("Удалить это контактное лицо из списка? Изменения вступят в силу после нажатия кнопки «Сохранить изменения».")) {
@@ -1882,43 +1987,78 @@ function deleteContactFromGrid(index) {
     }
 }
 function renderContactsGrid(contactsArray) {
-    const grid = document.getElementById('contactsGrid');
-    if (!grid) return;
+     const gridContainer = document.getElementById('contactsGrid');
+    if (!gridContainer) return;
+
+    gridContainer.innerHTML = ''; // Чистим грид перед перерисовкой
     
-    grid.innerHTML = '';
+    // Глобальный массив должен быть синхронизирован
     window.currentModalContacts = Array.isArray(contactsArray) ? contactsArray : [];
+    
+    // Это ключевой фикс: счетчик инпутов всегда сбрасывается для чистого пересчета по порядку!
+    let localContactIndex = 0;
 
-    if (window.currentModalContacts.length === 0) {
-        grid.innerHTML = `<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 6px;">У этого контрагента пока нет зарегистрированных лиц. Нажмите «Добавить лицо» для создания.</div>`;
-        return;
+    if (window.currentModalContacts.length > 0) {
+        window.currentModalContacts.forEach((contact, idx) => {
+            // Пропускаем главный контакт из clients, если он прилетел с бэкенда, 
+            // так как его параметры пишутся в саму таблицу компании
+            const isMainContact = contact.is_main === 1;
+
+            let name = contact.name || (contact.contact_name || '');
+            let position = contact.position || (contact.contact_role || '');
+            let phone = contact.phone || '';
+            let email = contact.email || '';
+            let postal = contact.postal_address || '';
+            let notes = contact.function_notes || '';
+
+            const card = document.createElement('div');
+            const borderColor = isMainContact ? '#3b82f6' : '#323248';
+            const bgGlow = isMainContact ? 'rgba(59, 130, 246, 0.02)' : '#151521';
+            
+            card.style.cssText = `background: ${bgGlow}; border: 1px solid ${borderColor}; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left; box-sizing: border-box; width: 100%;`;
+            
+            // Формируем крестик удаления (только для доп. контактов)
+            const deleteBtnHtml = isMainContact 
+                ? '' 
+                : `<div style="position: absolute; right: 8px; top: 8px;" class="js-grid-del-btn">
+                       <button type="button" onclick="removeContactFromDataArray(${idx}); return false;" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold;">×</button>
+                   </div>`;
+
+            card.innerHTML = `
+                ${deleteBtnHtml}
+                <div style="font-weight: bold; color: #fff; font-size: 13px; padding-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">👤 ${escapeHtmlQuotes(name || 'Без имени')}</div>
+                <div style="color: #64748b; font-size: 11px;">💼 ${escapeHtmlQuotes(isMainContact ? 'Основной контакт компании' : (position || 'Должность не указана'))}</div>
+                ${phone ? `<div style="color: #818cf8; font-family: monospace; font-size: 11px;">📞 ${escapeHtmlQuotes(phone)}</div>` : ''}
+                ${email ? `<div style="color: #cbd5e1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">✉️ ${escapeHtmlQuotes(email)}</div>` : ''}
+                
+                <!-- ЖЕСТКИЙ ФИКС: Индексы всегда идут строго по порядку: 0, 1, 2... Бэкенд не запутается! -->
+                ${isMainContact ? '' : `
+                    <input type="hidden" name="contacts[${localContactIndex}][name]" value="${escapeHtmlQuotes(name)}">
+                    <input type="hidden" name="contacts[${localContactIndex}][position]" value="${escapeHtmlQuotes(position)}">
+                    <input type="hidden" name="contacts[${localContactIndex}][phone]" value="${escapeHtmlQuotes(phone)}">
+                    <input type="hidden" name="contacts[${localContactIndex}][email]" value="${escapeHtmlQuotes(email)}">
+                    <input type="hidden" name="contacts[${localContactIndex}][postal_address]" value="${escapeHtmlQuotes(postal)}">
+                    <input type="hidden" name="contacts[${localContactIndex}][function_notes]" value="${escapeHtmlQuotes(notes)}">
+                `}
+            `;
+            
+            gridContainer.appendChild(card);
+            
+            if (!isMainContact) {
+                localContactIndex++; // Увеличиваем индекс только для отправляемых доп. лиц
+            }
+        });
+    } else {
+        gridContainer.innerHTML = `<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 8px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет дополнительных лиц.</div>`;
     }
+}
 
-    window.currentModalContacts.forEach((c, idx) => {
-        const card = document.createElement('div');
-        card.style.cssText = "background: #151521; border: 1px solid #323248; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; position: relative; text-align: left;";
-        
-        card.innerHTML = `
-            <div style="font-weight: bold; color: #fff; font-size: 13px; padding-right: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">👤 ${escapeHtmlQuotes(c.name || c.contact_name || 'Без имени')}</div>
-            ${c.position ? `<div style="color: #92929f; font-size: 11px;">💼 ${escapeHtmlQuotes(c.position || c.contact_role)}</div>` : ''}
-            ${c.phone ? `<div style="color: #818cf8; font-family: monospace; font-size: 11px;">📞 ${escapeHtmlQuotes(c.phone)}</div>` : ''}
-            
-            <div style="position: absolute; right: 8px; top: 8px; display: flex; gap: 4px;">
-                <!-- Кнопка редактирования лица -->
-                <button type="button" onclick="editContactInForm(${idx});" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer;" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">⚙️</button>
-                <!-- Кнопка удаления лица -->
-                <button type="button" onclick="deleteContactFromGrid(${idx});" style="background: rgba(255,255,255,0.03); border: 1px solid #323248; color: #ef4444; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer;" onmouseover="this.style.background='#ef4444';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.color='#ef4444'">×</button>
-            </div>
-            
-            <!-- Скрытые инпуты, чтобы FormData при сабмите всей формы забирала данные в update_client.php -->
-            <input type="hidden" name="contacts[${idx}][name]" value="${escapeHtmlQuotes(c.name || c.contact_name || '')}">
-            <input type="hidden" name="contacts[${idx}][position]" value="${escapeHtmlQuotes(c.position || c.contact_role || '')}">
-            <input type="hidden" name="contacts[${idx}][phone]" value="${escapeHtmlQuotes(c.phone || '')}">
-            <input type="hidden" name="contacts[${idx}][email]" value="${escapeHtmlQuotes(c.email || '')}">
-            <input type="hidden" name="contacts[${idx}][postal_address]" value="${escapeHtmlQuotes(c.postal_address || '')}">
-            <input type="hidden" name="contacts[${idx}][function_notes]" value="${escapeHtmlQuotes(c.function_notes || '')}">
-        `;
-        grid.appendChild(card);
-    });
+// Дополнительная функция удаления из JS-массива с авто-перерисовкой
+window.removeContactFromDataArray = function(index) {
+    if (Array.isArray(window.currentModalContacts)) {
+        window.currentModalContacts.splice(index, 1);
+        renderContactsGrid(window.currentModalContacts);
+    }
 }
     </script>    
     <!-- МОДУЛЬ МУЛЬТИ-КОНТАКТОВ С ДИНАМИЧЕСКИМ ПЕРЕКЛЮЧЕНИЕМ ГРИД / ФОРМА -->
@@ -1936,7 +2076,7 @@ function renderContactsGrid(contactsArray) {
         
         <!-- АВТОНОМНАЯ КНОПКА (Убран класс btn-primary во избежание конфликтов скриптов темы) -->
         <button type="button" id="toggleContactViewBtn" onclick="toggleContactView(); event.preventDefault();" style="background: #4f46e5; border: 1px solid #4f46e5; color: #fff; padding: 0 16px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s; white-space: nowrap; height: 36px; line-height: 36px; box-sizing: border-box; outline: none;">
-            ➕ Добавить лицо
+            ➕ Добавить контакт
         </button>
     </div>
 
@@ -1998,7 +2138,7 @@ function renderContactsGrid(contactsArray) {
                 endforeach;
             else:
                 // Если в базе нет лиц, выводим аккуратную заглушку-инструкцию
-                echo '<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 6px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет зарегистрированных лиц. Нажмите «Добавить лицо» для создания.</div>';
+                echo '<div style="grid-column: span 2; color: #64748b; font-size: 13px; padding: 15px; text-align: center; border: 1px dashed #323248; border-radius: 6px; width: 100%; box-sizing: border-box;">У этого контрагента пока нет зарегистрированных лиц. Нажмите «Добавить контакт для создания.</div>';
             endif;
         } catch (Exception $e) {
             echo '<div style="grid-column: span 2; color: #ef4444; font-size: 11px; padding: 10px; text-align: center;">Ошибка загрузки лиц из СУБД</div>';
@@ -2115,7 +2255,7 @@ window.toggleContactView = function(showForm = null) {
                 <div class="crm-grid-2">
                     <div class="form-group">
                         <label>E-Mail компании</label>
-                        <input type="email" id="e_mail" name="email" class="crm-input" placeholder="info@partner.com">
+                        <input type="email" id="email" name="email" class="crm-input" placeholder="info@partner.com">
                     </div>
                     <div class="form-group">
                         <label>Вид продукции <span style="color:#ef4444;">*</span></label>
@@ -2171,13 +2311,25 @@ window.toggleContactView = function(showForm = null) {
                     <label>Комментарий менеджера / Договора</label>
                     <textarea id="comment" name="comment" rows="3" class="crm-textarea" placeholder="Договор № 1509/25К от 05.11.2025 г..."></textarea>
                 </div>
-
-            </div>
-            
-            <div class="modal-footer">
+                <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 6px; text-align: left; width: 100%; box-sizing: border-box;">
+    <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">Скан / Файл коммерческого предложения (PDF, JPG, PNG)</label>
+    <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
+        <input type="file" name="kp_file" id="client_kp_file" accept=".pdf,.jpg,.jpeg,.png" style="background: #151521; border: 1px solid #323248; border-radius: 6px; color: #fff; padding: 6px 12px; font-size: 13px; flex: 1; box-sizing: border-box; height: 38px;">
+        <!-- Кнопка скачивания: появляется только если файл уже загружен -->
+        <div id="kp_download_link_container" style="display: none;">
+            <a id="kp_download_link" href="#" target="_blank" style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 0 15px; border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none; white-space: nowrap; height: 38px; display: inline-flex; align-items: center; box-sizing: border-box; transition: all 0.2s;" onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'">
+                📥 Скачать КП
+            </a>
+        </div>
+    </div>
+</div>
+    <div class="modal-footer">
                 <button type="button" class="btn-crm-cancel" onclick="closeModal()">Отмена</button>
                 <button type="submit" class="btn-crm-save">Сохранить изменения</button>
             </div>
+            </div>
+            
+        
             
         </form>
     </div>
@@ -3248,7 +3400,41 @@ document.addEventListener("DOMContentLoaded", function() {
         // ЖЕЛЕЗНЫЙ ФИКС СИНХРОНИЗАЦИИ КЛЮЧЕЙ И ID КЛИЕНТА
         const clientIdInput = document.getElementById('client_id');
         const clientId = clientIdInput ? parseInt(clientIdInput.value, 10) : 0;
+          console.log("🚀 СИСТЕМА: Сбор пакета FormData (включая скан КП и лица) для отправки на хостинг...");
         
+        // КЛЮЧЕВОЙ ХИТ: FormData автоматически собирает текстовые поля, инпуты файлов КП и массивы!
+        const payload = new FormData(ClientForm);
+
+        try {
+            // Бьем асинхронным fetch-пакетом точно в наш PHP-обработчик
+            const response = await fetch('update_client.php', {
+                method: 'POST',
+                body: payload // Передаем FormData напрямую (браузер сам выставит enctype!)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Сбой сервера: HTTP статус ${response.status}`);
+            }
+
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const result = await response.json();
+                if (result.status === 'success') {
+                    console.log("🎯 СУБД: Карточка и скан КП успешно зафиксированы в MariaDB!");
+                    location.reload(); // Перезагружаем страницу для обновления таблицы CRM
+                } else {
+                    alert("Ошибка СУБД: " + (result.message || "Не удалось сохранить изменения."));
+                }
+            } else {
+                // Подстраховка: если PHP вернул редирект или HTML — просто обновляем страницу
+                console.log("🎯 СУБД: Ответ получен. Регенерация сетки CRM...");
+                location.reload();
+            }
+
+        } catch (err) {
+            console.error("🚨 КРИТ ОТПРАВКИ ФОРМЫ С ФАЙЛОМ:", err);
+            alert("Критическая ошибка сети при передаче документа на хостинг!");
+        }
         if (clientId > 0) {
             // Если редактируем старого — шлем явный маркер пакетного апдейта и дублируем ID в оба ключа для надежности бэкенда!
             fd.set('action_mode', 'update_client_full_package');
@@ -3333,7 +3519,12 @@ document.addEventListener("DOMContentLoaded", function() {
                     unpInput.focus(); // Автоматически ставим курсор на ошибочный УНП
                 }
             }
-    };
+  const mainClientForm = document.getElementById('clientForm');
+
+
+        };
+       
+ 
    
 </script>
 <div id="complexModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); justify-content: center; align-items: center; z-index: 999999; box-sizing: border-box; padding: 15px;">

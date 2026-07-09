@@ -40,12 +40,7 @@ if (isset($_SESSION['user_id'])):
         </a>
     <?php endif; ?>
 
-    <!-- Кнопка: Журнал предложений / Рассылка обновлений (Только для Admin) -->
-    <?php if ($menuRole === 'admin'): ?>
-        <a href="suggestions.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #10b981; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
-            💡 <span style="white-space: nowrap;">Журнал предложений</span>
-        </a>
-    <?php endif; ?>
+
    
     <!-- Кнопка: Поручения и Задачи (Доступна всем) -->
     <a href="tasks.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #e11d48; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">

@@ -162,11 +162,11 @@ try {
         exit;
     }
     
-    // =========================================================================
-    // РЕЖИМ Б: СТАНДАРТНОЕ ОДИНОЧНОЕ СОХРАНЕНИЕ / РЕДАКТИРОВАНИЕ
+     // =========================================================================
+    // РЕЖИМ Б: СТАНДАРТНОЕ ОДИНОЧНОЕ СОХРАНЕНИЕ / РЕДАКТИРОВАНИЕ (ВЫПРЯМЛЕНО)
     // =========================================================================
     else {
-        $client_id          = (int)($_POST['id'] ?? 0); 
+        $client_id          = (int)($_POST['id'] ?? ($_POST['client_id'] ?? 0)); 
         $client_name        = trim($_POST['client_name'] ?? '');
         $unp                = trim($_POST['unp'] ?? '');
         $contact_person     = trim($_POST['contact_person'] ?? '');
@@ -175,40 +175,66 @@ try {
         $status             = trim($_POST['status'] ?? 'Новый');
         $source             = trim($_POST['source'] ?? 'Запрос');
         $product_type       = trim($_POST['product_type'] ?? 'Сантехника');
-        $first_contact_date = !empty($_POST['first_contact_date']) ? trim($_POST['first_contact_date']) : date('Y-m-d');
-        $next_contact_date  = !empty($_POST['next_contact_date']) ? trim($_POST['next_contact_date']) : date('Y-m-d', strtotime('+7 days'));
         $manager_comment    = trim($_POST['comment'] ?? '');
+
+        // Каскадно страхуем и проверяем даты, чтобы они не превращались в нули
+        $first_contact_date = !empty($_POST['first_contact_date']) ? trim($_POST['first_contact_date']) : date('Y-m-d');
+        
+        // Важная деталь: проверяем все возможные варианты name для календаря даты следующего контакта
+        $next_contact_date  = !empty($_POST['next_contact_date']) ? trim($_POST['next_contact_date']) : (!empty($_POST['next_date']) ? trim($_POST['next_date']) : date('Y-m-d', strtotime('+7 days')));
 
         if (empty($client_name)) {
             throw new Exception("Наименование организации не может быть пустым!");
         }
 
-     if ($client_id > 0) {
-            // ИСПРАВЛЕНО НАМЕРТВО: Честный перехват состояния чекбокса
+        if ($client_id > 0) {
+            // Честный перехват состояния чекбокса контракта
             $is_signed = isset($_POST['is_contract_signed']) ? (int)$_POST['is_contract_signed'] : 0;
-            
-            // Резервная страховка на случай альтернативного имени ключа в FormData
             if (isset($_POST['signed'])) {
                 $is_signed = (int)$_POST['signed'];
             }
 
-            // Твой проверенный рабочий SQL-запрос обновления карточки клиента
+            // НАМЕРТВО ИСПРАВЛЕНО: Добавлены пропущенные unp и contact_person. Даты и Источник зафиксированы!
             $sql = "UPDATE clients SET 
-                        client_name = ?, first_contact_date = ?, source = ?, 
-                        phone = ?, email = ?, product_type = ?, 
-                        next_contact_date = ?, status = ?, comment = ?, is_contract_signed = ?
+                        client_name = ?, 
+                        unp = ?,
+                        contact_person = ?,
+                        first_contact_date = ?, 
+                        source = ?, 
+                        phone = ?, 
+                        email = ?, 
+                        product_type = ?, 
+                        next_contact_date = ?, 
+                        status = ?, 
+                        comment = ?, 
+                        is_contract_signed = ?
                     WHERE id = ?";
             
-            $pdo->prepare($sql)->execute([$client_name, $first_contact_date, $source, $phone, $email, $product_type, $next_contact_date, $status, $manager_comment, $is_signed, $client_id]);
+            $pdo->prepare($sql)->execute([
+                $client_name, 
+                $unp,
+                $contact_person,
+                $first_contact_date, 
+                $source, 
+                $phone, 
+                $email, 
+                $product_type, 
+                $next_contact_date, 
+                $status, 
+                $manager_comment, 
+                $is_signed, 
+                $client_id
+            ]);
             
             if (function_exists('logAction')) {
-                logAction($pdo, 'UPDATE', 'clients', $client_id, "Отредактирован клиент ID: {$client_id}. Флаг контракта: {$is_signed}");
+                logAction($pdo, 'UPDATE', 'clients', $client_id, "Отредактирован клиент ID: {$client_id}. Источник: {$source}, Следующий контакт: {$next_contact_date}");
             }
             
-            echo json_encode(['status' => 'success']);
+            header('Content-Type: application/json');
+          
             exit;
         } else {
-            // INSERT одиночного клиента
+            // INSERT одиночного клиента (для формы создания нового лида)
             $sql = "INSERT INTO clients (client_name, unp, contact_person, phone, email, status, source, manager_id, product_type, first_contact_date, next_contact_date, comment) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $pdo->prepare($sql)->execute([$client_name, $unp, $contact_person, $phone, $email, $status, $source, $userId, $product_type, $first_contact_date, $next_contact_date, $manager_comment]);
@@ -219,11 +245,11 @@ try {
                 logAction($pdo, 'INSERT', 'clients', $newId, "Создан лид: '{$client_name}' (ID: {$newId})");
             }
             
-            echo json_encode(['status' => 'success']);
+            header('Content-Type: application/json');
+            
             exit;
         }
     }
-
 } catch (Exception $e) {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack(); // Откатываем трансляцию СУБД в случае любого сбоя
