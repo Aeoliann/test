@@ -41,4 +41,4 @@ try {
     echo json_encode(['status' => 'error', 'message' => 'Ошибка базы данных: ' . $e->getMessage()]);
     exit;
 }
-?>
+?>  

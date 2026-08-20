@@ -1,5 +1,5 @@
 <?php
-// directory.php — Исправленный бэкенд справочника с родными переменными $allClients и $search
+// directory.php — Улучшенный справочник с мощным поиском и фильтрами
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -9,238 +9,352 @@ if (!isset($_SESSION['user_id'])) {
     die("Доступ запрещен. Авторизуйтесь.");
 }
 
-// ВОЗВРАЩАЕМ РОДНОЕ ИМЯ ПЕРЕМЕННОЙ ПОИСКА
+// Получаем параметры фильтрации
 $search = isset($_GET['query']) ? trim($_GET['query']) : '';
+$filter_status = isset($_GET['status']) ? trim($_GET['status']) : '';
+$filter_product = isset($_GET['product']) ? trim($_GET['product']) : '';
 
 try {
+    // Базовый запрос
+    $sql = "SELECT c.*, u.login AS manager_name 
+            FROM clients c 
+            LEFT JOIN users u ON c.manager_id = u.id 
+            WHERE 1=1";
+    $params = [];
+
+    // Поиск по тексту (название, УНП, контакт, телефон, email, комментарий)
     if ($search !== '') {
-        // Частичный поиск по названию ИЛИ по УНП с использованием оператора LIKE
-        $sql = "SELECT c.*, u.login AS manager_name 
-                FROM clients c 
-                LEFT JOIN users u ON c.manager_id = u.id 
-                WHERE c.client_name LIKE ? OR c.unp LIKE ?
-                ORDER BY c.id DESC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(["%$search%", "%$search%"]);
-    } else {
-        // Если поиск пустой — выгружаем весь справочник по умолчанию
-        $sql = "SELECT c.*, u.login AS manager_name 
-                FROM clients c 
-                LEFT JOIN users u ON c.manager_id = u.id 
-                ORDER BY c.id DESC";
-        $stmt = $pdo->query($sql);
+        $sql .= " AND (c.client_name LIKE ? 
+                      OR c.unp LIKE ? 
+                      OR c.contact_person LIKE ? 
+                      OR c.phone LIKE ? 
+                      OR c.email LIKE ? 
+                      OR c.comment LIKE ?)";
+        $like = "%$search%";
+        $params = array_merge($params, [$like, $like, $like, $like, $like, $like]);
     }
-    
-    // ВОЗВРАЩАЕМ РОДНОЕ ИМЯ МАССИВА СТРОК ДЛЯ ТВОЕГО ЦИКЛА FOREACH
+
+    // Фильтр по статусу
+    if ($filter_status !== '') {
+        $sql .= " AND c.status = ?";
+        $params[] = $filter_status;
+    }
+
+    // Фильтр по продукции
+    if ($filter_product !== '') {
+        $sql .= " AND c.product_type LIKE ?";
+        $params[] = "%$filter_product%";
+    }
+
+    $sql .= " ORDER BY c.id DESC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $allClients = $stmt->fetchAll() ?: [];
+
+    // Получаем уникальные статусы и виды продукции для фильтров
+    $statuses = $pdo->query("SELECT DISTINCT status FROM clients WHERE status IS NOT NULL AND status != '' ORDER BY status")->fetchAll(PDO::FETCH_COLUMN);
+    $products = $pdo->query("SELECT DISTINCT product_type FROM clients WHERE product_type IS NOT NULL AND product_type != '' ORDER BY product_type")->fetchAll(PDO::FETCH_COLUMN);
 
 } catch (Exception $e) {
     die("Критический сбой СУБД в справочнике: " . $e->getMessage());
 }
 ?>
-
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-
     <meta charset="UTF-8">
     <title>Единый справочник контрагентов — Santeks</title>
     <style>
-        body { background: #151521; color: #fff; font-family: sans-serif; padding: 30px; margin: 0; box-sizing: border-box; }
-        .directory-container { max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; width: 100%; }
-        
-        /* КОМПАКТНАЯ ГОРИЗОНТАЛЬНАЯ ПАНЕЛЬ ПОИСКА НАВЕРХУ */
-        .search-panel { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            flex-wrap: wrap; 
-            gap: 20px; 
-            background: #1e1e2d; 
-            padding: 15px 25px; 
-            border-radius: 8px; 
-            border: 1px solid #323248; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        * { box-sizing: border-box; }
+        body {
+            background: #0f0f1a;
+            color: #fff;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+        aside { width: 260px; flex-shrink: 0; background: #1e1e2d; border-right: 1px solid #323248; }
+        main {
+            flex: 1;
+            padding: 30px 35px;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 18px 28px;
+            background: #1e1e2d;
+            border: 1px solid #323248;
+            border-radius: 14px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.3);
+        }
+        .topbar h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topbar h1 span { font-size: 24px; }
+
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            background: #1a1a28;
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid #323248;
+            margin-bottom: 20px;
+        }
+        .filter-bar label {
+            font-size: 11px;
+            color: #92929f;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .filter-bar input, .filter-bar select {
+            background: #151521;
+            border: 1px solid #323248;
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+            height: 38px;
+            min-width: 150px;
+        }
+        .filter-bar input:focus, .filter-bar select:focus {
+            border-color: #4f46e5;
+        }
+        .filter-bar .btn-reset {
+            background: transparent;
+            border: 1px solid #323248;
+            color: #92929f;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            height: 38px;
+            line-height: 24px;
+        }
+        .filter-bar .btn-reset:hover {
+            background: #2a2a3f;
+            color: #fff;
+        }
+
+        .table-wrapper {
+            background: #1a1a28;
+            border: 1px solid #323248;
+            border-radius: 14px;
+            overflow-x: auto;
+            box-shadow: 0 8px 35px rgba(0,0,0,0.4);
+            max-height: 650px;
+            overflow-y: auto;
+        }
+        .directory-table {
             width: 100%;
-            box-sizing: border-box;
+            border-collapse: collapse;
+            font-size: 13px;
+            min-width: 900px;
+            background: #1a1a28;
         }
-        
-        /* НЕЗАВИСИМЫЙ СКРОЛЛ-КОНТЕЙНЕР ДЛЯ ТАБЛИЦЫ СПРАВОЧНИКА */
-        .table-scroll-box { 
-            max-height: 650px; 
-            overflow-y: auto; 
-            overflow-x: auto; 
-            width: 100%; 
-            border: 1px solid #323248; 
-            border-radius: 8px; 
-            background: #1e1e2d; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            box-sizing: border-box;
+        .directory-table th {
+            background: #242438;
+            padding: 14px 12px;
+            color: #9ca3af;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: left;
+            border-bottom: 2px solid #323248;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
-        
-        table { width: 100%; border-collapse: collapse; margin: 0; table-layout: auto !important; }
-        th { background: #242434; padding: 14px 10px; color: #92929f; text-transform: uppercase; font-size: 11px; font-weight: bold; text-align: center; border-bottom: 2px solid #323248; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
-        td { padding: 12px 10px; border-bottom: 1px solid #2b2b40; font-size: 13px; text-align: center; background: #1e1e2d; color: #fff; }
+        .directory-table td {
+            padding: 12px;
+            border-bottom: 1px solid #26263a;
+            color: #e2e8f0;
+            vertical-align: middle;
+        }
+        .directory-table tbody tr:hover td {
+            background: #1e1e32;
+        }
+        .directory-table .highlight {
+            background: rgba(79, 70, 229, 0.15) !important;
+        }
+        .badge-status {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .status-new { background: rgba(129, 140, 248, 0.12); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.2); }
+        .status-work { background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+        .status-refusal { background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .status-done { background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+
+        /* Счётчик результатов */
+        .result-count {
+            font-size: 13px;
+            color: #6b6b85;
+            margin-left: 10px;
+        }
+        .result-count strong {
+            color: #fff;
+        }
     </style>
 </head>
-<aside>    <?php include 'sidebar.php'; ?></aside>
-<!-- ИСПРАВЛЕНО: Превратили страницу в двухколоночный Flex-контейнер, как во всей CRM -->
-<body style="background: #151521; color: #fff; font-family: sans-serif; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden;">
- 
-    <!-- ЛЕВАЯ КОЛОНКА: Боковая панель меню sidebar -->
-   
+<body>
+    <?php include 'sidebar.php'; ?>
+    <main>
+        <div class="topbar">
+            <h1><span>🔍</span> Общий справочник клиентов</h1>
+            <div>
+                <span class="result-count">Найдено: <strong id="resultCount"><?= count($allClients) ?></strong></span>
+            </div>
+        </div>
 
-    <!-- ПРАВАЯ КОЛОНКА: Справочник контента (весь твой код теперь живет внутри этого main) -->
-    <main style="flex: 1; min-width: 0; height: 100%; padding: 30px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;">
+        <!-- Панель фильтров -->
+        <div class="filter-bar">
+            <label>Поиск:</label>
+            <input type="text" id="liveSearch" placeholder="Название, УНП, телефон, email..." value="<?= htmlspecialchars($search) ?>" oninput="applyFilters()">
 
-        <div style="background: #1e1e2d; border: 1px solid #323248; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; box-sizing: border-box; width: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <label>Статус:</label>
+            <select id="filterStatus" onchange="applyFilters()">
+                <option value="">Все</option>
+                <?php foreach ($statuses as $s): ?>
+                    <option value="<?= htmlspecialchars($s) ?>" <?= $filter_status === $s ? 'selected' : '' ?>><?= htmlspecialchars($s) ?></option>
+                <?php endforeach; ?>
+            </select>
 
-                Общий справочник клиентов CRM
-</div>
-     <!-- ТАБЛИЦА СПРАВОЧНИКА В НЕЗАВИСИМОМ СКРОЛЛ-КОНТЕЙНЕРЕ -->
-    
-            <table>
-                
+            <label>Продукция:</label>
+            <select id="filterProduct" onchange="applyFilters()">
+                <option value="">Все</option>
+                <?php foreach ($products as $p): ?>
+                    <option value="<?= htmlspecialchars($p) ?>" <?= $filter_product === $p ? 'selected' : '' ?>><?= htmlspecialchars($p) ?></option>
+                <?php endforeach; ?>
+            </select>
+
+            <a href="directory.php" class="btn-reset">Сбросить</a>
+        </div>
+
+        <!-- Таблица -->
+        <div class="table-wrapper">
+            <table class="directory-table">
                 <thead>
                     <tr>
-                        <th>п/п</th>
-                        <th style="text-align: left;">Название организации</th>
-                        <th>УНП</th>
-                        <th>Вид продукции</th>
-                        <th>Текущий статус</th>
-                        <th>Ответственный менеджер</th>
+                        <th style="width:50px;">#</th>
+                        <th style="min-width:200px;">Название организации</th>
+                        <th style="width:120px;">УНП</th>
+                        <th style="min-width:150px;">Продукция</th>
+                        <th style="width:130px;">Статус</th>
+                        <th style="min-width:150px;">Ответственный менеджер</th>
                     </tr>
-                       <!-- Поле ввода поискового запроса -->
-    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; position: relative;">
-        <input type="text" 
-               id="js-crm-search-input" 
-               oninput="filterCrmDatabaseInline()" 
-               placeholder="Быстрый поиск по имени клиента, № договора или УНП..." 
-               style="width: 100%; height: 42px; padding: 0 40px 0 14px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; font-size: 13px; transition: all 0.15s ease;" 
-               onfocus="this.style.borderColor='#4f46e5'; this.style.background='#191926';" 
-               onblur="this.style.borderColor='#323248'; this.style.background='#151521';">
-        
-        <!-- Иконка лупы (SVG на чистом CSS) -->
-        <span style="position: absolute; right: 14px; top: 13px; color: #71717a; pointer-events: none; font-size: 14px;">🔍</span>
-    </div>
-
-<script>
-    function filterCrmDatabaseInline() {
-    console.log("=== СТАРТ ЖИВОЙ ФИЛЬТРАЦИИ БАЗЫ ===");
-    
-    // Считываем поисковый запрос менеджера и переводим в нижний регистр
-    const query = document.getElementById('js-crm-search-input').value.toLowerCase().trim();
-    
-    // Находим все строки клиентов в нашей HTML-таблице
-    // (Ищет теги <tr> внутри tbody, за исключением шапки таблицы)
-    const rows = document.querySelectorAll('table tbody tr, .client-row');
-    
-    let visibleCount = 0;
-    let totalCount = 0;
-
-    rows.forEach(row => {
-        // Пропускаем строки, если это технические разделители, не содержащие ячеек <td>
-        if (!row.getElementsByTagName('td').length) return;
-        
-        totalCount++;
-        
-        // Извлекаем текстовое содержимое всей строки (Имя, Договор, Продукция, УНП)
-        const rowText = row.innerText.toLowerCase();
-
-        // Если строка содержит поисковый запрос — плавно показываем её, иначе — полностью скрываем
-        if (rowText.includes(query)) {
-            row.style.display = ''; // Сброс к дефолтному отображению строки таблицы
-            visibleCount++;
-        } else {
-            row.style.display = 'none'; // Намертво скрываем строку из DOM-дерева
-        }
-    });
-
-    // Обновляем счетчик найденных контрагентов на нашей VIP-панели
-    const counterSpan = document.getElementById('js-search-counter');
-    if (counterSpan) {
-        counterSpan.innerText = query === "" ? totalCount : visibleCount;
-        // Если ничего не найдено — подсвечиваем индикатор красным цветом
-        counterSpan.style.color = visibleCount === 0 && query !== "" ? '#ef4444' : '#10b981';
-    }
-}
-
-// Автоматически инициализируем счетчик строк при первой загрузке страницы реестра
-document.addEventListener('DOMContentLoaded', function() {
-    // Вызываем фильтр один раз вхолостую, чтобы посчитать исходное количество записей
-    if (document.getElementById('js-crm-search-input')) {
-        filterCrmDatabaseInline();
-    }
-});
-</script>
                 </thead>
-                <tbody>
+                <tbody id="tableBody">
+                    <?php if (empty($allClients)): ?>
+                        <tr><td colspan="6" style="text-align:center; padding:40px; color:#4b4b5e;">Клиенты не найдены</td></tr>
+                    <?php else: ?>
+                        <?php $i = 1; foreach ($allClients as $cl): ?>
+                        <tr data-id="<?= $cl['id'] ?>">
+                            <td style="text-align:center; color:#6b6b85;"><?= $i++ ?></td>
+                            <td style="font-weight:600; color:#fff;"><?= htmlspecialchars($cl['client_name'] ?? '') ?></td>
+                            <td style="font-family:monospace; color:#cbd5e1;"><?= htmlspecialchars($cl['unp'] ?: '—') ?></td>
+                            <td><?= htmlspecialchars($cl['product_type'] ?: '—') ?></td>
+                            <td>
+                                <?php
+                                $status = $cl['status'] ?? 'Новый';
+                                $statusClass = 'status-new';
+                                if ($status === 'Текущий') $statusClass = 'status-work';
+                                elseif ($status === 'Отказ') $statusClass = 'status-refusal';
+                                elseif ($status === 'Завершен') $statusClass = 'status-done';
+                                ?>
+                                <span class="badge-status <?= $statusClass ?>"><?= htmlspecialchars($status) ?></span>
+                            </td>
+                            <td style="color:#a855f7; font-weight:600;">👤 <?= htmlspecialchars($cl['manager_name'] ?? 'Не назначен') ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </main>
 
-                <?php 
-                $i = 1; 
-                foreach ($allClients as $cl): 
-                    // Динамически подбираем цвет бейджа статуса
-                    $statusClass = 'status-new';
-                    if ($cl['status'] === 'В работе') $statusClass = 'status-work';
-                    if ($cl['status'] === 'Отказ') $statusClass = 'status-refusal';
-                ?>
-                <tr>
-                    <td style="text-align: center; color: #64748b; font-weight: bold;"><?= $i++ ?></td>
-                    <td style="font-weight: bold; color: #fff; font-size: 14px;"><?= htmlspecialchars($cl['client_name']) ?></td>
-                    <td style="color: #94a3b8; font-family: monospace; font-size: 14px;"><?= htmlspecialchars($cl['unp'] ?: '—') ?></td>
-                    <td style="color: #92929f;"><?= htmlspecialchars($cl['product_type']) ?></td>
-                    <td>
-                        <span class="badge-status <?= $statusClass ?>"><?= htmlspecialchars($cl['status']) ?></span>
-                    </td>
-                    <!-- ГЛАВНАЯ ЦЕЛЬ: Сразу видно, чей это клиент -->
-                    <td style="background: rgba(79, 70, 229, 0.03);">
-                        <span style="color: #a855f7; font-weight: bold; font-size: 13px;">
-                            👤 <?= htmlspecialchars($cl['manager_name'] ?? 'Не назначен') ?>
-                        </span>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-                
-                <?php if (empty($allClients)): ?>
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 30px; color: #64748b; font-size: 14px;">
-                            Ничего не найдено по запросу «<strong style="color:#f56565;"><?= htmlspecialchars($search) ?></strong>». Проверьте правильность ввода названия или УНП.
-                        </td>
-                    </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-<script>// ИСПРАВЛЕНО НАМЕРТВО: Живой сканирующий поиск, изолированный от инпута и шапки таблицы
-function runLiveDirectoryFilter(searchQuery) {
-    // Переводим запрос в нижний регистр и чистим случайные пробелы по краям
-    const query = searchQuery.toLowerCase().trim();
-    
-    // ЖЕСТКАЯ СЕГМЕНТАЦИЯ: Ищем строки строго внутри tbody, чтобы не зацепить инпут в шапке или контейнере!
-    const tableRows = document.querySelectorAll("table tbody tr");
+    <script>
+        // ================================================================
+        // УНИВЕРСАЛЬНЫЙ ЖИВОЙ ПОИСК И ФИЛЬТРАЦИЯ
+        // ================================================================
+        function applyFilters() {
+            const searchQuery = document.getElementById('liveSearch').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('filterStatus').value;
+            const productFilter = document.getElementById('filterProduct').value.toLowerCase().trim();
+            const rows = document.querySelectorAll('#tableBody tr');
+            let visibleCount = 0;
 
-    tableRows.forEach(row => {
-        // Защита: если это служебная строка "Ничего не найдено", пропускаем её
-        if (row.cells.length <= 1 && row.textContent.includes("не найдено")) {
-            return;
+            rows.forEach(row => {
+                // Получаем текст всей строки (для поиска)
+                const rowText = row.innerText.toLowerCase();
+                // Получаем отдельные ячейки для фильтров
+                const statusCell = row.querySelector('td:nth-child(5) .badge-status');
+                const statusText = statusCell ? statusCell.innerText.toLowerCase() : '';
+                const productCell = row.querySelector('td:nth-child(4)');
+                const productText = productCell ? productCell.innerText.toLowerCase() : '';
+
+                let show = true;
+
+                // Поиск по тексту
+                if (searchQuery !== '') {
+                    if (!rowText.includes(searchQuery)) {
+                        show = false;
+                    }
+                }
+
+                // Фильтр по статусу
+                if (show && statusFilter !== '') {
+                    if (statusText !== statusFilter.toLowerCase()) {
+                        show = false;
+                    }
+                }
+
+                // Фильтр по продукции
+                if (show && productFilter !== '') {
+                    if (!productText.includes(productFilter)) {
+                        show = false;
+                    }
+                }
+
+                if (show) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Обновляем счётчик
+            document.getElementById('resultCount').innerText = visibleCount;
         }
 
-        // Забираем текстовый монолит строго из ячеек данных (Название, УНП, Продукция, Статус)
-        const rowText = row.textContent.toLowerCase();
-
-        if (query === "") {
-            // Если поле пустое — мгновенно возвращаем видимость всем контрагентам
-            row.style.display = "";
-        } else if (rowText.includes(query)) {
-            // Если есть совпадение по буквам или цифрам УНП — оставляем строку видимой
-            row.style.display = "";
-        } else {
-            // Если совпадений нет — бесшумно скрываем строку с экрана
-            row.style.display = "none";
-        }
-    });
-}
-</script>
+        // При загрузке страницы применяем фильтры (на случай, если параметры были переданы через GET)
+        document.addEventListener('DOMContentLoaded', function() {
+            applyFilters();
+        });
+    </script>
 </body>
 </html>

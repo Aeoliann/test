@@ -6,11 +6,13 @@ if (session_status() === PHP_SESSION_NONE) {
 require 'db.php';
 
 header('Content-Type: application/json');
-if (ob_get_length()) ob_clean(); // Очистка буфера от случайных пробелов, ломающих JSON
+if (ob_get_length()) ob_clean();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Всеядный сканер ID компании для защиты от затирания
+    // =========================================================================
+    // 1. ВСЕЯДНЫЙ СКАНЕР ID КОМПАНИИ
+    // =========================================================================
     $clientId = 0;
     if (isset($_POST['client_id']) && intval($_POST['client_id']) > 0) {
         $clientId = intval($_POST['client_id']);
@@ -21,43 +23,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($clientId <= 0) {
         echo json_encode([
             'status' => 'error', 
-            'message' => 'Неверный системный ID контрагента. Получено: id="' . ($_POST['id'] ?? 'null') . '", client_id="' . ($_POST['client_id'] ?? 'null') . '".'
+            'message' => 'Неверный системный ID контрагента.'
         ]);
         exit;
     }
 
-    // Сбор основных текстовых параметров компании
+    // =========================================================================
+    // 2. СБОР ОСНОВНЫХ ПАРАМЕТРОВ
+    // =========================================================================
     $client_name  = trim($_POST['client_name'] ?? '');
     $unp          = trim($_POST['unp'] ?? '');
     $website      = trim($_POST['website'] ?? '');
     $status       = trim($_POST['status'] ?? 'Новый');
-    $product_type = trim($_POST['product_type'] ?? 'Сантехника');
-    $source       = trim($_POST['source'] ?? ($_POST['lead_source'] ?? ''));
+    $source       = trim($_POST['source'] ?? 'Запрос');
     $comment      = trim($_POST['comment'] ?? '');
     $next_contact_date = trim($_POST['next_contact_date'] ?? '');
     $email        = trim($_POST['email'] ?? '');
+    $contact_person = trim($_POST['contact_person'] ?? '');
+    $phone        = trim($_POST['phone'] ?? '');
+    
+    // ✅ ИСПРАВЛЕНО: Определяем $is_signed
+    $is_signed = isset($_POST['is_contract_signed']) ? (int)$_POST['is_contract_signed'] : 0;
+    if (isset($_POST['signed'])) {
+        $is_signed = (int)$_POST['signed'];
+    }
     
     // Принимаем входящий динамический массив контактных лиц
     $contacts = $_POST['contacts'] ?? [];
 
+    // =========================================================================
+    // 3. СБОРКА ПРОДУКЦИИ
+    // =========================================================================
+    $posted_products = $_POST['product_type'] ?? ($_POST['ct_type'] ?? []);
+    $final_product_type = 'Сантехника';
+
+    if (is_array($posted_products) && !empty($posted_products)) {
+        $final_product_type = implode(', ', array_map('trim', $posted_products));
+    } else if (is_string($posted_products) && !empty(trim($posted_products))) {
+        $final_product_type = trim($posted_products);
+    }
+
+    if (empty($client_name)) {
+        echo json_encode(['status' => 'error', 'message' => 'Наименование организации не может быть пустым!']);
+        exit;
+    }
+
     try {
         $pdo->beginTransaction();
-   // =========================================================================
-        // НАМЕРТВО ИСПРАВЛЕНО: Прямое чтение ID из POST-потока FormData
-        // =========================================================================
-        // Принудительно вытягиваем ID из всех возможных вариаций ключей формы
-        $inline_id = (int)($_POST['id'] ?? ($_POST['client_id'] ?? 0));
-        
-        // Если это создание нового клиента и $inline_id равен 0, 
-        // пробуем перехватить свежесгенерированный ID СУБД, если INSERT выполнился выше
-        if ($inline_id <= 0 && isset($newId) && (int)$newId > 0) {
-            $inline_id = (int)$newId;
-        }
 
-        $kp_db_value = null; 
+        // =========================================================================
+        // 4. ОБНОВЛЕНИЕ КАРТОЧКИ КЛИЕНТА
+        // =========================================================================
+        $sql = "UPDATE clients SET 
+                    client_name = ?, 
+                    unp = ?,
+                    contact_person = ?,
+                    website = ?,
+                    source = ?, 
+                    phone = ?, 
+                    email = ?, 
+                    product_type = ?,
+                    next_contact_date = ?, 
+                    status = ?, 
+                    comment = ?, 
+                    is_contract_signed = ?,
+                    ct_type = ?
+                WHERE id = ?";
         
-        // Теперь проверяем наш гарантированный $inline_id
-        if ($inline_id > 0 && isset($_FILES['kp_file']) && $_FILES['kp_file']['error'] === UPLOAD_ERR_OK) {
+        $pdo->prepare($sql)->execute([
+            $client_name, 
+            $unp,
+            $contact_person,
+            $website,
+            $source, 
+            $phone, 
+            $email, 
+            $final_product_type,
+            (!empty($next_contact_date) && $next_contact_date !== '0000-00-00') ? $next_contact_date : null, 
+            $status, 
+            $comment, 
+            $is_signed,  // ✅ Теперь определена!
+            $final_product_type,
+            $clientId
+        ]);
+
+        // =========================================================================
+        // 5. ОБНОВЛЕНИЕ ПРОДУКЦИИ В ПРОЕКТАХ
+        // =========================================================================
+        $stmtProjectUpdate = $pdo->prepare("UPDATE projects SET product_type = ? WHERE client_id = ?");
+        $stmtProjectUpdate->execute([$final_product_type, $clientId]);
+
+        // =========================================================================
+        // 6. ЗАГРУЗКА СКАНА КП
+        // =========================================================================
+        if (isset($_FILES['kp_file']) && $_FILES['kp_file']['error'] === UPLOAD_ERR_OK) {
             $fileTmpPath = $_FILES['kp_file']['tmp_name'];
             $fileName    = $_FILES['kp_file']['name'];
             
@@ -65,10 +124,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
             
             if (in_array($fileExtension, $allowedExtensions)) {
-                // ЖЕСТКАЯ СКЛЕЙКА: Теперь имя гарантированно получит число (например, kp_394_...)
-                $newFileName = 'kp_' . $inline_id . '_' . md5(time() . $fileName) . '.' . $fileExtension;
-                
+                $newFileName = 'kp_' . $clientId . '_' . md5(time() . $fileName) . '.' . $fileExtension;
                 $uploadFileDir = __DIR__ . '/uploads/kp/';
+                
                 if (!is_dir($uploadFileDir)) {
                     mkdir($uploadFileDir, 0755, true);
                 }
@@ -76,90 +134,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $dest_path = $uploadFileDir . $newFileName;
                 
                 if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                    $kp_db_value = $newFileName;
-                    
-                    // Обновляем СУБД MariaDB по точечному изолированному $inline_id!
                     $stmtKp = $pdo->prepare("UPDATE clients SET kp_file = ? WHERE id = ?");
-                    $stmtKp->execute([$kp_db_value, $inline_id]);
-                    
-                    if (function_exists('logAction')) {
-                        logAction($pdo, 'UPDATE', 'clients', $inline_id, "Прикреплен скан коммерческого предложения: {$kp_db_value}");
-                    }
+                    $stmtKp->execute([$newFileName, $clientId]);
                 }
             }
         }
-        // 1. НАМЕРТВО ИСПРАВЛЕНО: Обновление через позиционные параметры (строго по порядку)
-        $sqlClient = "UPDATE clients 
-                      SET client_name = ?, 
-                          unp = ?, 
-                          website = ?, 
-                          status = ?,
-                          product_type = ?,
-                          source = ?,
-                          comment = ?,
-                          next_contact_date =?,
-                          email = ?
-                      WHERE id = ?";
-                      
-        $stmtClient = $pdo->prepare($sqlClient);
-        $stmtClient->execute([
-            $client_name,
-            $unp,
-            $website,
-            $status,
-            $product_type,
-            $source,
-            $comment,
-            $next_contact_date,
-            $email,
-            $clientId // ID строго последним, так как он идет после WHERE
-        ]);
 
-        // 2. Удаление старых контактов этой компании
-        $sqlDelete = "DELETE FROM client_contacts WHERE client_id = ?";
-        $stmtDelete = $pdo->prepare($sqlDelete);
-        $stmtDelete->execute([$clientId]);
+        // =========================================================================
+        // 7. ОБНОВЛЕНИЕ МУЛЬТИКОНТАКТОВ
+        // =========================================================================
+        // Удаляем старые контакты
+        $pdo->prepare("DELETE FROM client_contacts WHERE client_id = ?")->execute([$clientId]);
 
-        // 3. НАМЕРТВО ИСПРАВЛЕНО: Запись контактов строго под твою структуру полей (5 рабочих колонок)
-        if (!empty($contacts) && is_array($contacts)) {
-            // Теперь у нас 7 колонок и ровно 7 знаков вопроса ?
-            $sqlContact = "INSERT INTO client_contacts (client_id, name, position, phone, email, postal_address, function_notes) 
-                           VALUES (?, ?, ?, ?, ?, ?, ?)";
-            $stmtContact = $pdo->prepare($sqlContact);
+        if (is_array($contacts) && !empty($contacts)) {
+            $sqlContactInsert = "INSERT INTO client_contacts (client_id, name, contact_role, phone, email, postal_address, function_notes) 
+                                 VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmtContactInsert = $pdo->prepare($sqlContactInsert);
 
-            foreach ($contacts as $c) {
-                $contactName = trim($c['name'] ?? ($c['contact_name'] ?? ''));
-                if (empty($contactName)) {
-                    continue;
-                }
+            foreach ($contacts as $contact) {
+                $cName = trim($contact['name'] ?? '');
+                if (empty($cName) || $cName === 'Без имени') continue;
 
-                $stmtContact->execute([
+                $stmtContactInsert->execute([
                     $clientId,
-                    $contactName,
-                    trim($c['position'] ?? ($c['contact_role'] ?? '')),
-                    trim($c['phone'] ?? ($c['contact_phone'] ?? '')),
-                    trim($c['email'] ?? ($c['contact_email'] ?? '')),
-                    trim($c['postal_address'] ?? ''), // Ловим Почтовый адрес
-                    trim($c['function_notes'] ?? '')  // Ловим Примечания
+                    $cName,
+                    trim($contact['position'] ?? ''),
+                    trim($contact['phone'] ?? ''),
+                    trim($contact['email'] ?? ''),
+                    trim($contact['postal_address'] ?? ''),
+                    trim($contact['function_notes'] ?? '')
                 ]);
             }
         }
+
+        // =========================================================================
+        // 8. ЛОГИРОВАНИЕ
+        // =========================================================================
         if (function_exists('logAction')) {
-            logAction($pdo, 'UPDATE', 'clients', $clientId, "Пакетное обновление карточки контрагента: '{$client_name}'");
+            logAction('UPDATE', 'clients', $clientId, "Отредактирован клиент ID: {$clientId}. Продукция: {$final_product_type}");
         }
 
         $pdo->commit();
-        echo json_encode(['status' => 'success', 'message' => 'Карточка компании и контакты успешно перезаписаны!']);
+
+        echo json_encode([
+            'status' => 'success', 
+            'saved_products' => $final_product_type
+        ]);
         exit;
 
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) {
+        if (isset($pdo) && $pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        echo json_encode(['status' => 'error', 'message' => 'Ошибка обновления СУБД: ' . $e->getMessage()]);
+        echo json_encode(['status' => 'error', 'message' => 'Ошибка СУБД: ' . $e->getMessage()]);
         exit;
     }
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Разрешены только POST-запросы.']);
     exit;
 }
+?>

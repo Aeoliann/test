@@ -1,166 +1,324 @@
 <?php
-// sidebar.php — Единый навигационный модуль Santeks CRM
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// Определяем роль пользователя, если она не передана
+if (!isset($userRole) && isset($_SESSION['role'])) {
+    $userRole = $_SESSION['role'];
+}
+// Текущий файл для подсветки активного пункта
+$currentFile = basename($_SERVER['PHP_SELF']);
+
+// Страницы, при которых группа CRM должна быть открыта по умолчанию
+$crmPages = ['index.php', 'contracts.php', 'directory.php', 'top_clients.php'];
+if ($userRole === 'admin') {
+    $crmPages[] = 'report.php';
 }
 
-// Защита: если пользователь потерял сессию, меню не рендерится
-if (isset($_SESSION['user_id'])):
-    $menuRole = $_SESSION['role'] ?? 'manager';
+// Страницы, при которых группа "Служебные" должна быть открыта
+$servicePages = ['bug_reports.php', 'help.php'];
+if ($userRole === 'admin') {
+    $servicePages[] = 'activity_logs.php';
+}
+$servicePages[] = 'logout.php'; // на logout тоже можно подсветить группу
 ?>
-<!-- ИДЕАЛЬНОЕ ВЕРТИКАЛЬНОЕ МЕНЮ СИСТЕМЫ -->
-<div class="crm-sidebar-menu" style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 260px; background: #1e1e2d; padding: 15px; border-radius: 12px; border: 1px solid #323248; box-sizing: border-box; margin-bottom: 20px;">
+<aside class="sidebar">
+    <div class="sidebar-logo">Santeks CRM</div>
     
-    <!-- Главная страница (База клиентов) -->
-    <a href="index.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #3b82f6; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
-        🏢 <span style="white-space: nowrap;">База клиентов (Главная)</span>
-    </a>
-
-    <!-- Кнопка: Контракты (Доступна всем) -->
-    <a href="contracts.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #4f46e5; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
-        📦 <span style="white-space: nowrap;">Раздел контрактов (ТТН)</span>
-    </a>
-
-    <!-- Кнопка: Сводный отчёт (Только для Админа) -->
-    <?php if ($menuRole === 'admin'): ?>
-        <a href="report.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #a855f7; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
-            📊 <span style="white-space: nowrap;">Сводный отчёт (Матрица)</span>
-        </a>
-    <?php endif; ?>
-
-    <!-- Кнопка: Общий справочник (Доступна всем) -->
-    <a href="directory.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #0284c7; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
-        🔍 <span style="white-space: nowrap;">Общий справочник базы</span>
-    </a>
-
-    <!-- Кнопка: Логи действий (Только для Admin) -->
-    <?php if ($menuRole === 'admin'): ?>
-        <a href="activity_logs.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #b91c1c; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
-            📋 <span style="white-space: nowrap;">Журнал аудита (Логи)</span>
-        </a>
-    <?php endif; ?>
-
-
-   
-    <!-- Кнопка: Поручения и Задачи (Доступна всем) -->
-    <a href="tasks.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #e11d48; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;">
-        📆 <span style="white-space: nowrap;">Поручения и Задачи</span>
-    </a>
-  
-    <!-- Разделительная черта перед административными утилитами -->
-    <div style="height: 1px; background: #323248; margin: 5px 0; width: 100%;"></div>
-
-    <!-- Интеграция журнала багов в боковое меню системы -->
-    <a href="bug_reports.php" style="display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: #92929f; text-decoration: none; font-size: 14px; font-weight: bold; border-radius: 6px; margin-bottom: 5px; transition: 0.15s;" onmouseover="this.style.color='#fff'; this.style.background='#1a1a24';" onmouseout="this.style.color='#92929f'; this.style.background='none';">
-        <span>🪲 Журнал багов</span>
-    </a>
-
-    <!-- Кнопка: Добавить сотрудника (Только для Админа) -->
-    <?php if ($menuRole === 'admin'): ?>
-        <a href="register_user.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #ec4899; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s; margin-bottom: 5px;">
-            ➕ <span style="white-space: nowrap;">Добавить сотрудника</span>
-        </a>
-    <?php endif; ?>
- <?php if ($menuRole === 'admin'): ?> 
-        <a href="backup.php" class="btn btn-primary">Создать бэкап базы данных сейчас</a>
+    <nav class="sidebar-nav">
+        <?php if ($userRole !== 'executor'): ?>
+        <!-- CRM с выпадающим списком -->
+        <div class="nav-group <?= in_array($currentFile, $crmPages) ? 'open' : '' ?>">
+            <a href="#" class="nav-link has-dropdown" data-toggle="dropdown">
+                <span class="nav-icon">💼</span>
+                <span class="nav-text">CRM</span>
+                <span class="dropdown-arrow">▾</span>
+            </a>
+            <div class="dropdown-menu">
+                <a href="index.php" class="dropdown-item <?= $currentFile == 'index.php' ? 'active' : '' ?>">
+                    <span class="nav-icon">🏠</span> Главная
+                </a>
+                <a href="contracts.php" class="dropdown-item <?= $currentFile == 'contracts.php' ? 'active' : '' ?>">
+                    <span class="nav-icon">📄</span> Контракты и договоры
+                </a>
+                <a href="directory.php" class="dropdown-item <?= $currentFile == 'directory.php' ? 'active' : '' ?>">
+                    <span class="nav-icon">📚</span> Общий справочник базы
+                </a>
+                <?php if ($userRole === 'admin'): ?>
+                    <a href="report.php" class="dropdown-item <?= $currentFile == 'report.php' ? 'active' : '' ?>">
+                        <span class="nav-icon">📊</span> Сводный отчёт
+                    </a>
+                <?php endif; ?>
+                <a href="top_clients.php" class="dropdown-item <?= $currentFile == 'top_clients.php' ? 'active' : '' ?>">
+                    <span class="nav-icon">⭐</span> Топ клиентов
+                </a>
+            </div>
+        </div>
         <?php endif; ?>
-    <!-- Кнопка: Выйти -->
-    <a href="logout.php" style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 15px; background: #3f3f46; color: #fff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: bold; box-sizing: border-box; transition: all 0.15s;"
-       onmouseover="this.style.background='#52525b'" onmouseout="this.style.background='#3f3f46'">
-        🚪 <span style="white-space: nowrap;">Выйти из системы</span>
-    </a>
-</div>
 
-<!-- ========================================== -->
-<!-- МОДУЛЬ СИСТЕМНЫХ УВЕДОМЛЕНИЙ ОБ ОБНОВЛЕНИЯХ -->
-<!-- ========================================== -->
-<?php
-// Автоматически проверяем наличие свежих системных апдейтов
-try {
-    $updateStmt = $pdo->query("SELECT * FROM system_updates ORDER BY id DESC LIMIT 1");
-    $lastUpdate = $updateStmt->fetch(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $lastUpdate = null;
-}
+        <!-- Задачи (отдельный пункт) -->
+        <a href="tasks.php" class="nav-link <?= $currentFile == 'tasks.php' ? 'active' : '' ?>">
+            <span class="nav-icon">📋</span>
+            <span class="nav-text">Задачи</span>
+        </a>
 
-if ($lastUpdate): 
-?>
-<script>
-(function() {
-    // Функция отправки сигнала "Я онлайн"
-    async function sendPing() {
-        try {
-            // Тихо вызываем ping.php в фоновом режиме
-            await fetch('ping.php', { method: 'POST', cache: 'no-store' });
-        } catch (e) {
-            // Если интернет на секунду пропал — не ломаем интерфейс, просто пропустим тик
-            console.log('Сбой пинга присутствия');
-        }
-    }
-
-    // Запускаем первый пинг сразу при загрузке любой страницы CRM
-    sendPing();
-
-    // Затем каждые 60 секунд (60000 миллисекунд) повторяем отправку сигнала
-    setInterval(sendPing, 60000);
-})();
-</script>
-<div id="systemUpdateToast" style="display: none; position: fixed; bottom: 20px; right: 20px; width: 320px; background: #1e1e2d; border: 1px solid #4f46e5; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 100000; box-sizing: border-box; animation: slideInUpdate 0.4s ease-out;">
-    <!-- Шапка сообщения -->
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid #323248; background: rgba(79, 70, 229, 0.1); border-top-left-radius: 11px; border-top-right-radius: 11px;">
-        <span style="font-size: 12px; font-weight: bold; color: #818cf8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-            🚀 Обновление системы
-        </span>
-        <button onclick="closeUpdateToast()" style="background: none; border: none; color: #92929f; cursor: pointer; font-size: 16px; padding: 0; line-height: 1;">&times;</button>
-    </div>
-    <!-- Тело сообщения -->
-    <div style="padding: 15px; box-sizing: border-box;">
-        <h4 style="margin: 0 0 8px 0; color: #fff; font-size: 14px; font-weight: bold;"><?= htmlspecialchars($lastUpdate['title']) ?></h4>
-        <p style="margin: 0; color: #cbd5e1; font-size: 12px; line-height: 1.5; white-space: pre-line;"><?= htmlspecialchars($lastUpdate['text']) ?></p>
-    </div>
-</div>
-
-<style>
-@keyframes slideInUpdate {
-    from { transform: translateY(100px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-</style>
+        <!-- Служебные с выпадающим списком -->
+        <div class="nav-group <?= in_array($currentFile, $servicePages) ? 'open' : '' ?>">
+            <a href="#" class="nav-link has-dropdown" data-toggle="dropdown">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">Служебные</span>
+                <span class="dropdown-arrow">▾</span>
+            </a>
+            <div class="dropdown-menu">
+                <a href="bug_reports.php" class="dropdown-item <?= $currentFile == 'bug_reports.php' ? 'active' : '' ?>">
+                    <span class="nav-icon">🐞</span> Журнал багов
+                </a>
+                <?php if ($userRole === 'admin'): ?>
+                    <a href="activity_logs.php" class="dropdown-item <?= $currentFile == 'activity_logs.php' ? 'active' : '' ?>">
+                        <span class="nav-icon">📜</span> Журнал логов
+                    </a>
+                <?php endif; ?>
+                <a href="help.php" class="dropdown-item <?= $currentFile == 'help.php' ? 'active' : '' ?>">
+                    <span class="nav-icon">📖</span> Инструкция
+                </a>
+                <a href="logout.php" class="dropdown-item logout">
+                    <span class="nav-icon">🚪</span> Выход из системы
+                </a>
+            </div>
+        </div>
+    </nav>
+</aside>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const updateId = "<?= $lastUpdate['id'] ?>";
-    const toast = document.getElementById('systemUpdateToast');
-    
-    // Проверяем в браузере менеджера, закрывал ли он уже именно этот апдейт
-    if (localStorage.getItem('crm_last_seen_update') !== updateId) {
-        if (toast) {
-            toast.style.display = 'block';
-            // Автоматическое скрытие через 15 секунд для эргономики
-            setTimeout(() => { closeUpdateToast(); }, 15000);
-        }
-    }
+document.addEventListener('DOMContentLoaded', function () {
+    const dropdownToggles = document.querySelectorAll('.nav-link.has-dropdown');
+
+    dropdownToggles.forEach(toggle => {
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            const parent = this.closest('.nav-group');
+            const isOpen = parent.classList.contains('open');
+
+            // Закрываем все открытые группы (кроме текущей)
+            document.querySelectorAll('.nav-group.open').forEach(group => {
+                if (group !== parent) {
+                    group.classList.remove('open');
+                    group.classList.remove('closing');
+                }
+            });
+
+            if (isOpen) {
+                // Анимация закрытия
+                parent.classList.add('closing');
+                setTimeout(() => {
+                    parent.classList.remove('open');
+                    parent.classList.remove('closing');
+                }, 200);
+            } else {
+                // Открываем меню
+                parent.classList.remove('closing');
+                parent.classList.add('open');
+            }
+        });
+    });
 });
-
-function closeUpdateToast() {
-    const toast = document.getElementById('systemUpdateToast');
-    if (toast) {
-        toast.style.opacity = '0';
-        toast.style.transition = 'opacity 0.3s ease';
-        setTimeout(() => { toast.style.display = 'none'; }, 300);
-    }
-    localStorage.setItem('crm_last_seen_update', "<?= $lastUpdate['id'] ?>");
-}
 </script>
-<?php endif; ?>
 
 <style>
-    .crm-sidebar-menu a {
-        transition: transform 0.15s ease, filter 0.15s ease;
+/* ============================================================
+   ОБНОВЛЁННЫЙ САЙДБАР (компактный и монолитный)
+   ============================================================ */
+.sidebar {
+    width: 200px;
+    background: #1e1e2d;
+    border-right: 1px solid #323248;
+    display: flex;
+    flex-direction: column;
+    align-self: flex-start;
+    position: sticky;
+    top: 0;
+    height: fit-content;
+    padding: 12px 0;
+    box-sizing: border-box;
+    transition: width 0.3s ease;
+}
+
+.sidebar-logo {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    padding: 0 16px 10px;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid #2a2a3a;
+    margin-bottom: 8px;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    color: #92929f;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background: none;
+    border-right: none;
+    border-top: none;
+    border-bottom: none;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+}
+
+.nav-link:hover {
+    background: #2a2a3a;
+    color: #fff;
+}
+
+.nav-link.active {
+    color: #fff;
+    background: rgba(79, 70, 229, 0.12);
+    border-left-color: #4f46e5;
+}
+
+.nav-icon {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.nav-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+}
+
+.dropdown-arrow {
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+
+.nav-group.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.dropdown-menu {
+    display: none;
+    flex-direction: column;
+    background: #151521;
+    border-radius: 0;
+    overflow: hidden;
+    border-bottom: 1px solid #26263a;
+}
+
+.nav-group.open .dropdown-menu {
+    display: flex;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px 7px 28px;
+    color: #92929f;
+    text-decoration: none;
+    font-size: 12.5px;
+    transition: all 0.2s ease;
+    border-left: 2px solid transparent;
+    box-sizing: border-box;
+}
+
+.dropdown-item:hover {
+    background: #2a2a3a;
+    color: #fff;
+}
+
+.dropdown-item.active {
+    color: #fff;
+    background: rgba(79, 70, 229, 0.15);
+    border-left-color: #4f46e5;
+}
+
+.dropdown-item .nav-icon {
+    font-size: 14px;
+}
+
+.dropdown-item.logout {
+    color: #ef4444;
+}
+
+.dropdown-item.logout:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+/* Анимация появления пунктов выпадающего меню */
+.nav-group.open .dropdown-menu .dropdown-item {
+    animation: dropdownItemIn 0.25s ease forwards;
+    opacity: 0;
+    transform: translateY(-6px);
+}
+.nav-group.open .dropdown-menu .dropdown-item:nth-child(1) { animation-delay: 0.02s; }
+.nav-group.open .dropdown-menu .dropdown-item:nth-child(2) { animation-delay: 0.04s; }
+.nav-group.open .dropdown-menu .dropdown-item:nth-child(3) { animation-delay: 0.06s; }
+.nav-group.open .dropdown-menu .dropdown-item:nth-child(4) { animation-delay: 0.08s; }
+.nav-group.open .dropdown-menu .dropdown-item:nth-child(5) { animation-delay: 0.10s; }
+
+/* Анимация закрытия пунктов выпадающего меню */
+.nav-group.closing .dropdown-menu .dropdown-item {
+    animation: dropdownItemOut 0.15s ease forwards;
+}
+.nav-group.closing .dropdown-menu .dropdown-item:nth-child(1) { animation-delay: 0.00s; }
+.nav-group.closing .dropdown-menu .dropdown-item:nth-child(2) { animation-delay: 0.02s; }
+.nav-group.closing .dropdown-menu .dropdown-item:nth-child(3) { animation-delay: 0.04s; }
+.nav-group.closing .dropdown-menu .dropdown-item:nth-child(4) { animation-delay: 0.06s; }
+.nav-group.closing .dropdown-menu .dropdown-item:nth-child(5) { animation-delay: 0.08s; }
+
+@keyframes dropdownItemOut {
+    to {
+        opacity: 0;
+        transform: translateY(-6px);
     }
-    .crm-sidebar-menu a:hover {
-        filter: brightness(1.15);
-        transform: translateX(3px);
+}
+
+@keyframes dropdownItemIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
-</style>
-<?php endif; ?>
+}
+
+/* Адаптивность: на узких экранах сайдбар сворачивается в иконки */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 52px;
+        padding: 12px 0;
+    }
+    .sidebar-logo,
+    .nav-text,
+    .dropdown-arrow {
+        display: none;
+    }
+    .nav-link,
+    .dropdown-item {
+        justify-content: center;
+        padding: 8px 0;
+    }
+    .dropdown-item .nav-icon {
+        margin-right: 0;
+    }
+    .dropdown-menu {
+        padding-left: 0;
+    }
+}

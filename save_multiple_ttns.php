@@ -5,7 +5,7 @@ header('Content-Type: application/json');
 
 // Получаем данные из JS
 // замените старое чтение php://input во всех обработчиках на эту строчку:
-$data = !empty($_post) ? $_post : ($globals['__json_cache__'] ?? json_decode(file_get_contents('php://input'), true));
+$data = !empty($_POST) ? $_POST : ($GLOBALS['__JSON_CACHE__'] ?? json_decode(file_get_contents('php://input'), true));
 
 if (isset($data['project_id'], $data['ttn_number'], $data['ttn_date'])) {
     try {

@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 }
 
 // замените старое чтение php://input во всех обработчиках на эту строчку:
-$data = !empty($_post) ? $_post : ($globals['__json_cache__'] ?? json_decode(file_get_contents('php://input'), true));
+$data = !empty($_POST) ? $_POST : ($GLOBALS['__JSON_CACHE__'] ?? json_decode(file_get_contents('php://input'), true));
 $idToDelete = (int)($data['id'] ?? 0);
 
 // 2. Не даем админу удалить самого себя (чтобы не заблокировать систему)

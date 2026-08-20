@@ -13,12 +13,9 @@ try {
     }
 
     // замените старое чтение php://input во всех обработчиках на эту строчку:
-$data = !empty($_post) ? $_post : ($globals['__json_cache__'] ?? json_decode(file_get_contents('php://input'), true));
-    $ttnId = isset($data['ttn_id']) ? (int)$data['ttn_id'] : 0;
 
-    if ($ttnId <= 0) {
-        throw new Exception("Некорректный идентификатор ТТН.");
-    }
+// ИСПРАВЛЕНО:
+$data = !empty($_POST) ? $_POST : ($GLOBALS['__JSON_CACHE__'] ?? json_decode(file_get_contents('php://input'), true));
 
     // 1. Сначала узнаем точное имя файла в базе данных, чтобы стереть его с жесткого диска
     $stmt = $pdo->prepare("SELECT ttn_file, ttn_number FROM project_ttns WHERE id = ?");
@@ -51,5 +48,7 @@ $data = !empty($_post) ? $_post : ($globals['__json_cache__'] ?? json_decode(fil
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
+
+$updateStmt = $pdo->prepare
 exit;
 ?>

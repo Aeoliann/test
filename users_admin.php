@@ -61,7 +61,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <?php foreach($users as $u): ?>
                 <div class="user-card" data-id="<?= $u['id'] ?>">
                     <div>
-                        <strong><   ?= htmlspecialchars($u['full_name'] ?: 'Без имени') ?></strong> 
+                        <strong><?= htmlspecialchars($u['full_name'] ?: 'Без имени') ?></strong>
                         (Логин: <span class="editable" contenteditable="true" data-f="login"><?= $u['login'] ?></span>)
                         <br>
                         Пароль: <span class="editable" contenteditable="true" data-f="password"><?= $u['password'] ?></span>

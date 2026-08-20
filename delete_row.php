@@ -4,7 +4,8 @@ require 'db.php';
 header('Content-Type: application/json');
 
 // замените старое чтение php://input во всех обработчиках на эту строчку:
-$data = !empty($_post) ? $_post : ($globals['__json_cache__'] ?? json_decode(file_get_contents('php://input'), true));
+// ИСПРАВЛЕНО:
+$data = !empty($_POST) ? $_POST : ($GLOBALS['__JSON_CACHE__'] ?? json_decode(file_get_contents('php://input'), true));
 $id = (int)($data['id'] ?? 0);
 
 if ($id > 0) {

@@ -88,7 +88,7 @@ $suggestions = $stmt->fetchAll();
             }
         }
         ?>
-        <?php if ($u_role === $admin):
+        <?php if ($u_role === 'admin'): ?>
         <div style="background: #1e1e2d; padding: 20px; border-radius: 16px; border: 1px solid #323248; margin-bottom: 25px; box-shadow: 0 10px 35px rgba(0,0,0,0.2);">
             <h3 style="margin: 0 0 15px 0; font-size: 15px; color: #818cf8; text-transform: uppercase; letter-spacing: 0.5px;">📢 Оповестить менеджеров об обновлении базы</h3>
             <form method="POST" style="display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0;">

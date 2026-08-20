@@ -7,26 +7,28 @@ $data = !empty($_post) ? $_post : ($globals['__json_cache__'] ?? json_decode(fil
 
 if (isset($data['id']) && isset($data['field'])) {
     try {
-        $stmt = $pdo->prepare("UPDATE projects SET {$data['field']} = ? WHERE id = ?");
+
+
+       // ИСПРАВЛЕНО: Белый список разрешенных полей
+$allowedFields = ['contract_number', 'contract_date', 'product_type', 'currency', 'amount', 'scan_path'];
+
+if (isset($data['id']) && isset($data['field']) && in_array($data['field'], $allowedFields)) {
+    try {
+        // Используем плейсхолдеры для имени поля через динамический запрос
+        $sql = "UPDATE projects SET {$data['field']} = ? WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([$data['value'], (int)$data['id']]);
-
-        // ВШИВАЕМ ЗАПИСЬ В ЖУРНАЛ АУДИТА:
+        
         if (function_exists('logAction')) {
-            $projectId = (int)$data['id'];
-            $fieldName = htmlspecialchars($data['field']);
-            $newValue  = htmlspecialchars($data['value']);
-            
-            logAction(
-                'UPDATE', 
-                'projects', 
-                "В договоре ID {$projectId} изменено поле [{$fieldName}] на значение: '{$newValue}'"
-            );
+            logAction('UPDATE', 'projects', "В договоре ID {$data['id']} изменено поле [{$data['field']}]");
         }
-
+        
         echo json_encode(['status' => 'success']);
     } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'Недоступное поле для обновления']);
 }
 exit;
 ?>

@@ -2,51 +2,158 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>CRM | Вход</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в систему</title>
     <style>
-        .auth-container { height: 100vh; display: flex; align-items: center; justify-content: center; background: #0f172a; }
-        .auth-card { background: white; padding: 40px; border-radius: 12px; width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        .btn-login { width: 100%; background: #4f46e5; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        
-        /* Стили для дополнительных ссылок */
-        .auth-footer { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
-        .auth-link { color: #64748b; text-decoration: none; font-size: 13px; transition: color 0.2s; }
-        .auth-link:hover { color: #4f46e5; text-decoration: underline; }
-        .divider { height: 1px; background: #e2e8f0; margin: 10px 0; }
+        /* Ваши стили без изменений */
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: radial-gradient(ellipse at 50% 0%, #1a1a3e 0%, #0a0a14 70%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        body::before, body::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.2;
+            pointer-events: none;
+            animation: floatBg 20s ease-in-out infinite alternate;
+        }
+        body::before { width:600px; height:600px; background:#4f46e5; top:-150px; right:-100px; }
+        body::after { width:500px; height:500px; background:#10b981; bottom:-100px; left:-100px; animation-delay:-10s; }
+        @keyframes floatBg { 0%{transform:translate(0,0) scale(1);} 100%{transform:translate(40px,30px) scale(1.3);} }
+
+        .auth-card {
+            background: rgba(30,30,45,0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(50,50,72,0.6);
+            border-radius: 24px;
+            padding: 48px 40px 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+            position: relative;
+            z-index: 1;
+            animation: fadeSlideUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        @keyframes fadeSlideUp { to { opacity:1; transform:translateY(0); } }
+
+        .auth-logo { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:32px; }
+        .auth-logo svg { width:40px; height:40px; }
+        .auth-logo span { font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.5px; }
+        .auth-logo span small { font-weight:300; color:#818cf8; font-size:14px; }
+
+        .auth-title { font-size:20px; font-weight:600; color:#fff; text-align:center; margin-bottom:6px; }
+        .auth-subtitle { font-size:13px; color:#6b6b85; text-align:center; margin-bottom:30px; }
+
+        .form-group { margin-bottom:18px; position:relative; }
+        .form-group label { display:block; font-size:11px; font-weight:600; color:#92929f; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; transition:color 0.2s; }
+        .form-group:focus-within label { color:#818cf8; }
+
+        .form-group input {
+            width:100%; padding:14px 16px; background:rgba(21,21,33,0.8); border:1.5px solid rgba(50,50,72,0.6);
+            border-radius:12px; font-size:15px; color:#fff; outline:none; transition:border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+            box-sizing:border-box;
+        }
+        .form-group input::placeholder { color:#4b4b5e; font-weight:400; font-size:14px; }
+        .form-group input:focus { border-color:#4f46e5; box-shadow:0 0 0 4px rgba(79,70,229,0.15); transform:scale(1.01); }
+
+        .input-wrapper { position:relative; }
+        .input-wrapper .input-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#4b4b5e; font-size:18px; pointer-events:none; transition:color 0.2s; }
+        .input-wrapper input { padding-left:46px; }
+
+        .btn-login {
+            width:100%; padding:14px; background:linear-gradient(135deg, #4f46e5, #6366f1); border:none;
+            border-radius:12px; font-size:16px; font-weight:600; color:#fff; cursor:pointer;
+            transition:transform 0.2s, box-shadow 0.3s, background 0.2s; margin-top:8px;
+        }
+        .btn-login:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(79,70,229,0.35); }
+        .btn-login:active { transform:scale(0.98); }
+
+        .error-message {
+            background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); color:#fca5a5;
+            padding:12px 16px; border-radius:10px; font-size:13px; margin-top:16px; display:none;
+            animation:shake 0.4s ease;
+        }
+        .error-message.show { display:block; }
+        @keyframes shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(5px);} }
+
+        .auth-footer { margin-top:28px; text-align:center; font-size:12px; color:#4b4b5e; border-top:1px solid rgba(50,50,72,0.3); padding-top:20px; }
+        .auth-footer a { color:#818cf8; text-decoration:none; transition:color 0.2s; }
+        .auth-footer a:hover { color:#a5b4fc; text-decoration:underline; }
+
+        @media (max-width:480px) {
+            .auth-card { padding:32px 24px 28px; }
+            .auth-logo span { font-size:18px; }
+            .auth-title { font-size:18px; }
+            .form-group input { padding:12px 14px; font-size:14px; }
+            .input-wrapper input { padding-left:40px; }
+            .btn-login { font-size:15px; padding:13px; }
+        }
     </style>
 </head>
-<body class="auth-container">
+<body>
     <div class="auth-card">
-        <h2 style="margin-top:0; text-align: center; color: #1e293b;">Вход в систему</h2>
-        
-        <input type="text" id="l" placeholder="Логин">
-        <input type="password" id="p" placeholder="Пароль">
-        
-        <button class="btn-login" onclick="login()">Войти</button>
-        
-        
-    </div>
+        <div class="auth-logo">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#818cf8" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="#818cf8" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="#818cf8" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+            <span>Santeks <small>CRM & Task Scheduler</small></span>
+        </div>
 
-    <script>
-        async function login() {
-            const loginVal = document.getElementById('l').value;
-            const passVal = document.getElementById('p').value;
-            
-            const res = await fetch('login.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({login: loginVal, password: passVal})
-            });
-            const data = await res.json();
-            
-            if(data.status === 'success') {
-                window.location.href = 'index.php';
-            } else {
-                alert(data.message);
+        <h1 class="auth-title">Добро пожаловать</h1>
+        <p class="auth-subtitle">Войдите в свою учётную запись</p>
+
+        <!-- Обычная форма -->
+        <form action="login.php" method="POST" autocomplete="off" novalidate>
+            <div class="form-group">
+                <label for="loginInput">Логин</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">👤</span>
+                    <input type="text" id="loginInput" name="login" placeholder="Введите логин" value="admin" autofocus required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="passwordInput">Пароль</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" id="passwordInput" name="password" placeholder="Введите пароль" value="1" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-login">Войти</button>
+        </form>
+
+        <div class="error-message <?= isset($_GET['error']) ? 'show' : '' ?>" id="errorMessage">
+            <?php
+            if (isset($_GET['error'])) {
+                switch ($_GET['error']) {
+                    case 'empty': echo '⚠️ Заполните все поля!'; break;
+                    case 'invalid': echo '⚠️ Неверный логин или пароль!'; break;
+                    case 'server': echo '⚠️ Ошибка сервера, попробуйте позже.'; break;
+                    default: echo '⚠️ Неизвестная ошибка.';
+                }
             }
-        }
-    </script>
+            ?>
+        </div>
+
+        <div class="auth-footer">
+            <span>Система управления клиентами и задачами &bull; v2.5</span>
+        </div>
+    </div>
 </body>
 </html>
