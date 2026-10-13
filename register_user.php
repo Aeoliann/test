@@ -3,7 +3,7 @@ session_start();
 require 'db.php';
 require 'logger.php'; // Система логов
 
-// ЖЕСТКАЯ БЕЗОПАСНОСТЬ: Только для админов
+// Только для админов
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
     exit;

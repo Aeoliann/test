@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['status' => 'success']);
             exit;
         }
-
+        
         if (isset($_POST['contract_number'])) {
             $client_id       = (int)($_POST['client_id'] ?? 0);
             $contract_number = trim($_POST['contract_number'] ?? '');

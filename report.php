@@ -539,7 +539,7 @@ try {
                         <?php foreach ($items as $item): 
                             $rowNum++;
                             $bynAmount = $item['total_amount'] * ($rates[$item['currency']] ?? 1.0);
-                            $percent = ($globalMax > 0) ? round(($bynAmount / $globalMax) * 100, 1) : 0;
+                            $percent = ($globalMax > 0) ? 100 - round(($bynAmount / $globalMax) * 100, 1) : 0;
                             $currency = $item['currency'];
                             $badgeClass = 'badge-status';
                             if ($currency === 'BYN') $badgeClass .= ' by';
@@ -627,7 +627,7 @@ try {
 
 <!-- Модальное окно ТТН -->
 <div id="ttnDetailModal" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content"> 
         <h3 id="ttnModalTitle">📋 ТТН</h3>
         <div id="ttnModalList" style="max-height:400px; overflow-y:auto;"></div>
         <button class="modal-close" onclick="closeTtnDetail()">Закрыть</button>
@@ -642,7 +642,6 @@ function showTtnDetails(btn) {
     const modal = document.getElementById('ttnDetailModal');
     const title = document.getElementById('ttnModalTitle');
     const list = document.getElementById('ttnModalList');
-
     if (!modal || !title || !list) return;
 
     title.innerText = '📋 ТТН по категории "' + category + '" (менеджер: ' + manager + ')';

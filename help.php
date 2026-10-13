@@ -254,7 +254,7 @@ if (!isset($_SESSION['user_id'])) {
             </ul>
 
             <p style="margin-top: 40px; text-align: right; color: #4b4b5e; font-size: 12px; border-top: 1px solid #2a2a3f; padding-top: 15px;">
-                CRM Santeks • Версия 2.2 • Руководство актуально на <?= date('d.m.Y') ?>
+                CRM Santeks • Версия 2.6.5 • Руководство актуально на <?= date('d.m.Y') ?>
             </p>
 
         </div>

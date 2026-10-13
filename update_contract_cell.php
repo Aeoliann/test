@@ -29,6 +29,8 @@ if (isset($data['id']) && isset($data['field']) && in_array($data['field'], $all
     }
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Недоступное поле для обновления']);
+    exit; 
 }
-exit;
+    }
+}
 ?>

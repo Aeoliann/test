@@ -48,7 +48,5 @@ $data = !empty($_POST) ? $_POST : ($GLOBALS['__JSON_CACHE__'] ?? json_decode(fil
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
-
-$updateStmt = $pdo->prepare
 exit;
 ?>

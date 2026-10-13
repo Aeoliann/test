@@ -184,4 +184,5 @@ try {
     echo json_encode(['status' => 'error', 'message' => 'Ошибка БД: ' . $e->getMessage()]);
     exit;
 }
+
 ?>

@@ -1,4 +1,4 @@
-    <?php
+<?php
 session_start();
 require 'db.php';
 header('Content-Type: application/json');
@@ -14,5 +14,15 @@ if ($id > 0) {
     echo json_encode(['status' => 'success']);
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Некорректный ID']);
+}
+
+
+if ($id > 0) { 
+    $stmt = $pdo->prepare("DELETE FROM clients WHERE id = ?");
+    $stmt-> execute([$id]);
+    echo json_encode(['status' => 'success']);
+
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'error']);
 }
 ?>

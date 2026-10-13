@@ -29,6 +29,8 @@ $tab = $current_tab; // Синхронизируем, чтобы HTML-ссылк
 $orderByLogic = "ORDER BY first_contact_date DESC";
 // 4. СБОР СТАТИСТИКИ ДЛЯ ПЛАШЕК ДАШБОРДА (БЕЗ ВАРНИНГОВ)
 $stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
+
+
 try {
     if ($userRole === 'admin') {
         $sql_stats = "SELECT 
@@ -54,6 +56,7 @@ try {
 if (!$stats) {
     $stats = ['total' => 0, 'in_work' => 0, 'refusals' => 0, 'signed' => 0];
 }
+
 // 5. ПОДСЧЕТ ВЫРУЧКИ ИЗ НАКЛАДНЫХ ТТН
 $managerTotalSales = 0.00;
 try {
@@ -70,6 +73,9 @@ try {
     }
 } catch (Exception $e) { }
 $clients = [];
+
+
+
 try {
     // Базовые условия для Админа и Менеджера
     if ($userRole === 'admin') {
@@ -111,111 +117,67 @@ try {
     $clients = [];
 }
 // =========================================================================
-// ЕДИНЫЙ МОДУЛЬ МНОГОФАКТОРНОЙ ФИЛЬТРАЦИИ С НУЛЯ
+// ЕДИНЫЙ МОДУЛЬ МНОГОФАКТОРНОЙ ФИЛЬТРАЦИИ
 // =========================================================================
 // 1. Принимаем параметры фильтров из адресной строки браузера
+$clients = [];
 $sourceFilter  = isset($_GET['source']) ? trim($_GET['source']) : '';
 $statusFilter  = isset($_GET['status']) ? trim($_GET['status']) : '';
 $productFilter = isset($_GET['ct_type']) ? trim($_GET['ct_type']) : '';
 $dateFilter    = isset($_GET['next_contact_date_filter']) ? trim($_GET['next_contact_date_filter']) : '';
-// 2. Очищаем дефолтные текстовые заглушки, чтобы они не летели в базу данных
 if ($sourceFilter === 'Все источники') $sourceFilter = '';
 if ($statusFilter === 'Все статусы')   $statusFilter = '';
 if ($productFilter === 'Все виды')     $productFilter = '';
+
 if ($userRole === 'admin') {
-     if ($current_tab === 'refused') {
-        $sql = "SELECT c.*, 
-                       c.next_contact_date AS client_next_contact_date, 
-                       -- Если в проекте пусто, берем множественную строку из клиента, защищая от сброса!
-                       COALESCE(NULLIF(p.ct_type, ''), NULLIF(c.product_type, ''), 'Сантехника') AS project_ct_type, 
-                       p.contract_number, 
-                       p.id as pid 
-                FROM clients c 
-                LEFT JOIN projects p ON c.id = p.client_id 
-                WHERE c.status = 'Отказ'";
+    if ($current_tab === 'refused') {
+        $sql = "SELECT * FROM clients WHERE status = 'Отказ'";
     } else {
-        $sql = "SELECT c.*, 
-                       c.next_contact_date AS client_next_contact_date, 
-                       COALESCE(NULLIF(p.ct_type, ''), NULLIF(c.product_type, ''), 'Сантехника') AS project_ct_type, 
-                       p.contract_number, 
-                       p.id as pid 
-                FROM clients c 
-                LEFT JOIN projects p ON c.id = p.client_id 
-                WHERE c.status != 'Отказ'";
+        $sql = "SELECT * FROM clients WHERE status != 'Отказ'";
     }
     $params = [];
+    if ($filterManagerId > 0) {
+        $sql .= " AND manager_id = ?";
+        $params[] = $filterManagerId;
+    }
 } else {
     if ($current_tab === 'refused') {
-        $sql = "SELECT c.*, 
-                       c.next_contact_date AS client_next_contact_date, 
-                       COALESCE(NULLIF(p.ct_type, ''), NULLIF(c.product_type, ''), 'Сантехника') AS project_ct_type, 
-                       p.contract_number, 
-                       p.id as pid 
-                FROM clients c 
-                LEFT JOIN projects p ON c.id = p.client_id 
-                WHERE c.manager_id = ? AND c.status = 'Отказ'";
+        $sql = "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'";
     } else {
-        $sql = "SELECT c.*, 
-                       c.next_contact_date AS client_next_contact_date, 
-                       COALESCE(NULLIF(p.ct_type, ''), NULLIF(c.product_type, ''), 'Сантехника') AS project_ct_type, 
-                       p.contract_number, 
-                       p.id as pid 
-                FROM clients c 
-                LEFT JOIN projects p ON c.id = p.client_id 
-                WHERE c.manager_id = ? AND c.status != 'Отказ'";
+        $sql = "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
     }
     $params = [$userId];
 }
-try {
-    // Формируем каркас базового запроса с учетом ролей и вкладок (Рабочая/Архив)
-    if ($userRole === 'admin') {
-        if ($filterManagerId > 0) {
-            $sql = ($current_tab === 'refused') 
-                ? "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'" 
-                : "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
-            $params = [$filterManagerId];
-        } else {
-            $sql = ($current_tab === 'refused') 
-                ? "SELECT * FROM clients WHERE status = 'Отказ'" 
-                : "SELECT * FROM clients WHERE status != 'Отказ'";
-            $params = [];
-        }
-    } else {
-        $sql = ($current_tab === 'refused') 
-            ? "SELECT * FROM clients WHERE manager_id = ? AND status = 'Отказ'" 
-            : "SELECT * FROM clients WHERE manager_id = ? AND status != 'Отказ'";
-        $params = [$userId];
-    }
 
-    // 3. Динамически приклеиваем условия фильтрации, если они выбраны менеджером
-    if (!empty($sourceFilter)) {
-        $sql .= " AND source = ?";
-        $params[] = $sourceFilter;
-    }
-    if (!empty($statusFilter) && $current_tab !== 'refused') {
-        $sql .= " AND status = ?";
-        $params[] = $statusFilter;
-    }
-   if (!empty($productFilter)) {
-    // Используем оператор LIKE вместо жесткого равенства =, чтобы находить вхождение
-    $sql .= " AND (ct_type LIKE ? OR c.product_type LIKE ?)";
-    $params[] = "%" . trim($productFilter) . "%";
-    $params[] = "%" . trim($productFilter) . "%"; // Страхуем поиск и в projects, и в clients
+if (!empty($sourceFilter)) {
+    $sql .= " AND source = ?";
+    $params[] = $sourceFilter;
 }
-    if (!empty($dateFilter)) {
+if (!empty($statusFilter) && $current_tab !== 'refused') {
+    $sql .= " AND status = ?";
+    $params[] = $statusFilter;
+}
+if (!empty($productFilter)) {
+    $sql .= " AND (product_type LIKE ? OR ct_type LIKE ?)";
+    $params[] = "%" . $productFilter . "%";
+    $params[] = "%" . $productFilter . "%";
+}
+if (!empty($dateFilter)) {
     $sql .= " AND next_contact_date = ?";
     $params[] = $dateFilter;
 }
-    // Пришиваем логику сортировки и запрашиваем данные из СУБД Windows
-    $sql .= " " . $orderByLogic;
+
+$sql .= " ORDER BY first_contact_date DESC";
+
+try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $clients = $stmt->fetchAll() ?: [];
-
 } catch (Exception $e) {
-    $clients = [];
+    // ВРЕМЕННО выводим ошибку, чтобы понять, что не так
+    echo "❌ Ошибка SQL: " . $e->getMessage();
+    exit;
 }
-$totalClients = count($clients);
 ?>
 
 <?php 
@@ -341,7 +303,7 @@ if (!empty($client_name)) {
         // =========================================================================
         //  Безошибочная проверка дубликатов по УНП
         // =========================================================================
-        if (!empty($unp) && $unp !== '—' && strlen($unp) === 9) {
+        if (!empty($unp) && $unp !== '—') {
             $check_sql = "SELECT client_name FROM clients WHERE trim(unp) = :unp LIMIT 1";
             $check_stmt = $pdo->prepare($check_sql);
             $check_stmt->execute([':unp' => $unp]);
@@ -448,7 +410,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_mode']) && $_P
 
 <!DOCTYPE html>
 <html lang="ru">
-   
 <head>
     <meta charset="UTF-8">
     <title>WebCRM | Таблица</title>
@@ -487,9 +448,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_mode']) && $_P
     onmouseout="this.style.background='#10b981';">
         📊 СКАЧАТЬ ОТЧЕТ В EXCEL
     </a>
-
-    <button type="button" onclick="openComplexModal();" style="background: #818cf8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#6366f1';" onmouseout="this.style.background='#818cf8';">
-    💎 Добавить клиента и договор
+   <!-- <button type="button" onclick="openComplexModal();" style="background: #818cf8; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#6366f1';" onmouseout="this.style.background='#818cf8';">
+    💎 Добавить клиента и договор -->
 </header>        
 <!-- БЛОК ФИЛЬТРАЦИИ ПО ИСТОЧНИКУ -->
 <div class="toolbar" style="background: #1e1e2d; padding: 15px; border-radius: 8px; border: 1px solid #323248; margin-bottom: 20px; margin-left:25px;">
@@ -1625,7 +1585,6 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
       <td style="padding: 12px 10px; text-align: center; vertical-align: middle; border: none !important; box-sizing: border-box; width: 110px;">
     <?php 
     $fileName = trim($c['kp_file'] ?? '');
-    
     if (!empty($fileName) && $fileName !== 'NULL' && $fileName !== 'null'): 
     ?>
         <!-- Если файл есть в СУБД — выводим зеленую неоновую кнопку прямой загрузки -->
@@ -1682,19 +1641,14 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
                <div style="flex: 2; display: flex; flex-direction: column; gap: 6px; min-width: 120px; position: relative;">
     <label style="font-size: 10px; color: #92929f; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px;">УНП Контрагента *</label>
     <div style="display: flex; gap: 8px; align-items: center;">
-          <input type="text" name="unp" id="unp" placeholder="9 знаков" maxlength="9" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;"> 
+          <input type="text" name="unp" id="unp" placeholder="9/10 знаков" maxlength="10" style="height: 38px; padding: 0 12px; background: #151521; border: 1px solid #323248; color: #fff; border-radius: 6px; outline: none; font-size: 13px; width: 100%; box-sizing: border-box;"> 
 
         <button type="button" id="skipUnpBtn" onclick="bypassUnpCheck()" 
                 style="display: none; height: 38px; padding: 0 12px; background: #f59e0b; border: none; color: #1e293b; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap;">
             🔓 Пропустить
         </button>
     </div>
-    <div id="js-unp-error-block" style="display:none; font-size:10px; color:#ef4444; font-weight:600;">
-        <span>⚠️ УНП уже зарегистрирован (<strong id="js-duplicate-name-span">Имя</strong>)!</span>
-        <button type="button" onclick="bypassUnpCheck()" style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; cursor: pointer;">
-            🔓 Пропустить как филиал
-        </button>
-    </div>
+ 
 </div>
                 <div>
                     <label style="font-size: 11px; color: #92929f; font-weight: bold; text-transform: uppercase;">Сайт</label>
@@ -1822,7 +1776,7 @@ $isComplexLock = ((int)($c['is_contract_signed'] ?? 0) === 1 && $userRole === 'm
                 </div>
                 <div class="form-group" style="flex: 1;">
                     <label>УНП / ИНН</label>
-                    <input type="text" name="unp" id="complex_unp" placeholder="123456789" maxlength="9">
+                    <input type="text" name="unp" id="complex_unp" placeholder="1234567890" maxlength="10">
                     <span id="complex_unp_error_msg" style="display: none; font-size: 11px; color: #ef4444; font-weight: bold;"></span>
                 </div>
             </div>
@@ -2411,7 +2365,7 @@ document.querySelectorAll('textarea').forEach(textarea => {
     </div>
 </div>
 <script>
-    // ============================================================
+// ============================================================
 // ОТКРЫТИЕ КАРТОЧКИ КЛИЕНТА
 // ============================================================
 async function openClientCard(clientId) {
@@ -2526,6 +2480,56 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('clientCardModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeClientCard();
 });
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    const unpInput = document.getElementById('unp');
+    const duplicateNameSpan = document.getElementById('js-duplicate-name-span');
+    const skipBtn = document.getElementById('skipUnpBtn');
+    const submitBtn = document.querySelector('#clientForm button[type="submit"]');
+    const clientIdInput = document.getElementById('client_id');
+    
+    // Флаг, разрешающий сохранение с дубликатом (после нажатия "Пропустить")
+    let allowDuplicate = false;
+    // Текущее значение УНП, для которого была выполнена проверка
+    let lastCheckedUnp = '';
+    // Таймер для debounce
+    let checkTimer;
+
+
+
+    // Обработчик ввода в поле УНП с задержкой (debounce)
+    if (unpInput) {
+        unpInput.addEventListener('input', function() {
+            const unp = this.value.trim();
+            // Если сейчас в режиме "пропустить дубликат", сбрасываем его при изменении УНП
+            if (allowDuplicate && unp !== lastCheckedUnp) {
+                allowDuplicate = false;
+                if (submitBtn) submitBtn.disabled = false;
+     
+                if (skipBtn) skipBtn.style.display = 'none';
+            }
+            clearTimeout(checkTimer);
+            checkTimer = setTimeout(() => checkUnpDuplicate(unp), 500);
+        });
+    }
+
+
+    // При открытии модального окна добавления клиента сбрасываем все состояния
+    const originalOpenAddModal = window.openAddModal;
+    if (typeof originalOpenAddModal === 'function') {
+        window.openAddModal = function() {
+            allowDuplicate = false;
+          
+            if (skipBtn) skipBtn.style.display = 'none';
+            if (submitBtn) submitBtn.disabled = false;
+            originalOpenAddModal.call(this);
+                };
+    }
+});
+
+
+
     </script>  
 </body>
 </html>

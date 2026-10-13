@@ -1,4 +1,3 @@
-
 <?php
 // Выборка уведомлений
 $remindList = [];
@@ -21,6 +20,7 @@ try {
     $remindList = [];
 }
 $remindCount = count($remindList);
+$isIndexPage = ($currentFile === 'index.php');
 ?>
 
 <div class="reminder-widget" style="margin-top: 20px; border-top: 1px solid #323248; padding-top: 15px;">
@@ -31,26 +31,60 @@ $remindCount = count($remindList);
             <span style="background: #ef4444; color: #fff; font-size: 11px; padding: 0 8px; border-radius: 10px; font-weight: 700;"><?= $remindCount ?></span>
         <?php endif; ?>
     </div>
-   <div id="sidebarReminderBox" style="display: <?= $remindCount > 0 ? 'block' : 'none' ?>; margin-top: 8px; max-height: 150px; overflow-y: auto; background: #151521; border-radius: 6px; padding: 4px 0;">
-    <?php if ($remindCount > 0): ?>
-        <?php foreach ($remindList as $item): ?>
-            <div style="padding: 4px 8px; margin-bottom: 2px; background: #1e1e2d; border-radius: 4px; border-left: 3px solid <?= (strtotime($item['next_contact_date']) < strtotime(date('Y-m-d'))) ? '#f56565' : '#f6ad55' ?>;">
-                <div style="font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    <?= htmlspecialchars($item['client_name']) ?>
-                </div>
-                <div style="font-size: 10px; color: #92929f;">
-                    <?= date('d.m.Y', strtotime($item['next_contact_date'])) ?>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <div style="color: #4b4b5e; font-size: 11px; padding: 6px 8px; text-align: center;">Все контакты обработаны</div>
-    <?php endif; ?>
-</div>
+    <div id="sidebarReminderBox" style="display: <?= $remindCount > 0 ? 'block' : 'none' ?>; margin-top: 8px; max-height: 150px; overflow-y: auto; background: #151521; border-radius: 6px; padding: 4px 0;">
+        <?php if ($remindCount > 0): ?>
+            <?php foreach ($remindList as $item): ?>
+                <?php
+                $clientId = (int)$item['id'];
+                $clientName = htmlspecialchars($item['client_name']);
+                $contactDate = date('d.m.Y', strtotime($item['next_contact_date']));
+                $isOverdue = (strtotime($item['next_contact_date']) < strtotime(date('Y-m-d')));
+                $borderColor = $isOverdue ? '#f56565' : '#f6ad55';
+
+                if ($isIndexPage) {
+                    $onclick = "openClientCard({$clientId})";
+                    $tag = 'div';
+                    $href = '';
+                } else {
+                    $onclick = '';
+                    $href = 'index.php?open_client_id=' . $clientId;
+                    $tag = 'a';
+                }
+                ?>
+                <<?= $tag ?> 
+                    <?= $isIndexPage ? 'onclick="'.$onclick.'"' : 'href="'.$href.'"' ?>
+                    style="display: block; padding: 4px 8px; margin-bottom: 2px; background: #1e1e2d; border-radius: 4px; border-left: 3px solid <?= $borderColor ?>; cursor: pointer; text-decoration: none;"
+                    title="Открыть карточку клиента"
+                >
+                    <div style="font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <?= $clientName ?>
+                    </div>
+                    <div style="font-size: 10px; color: #92929f;">
+                        <?= $contactDate ?>
+                    </div>
+                </<?= $tag ?>>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div style="color: #4b4b5e; font-size: 11px; padding: 6px 8px; text-align: center;">Все контакты обработаны</div>
+        <?php endif; ?>
+    </div>
 </div>
 <script>
 function toggleReminder() {
     const box = document.getElementById('sidebarReminderBox');
     if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const openClientId = urlParams.get('open_client_id');
+    if (openClientId) {
+        // Небольшая задержка, чтобы все скрипты успели инициализироваться
+        setTimeout(() => {
+            if (typeof openClientCard === 'function') {
+                openClientCard(parseInt(openClientId, 10));
+            }
+        }, 300);
+    }
+});
 </script>

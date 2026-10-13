@@ -1,6 +1,6 @@
 <?php
-// logger_core.php — Глобальный автоматический перехватчик аудита безопасности
-
+// logger.php — Глобальный автоматический перехватчик аудита безопасности
+    
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }

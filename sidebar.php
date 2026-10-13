@@ -1,10 +1,66 @@
 <?php
+// Инициализация переменных уведомлений (страховка от Notice)
+if (!isset($notifications)) {
+    $notifications = [];
+}
+if (!isset($notificationCount)) {
+    $notificationCount = count($notifications);
+}
+?>
+
+<?php
 // Определяем роль пользователя, если она не передана
 if (!isset($userRole) && isset($_SESSION['role'])) {
     $userRole = $_SESSION['role'];
 }
 // Текущий файл для подсветки активного пункта
 $currentFile = basename($_SERVER['PHP_SELF']);
+
+// =========================================================================
+// СИСТЕМА УВЕДОМЛЕНИЙ О БЛИЖАЙШИХ КОНТАКТАХ
+// =========================================================================
+$notificationCount = 0;
+if ($userRole === 'admin' || $userRole === 'manager') {
+    try {
+        if ($userRole === 'admin') {
+            $sql = "SELECT COUNT(*) 
+                    FROM clients c
+                    WHERE c.status != 'Отказ' 
+                      AND c.next_contact_date IS NOT NULL 
+                      AND c.next_contact_date != '0000-00-00'
+                      AND c.next_contact_date <= CURDATE() + INTERVAL 2 DAY
+                      AND NOT EXISTS (
+                          SELECT 1 FROM projects p 
+                          WHERE p.client_id = c.id 
+                            AND p.contract_number IS NOT NULL 
+                            AND p.contract_number != '' 
+                            AND p.contract_number != 'Б/Н'
+                      )";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute();
+        } else { 
+            $sql = "SELECT COUNT(*) 
+                    FROM clients c
+                    WHERE c.manager_id = ? 
+                      AND c.status != 'Отказ' 
+                      AND c.next_contact_date IS NOT NULL 
+                      AND c.next_contact_date != '0000-00-00'
+                      AND c.next_contact_date <= CURDATE() + INTERVAL 2 DAY
+                      AND NOT EXISTS (
+                          SELECT 1 FROM projects p 
+                          WHERE p.client_id = c.id 
+                            AND p.contract_number IS NOT NULL 
+                            AND p.contract_number != '' 
+                            AND p.contract_number != 'Б/Н'
+                      )";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$userId]);
+        }
+        $notificationCount = (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        $notificationCount = 0;
+    }
+}
 
 // Страницы, при которых группа CRM должна быть открыта по умолчанию
 $crmPages = ['index.php', 'contracts.php', 'directory.php', 'top_clients.php'];
@@ -27,7 +83,7 @@ $servicePages[] = 'logout.php'; // на logout тоже можно подсве�
         <!-- CRM с выпадающим списком -->
         <div class="nav-group <?= in_array($currentFile, $crmPages) ? 'open' : '' ?>">
             <a href="#" class="nav-link has-dropdown" data-toggle="dropdown">
-                <span class="nav-icon">💼</span>
+            <span class="nav-icon">💼</span>
                 <span class="nav-text">CRM</span>
                 <span class="dropdown-arrow">▾</span>
             </a>
@@ -50,7 +106,7 @@ $servicePages[] = 'logout.php'; // на logout тоже можно подсве�
                     <span class="nav-icon">⭐</span> Топ клиентов
                 </a>
             </div>
-        </div>
+        </div>  
         <?php endif; ?>
 
         <!-- Задачи (отдельный пункт) -->
@@ -83,6 +139,220 @@ $servicePages[] = 'logout.php'; // на logout тоже можно подсве�
                 </a>
             </div>
         </div>
+        <?php 
+// ==========================================================================
+// УВЕДОМЛЕНИЯ О КЛИЕНТАХ С БЛИЖАЙШИМ КОНТАКТОМ
+// ==========================================================================
+$notifications = []; // массив клиентов
+if ($userRole === 'admin' || $userRole === 'manager') {
+    try {
+        if ($userRole === 'admin') {
+            $sql = "SELECT c.id, c.client_name, c.next_contact_date, c.status 
+                    FROM clients c
+                    WHERE c.status != 'Отказ' 
+                      AND c.next_contact_date IS NOT NULL 
+                      AND c.next_contact_date != '0000-00-00'
+                      AND c.next_contact_date <= CURDATE() + INTERVAL 2 DAY
+                      AND NOT EXISTS (
+                          SELECT 1 FROM projects p 
+                          WHERE p.client_id = c.id 
+                            AND p.contract_number IS NOT NULL 
+                            AND p.contract_number != '' 
+                            AND p.contract_number != 'Б/Н'
+                      )
+                    ORDER BY c.next_contact_date ASC";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute();
+        } else { // manager
+            $sql = "SELECT c.id, c.client_name, c.next_contact_date, c.status 
+                    FROM clients c
+                    WHERE c.manager_id = ? 
+                      AND c.status != 'Отказ' 
+                      AND c.next_contact_date IS NOT NULL 
+                      AND c.next_contact_date != '0000-00-00'
+                      AND c.next_contact_date <= CURDATE() + INTERVAL 2 DAY
+                      AND NOT EXISTS (
+                          SELECT 1 FROM projects p 
+                          WHERE p.client_id = c.id 
+                            AND p.contract_number IS NOT NULL 
+                            AND p.contract_number != '' 
+                            AND p.contract_number != 'Б/Н'
+                      )
+                    ORDER BY c.next_contact_date ASC";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$userId]);
+        }
+        $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Exception $e) {
+        $notifications = [];
+    }
+}
+$notificationsCount = count($notifications);?>
+<?php if ($userRole !== 'executor' && $notificationsCount > 0): ?>
+<!-- Уведомления (выпадающий список внизу сайдбара) -->
+<div class="nav-group notification-group <?= in_array($currentFile, ['index.php']) && isset($_GET['client_id']) ? 'open' : '' ?>">
+    <a href="#" class="nav-link has-dropdown" data-toggle="dropdown">
+        <span class="nav-icon">🔔</span>
+        <span class="nav-text">Уведомления</span>
+        <span class="notification-badge"><?= $notificationsCount ?></span>
+        <span class="dropdown-arrow">▾</span>
+    </a>
+    <div class="dropdown-menu notification-list">
+      <?php foreach ($notifications as $n): ?>
+    <?php
+    $clientId = isset($n['id']) ? (int)$n['id'] : 0;
+    $clientName = isset($n['client_name']) && is_string($n['client_name']) ? $n['client_name'] : 'Без названия';
+    $contactDateRaw = isset($n['next_contact_date']) && is_string($n['next_contact_date']) ? $n['next_contact_date'] : '';
+    $contactDate = $contactDateRaw ? date('d.m.Y', strtotime($contactDateRaw)) : '—';
+    $overdueClass = ($contactDateRaw && strtotime($contactDateRaw) < strtotime(date('Y-m-d'))) ? 'overdue' : '';
+    ?>
+    <a href="index.php?client_id=<?= $clientId ?>" 
+       class="dropdown-item notification-item <?= $overdueClass ?>"
+       title="Открыть карточку клиента">
+        <span class="nav-icon">📞</span>
+        <span class="notification-text">
+            <span class="notification-client"><?= htmlspecialchars($clientName) ?></span>
+            <span class="notification-date"><?= $contactDate ?></span>
+        </span>
+    </a>
+<?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
+<style>
+    /* Уведомления в сайдбаре */
+/* ============================================================
+   УВЕДОМЛЕНИЯ В САЙДБАРЕ — ПОЛНОСТЬЮ ОБНОВЛЁННЫЕ СТИЛИ
+   ============================================================ */
+
+.nav-group.open .dropdown-menu {
+    display: flex;
+    flex-direction: column;
+    overflow: visible; /* чтобы не обрезалось */
+}
+
+.notification-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 1px 6px;
+    min-width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    margin-left: auto;
+    margin-right: 6px;
+    line-height: 1;
+}
+
+.notification-group {
+    margin-top: auto;
+    border-top: 1px solid #2a2a3a;
+    padding-top: 6px;
+    position: relative;
+    z-index: 10;
+}
+
+.notification-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 420px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 4px 0;
+    margin: 0;
+    border-bottom: none;
+    background: #151521;
+    scrollbar-width: thin;
+    scrollbar-color: #323248 transparent;
+    box-sizing: border-box;
+}
+
+.notification-list::-webkit-scrollbar {
+    width: 6px;
+}
+.notification-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+    background: #323248;
+    border-radius: 6px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+    background: #4f46e5;
+}
+
+/* Элемент уведомления */
+.notification-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px 8px 16px;
+    border-left: 2px solid transparent;
+    color: #92929f;
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    line-height: 1.3;
+}
+
+.notification-item:hover {
+    background: #2a2a3a;
+    color: #fff;
+    border-left-color: #f59e0b;
+}
+
+.notification-item.overdue {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.notification-item.overdue:hover {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* Текстовая часть */
+.notification-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.notification-client {
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    line-height: 1.2;
+}
+
+.notification-date {
+    font-size: 10px;
+    color: #f59e0b;
+    font-family: monospace;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.notification-item.overdue .notification-date {
+    color: #ef4444;
+}
+</style>
     </nav>
 </aside>
 
@@ -103,7 +373,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     group.classList.remove('closing');
                 }
             });
-
             if (isOpen) {
                 // Анимация закрытия
                 parent.classList.add('closing');
@@ -117,7 +386,27 @@ document.addEventListener('DOMContentLoaded', function () {
                 parent.classList.add('open');
             }
         });
-    });
+    }); 
+     const urlParams = new URLSearchParams(window.location.search);
+    const clientId = urlParams.get('client_id');
+    const searchQuery = urlParams.get('search');
+
+    // Открываем карточку клиента, если передан client_id
+    if (clientId && typeof openClientCard === 'function') {
+        openClientCard(parseInt(clientId, 10));
+    }
+
+    // Если передан поисковый запрос, подставляем его в поле быстрого поиска
+    if (searchQuery) {
+        const searchInput = document.getElementById('client_live_search');
+        if (searchInput) {
+            searchInput.value = searchQuery;
+            // Вызываем функцию фильтрации, если она существует
+            if (typeof runLiveClientFilter === 'function') {
+                runLiveClientFilter(searchQuery);
+            }
+        }
+    }
 });
 </script>
 
@@ -138,7 +427,7 @@ document.addEventListener('DOMContentLoaded', function () {
     padding: 12px 0;
     box-sizing: border-box;
     transition: width 0.3s ease;
-}
+}   
 
 .sidebar-logo {
     font-size: 16px;
@@ -322,3 +611,4 @@ document.addEventListener('DOMContentLoaded', function () {
         padding-left: 0;
     }
 }
+</style>

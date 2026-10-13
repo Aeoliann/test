@@ -384,7 +384,7 @@ try {
             </table>
         </div>
         <div class="footer-panel">
-            <span class="label">💰 Общая сумма по всем клиентам (в BYN)</span>
+            <span class="label">💰 Общая сумма по всем клиентам  (конвертировано в BYN)</span>
             <span class="value"><?= number_format($totalAllByn, 2, '.', ' ') ?> BYN</span>
         </div>
     <?php endif; ?>
