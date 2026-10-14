@@ -114,7 +114,12 @@ $servicePages[] = 'logout.php'; // на logout тоже можно подсве�
             <span class="nav-icon">📋</span>
             <span class="nav-text">Задачи</span>
         </a>
+        <!-- Задачи (отдельный пункт) -->
 
+<a href="tank_cards.php" class="nav-link <?= $currentFile == 'tank_cards.php' ? 'active' : '' ?>">
+    <span class="nav-icon">🛢️</span>
+    <span class="nav-text">Резервуары</span>
+</a>
         <!-- Служебные с выпадающим списком -->
         <div class="nav-group <?= in_array($currentFile, $servicePages) ? 'open' : '' ?>">
             <a href="#" class="nav-link has-dropdown" data-toggle="dropdown">
