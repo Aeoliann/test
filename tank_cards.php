@@ -122,7 +122,28 @@ if ($action === 'get_card') {
     }
     exit;
 }
+// -------- 7. Поиск резервуаров (для автокомплита в СЗ) --------
+if ($action === 'search_tanks') {
+    header('Content-Type: application/json');
+    $q = trim($_GET['q'] ?? '');
+    if (mb_strlen($q) < 2) { echo json_encode([]); exit; }
 
+    try {
+        $stmt = $pdo->prepare("
+            SELECT tc.id, tc.name, c.client_name 
+            FROM tank_cards tc
+            LEFT JOIN clients c ON tc.client_id = c.id
+            WHERE tc.name LIKE ? OR c.client_name LIKE ?
+            ORDER BY tc.name ASC 
+            LIMIT 15
+        ");
+        $stmt->execute(["%{$q}%", "%{$q}%"]);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    } catch (Exception $e) {
+        echo json_encode([]);
+    }
+    exit;
+}
 // -------- 5. Сохранение карточки (создание/редактирование) --------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save_card') {
     header('Content-Type: application/json');
